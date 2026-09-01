@@ -16,6 +16,8 @@ jobs:
       # the bosun-x devDependency is a github: URL; the lockfile resolves it over ssh
       - run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npm run lint
+      # build first: `next build` type-checks with the route types it generates,
+      # which a bare `tsc` can't see in a clean checkout (LayoutProps et al.)
       - run: npm run build
+      - run: npm run lint
+      - run: npx tsc --noEmit
