@@ -15,7 +15,12 @@ export interface ContainerSummary {
 
 let client: Docker | null = null;
 function getClient(): Docker {
-  if (!client) client = new Docker({ socketPath: "/var/run/docker.sock" });
+  if (!client) {
+    // DOCKER_HOST wins when set (dockerode parses tcp:// and unix:// itself) — this is
+    // how you point at a Podman socket: DOCKER_HOST=unix:///run/podman/podman.sock
+    // (mount that path into the container). Otherwise the default Docker socket.
+    client = process.env.DOCKER_HOST ? new Docker() : new Docker({ socketPath: "/var/run/docker.sock" });
+  }
   return client;
 }
 
@@ -43,8 +48,8 @@ async function fetchContainers(): Promise<ContainerSummary[]> {
       state: c.State,
       status: c.Status,
       health,
-      composeProject: labels["com.docker.compose.project"],
-      composeService: labels["com.docker.compose.service"],
+      composeProject: labels["com.docker.compose.project"] ?? labels["io.podman.compose.project"],
+      composeService: labels["com.docker.compose.service"] ?? labels["io.podman.compose.service"],
       composeWorkingDir: labels["com.docker.compose.project.working_dir"],
     };
   });

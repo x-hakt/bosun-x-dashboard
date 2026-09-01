@@ -85,8 +85,12 @@ function parseContainers(block: string): ContainerSummary[] {
         state: parsed.State,
         status: parsed.Status,
         health,
-        composeProject: extractLabel(parsed.Labels, "com.docker.compose.project"),
-        composeService: extractLabel(parsed.Labels, "com.docker.compose.service"),
+        composeProject:
+          extractLabel(parsed.Labels, "com.docker.compose.project") ??
+          extractLabel(parsed.Labels, "io.podman.compose.project"),
+        composeService:
+          extractLabel(parsed.Labels, "com.docker.compose.service") ??
+          extractLabel(parsed.Labels, "io.podman.compose.service"),
         composeWorkingDir: extractLabel(parsed.Labels, "com.docker.compose.project.working_dir"),
       };
     });

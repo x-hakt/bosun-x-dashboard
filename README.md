@@ -51,6 +51,9 @@ see [`docs/auth.md`](docs/auth.md). Instance settings (timezone, operators,
 where your projects live, remote hosts) are on the **Settings** page or in
 `<data>/config.yml`; a first-run `bosun setup` wizard scaffolds it.
 
+Full docs: **[docs/](docs/)** — configuration, the data model, discovery +
+`setup-remote.sh`, deploying (source or the GHCR image), the security model.
+
 ## Local development
 
 ```bash

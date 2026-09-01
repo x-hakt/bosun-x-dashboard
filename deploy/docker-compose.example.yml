@@ -7,6 +7,9 @@
 
 services:
   dashboard:
+    # Pull a released image (no build needed):
+    #   image: ghcr.io/x-hakt/bosun-x-dashboard:latest
+    # …or build from source (the default here):
     build:
       context: ..
       dockerfile: Dockerfile
