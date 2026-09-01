@@ -1,0 +1,61 @@
+# Minimal self-host setup. Copy this next to your own compose file (or use it as
+# is), copy ../.env.example to .env, then:  docker compose -f docker-compose.example.yml up -d --build
+#
+# Put a reverse proxy (Traefik, Caddy, nginx) in front for TLS — a commented
+# Traefik label block is at the bottom. Do not expose port 3010 to the internet
+# without either a proxy doing auth or a sign-in provider configured in .env.
+
+services:
+  dashboard:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: bosun-x-dashboard
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3010
+      - DATA_DIR=/app/data
+      - HOSTNAME=0.0.0.0
+    ports:
+      - "127.0.0.1:3010:3010"   # drop the 127.0.0.1 only if a proxy fronts it
+    volumes:
+      # Your data directory — one folder of Markdown/YAML. Seed it from
+      # data.example/ (cp -r data.example /path/to/your/data) and point here.
+      - ./data:/app/data
+
+      # Read-only Docker socket, for local container discovery. Omit to disable.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # If any project.yml has a `path:` on the local host, mount that path
+      # read-only at the SAME path so git/file checks resolve inside the container:
+      # - /home/me/stacks:/home/me/stacks:ro
+
+      # For cross-host discovery: an ssh config + the least-privilege keys it
+      # references (see docs — never mount your normal ~/.ssh). Point config.yml's
+      # `ssh_config:` at the in-container path.
+      # - ./discovery-ssh:/config/ssh:ro
+
+    # OpenSSH refuses to use a private key that's group/other-readable, and a
+    # uid mismatch makes a mounted key unreadable. If you mount discovery keys,
+    # run as the uid that owns them and keep the docker.sock group:
+    # user: "1000:1000"
+    # group_add: ["<docker gid>"]
+
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3010/api/health"]
+    #   interval: 30s
+
+    # ── reverse proxy example (Traefik) ────────────────────────────────────
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.dashboard.rule=Host(`dashboard.example.com`)
+    #   - traefik.http.routers.dashboard.entrypoints=websecure
+    #   - traefik.http.routers.dashboard.tls.certresolver=le
+    #   - traefik.http.services.dashboard.loadbalancer.server.port=3010
+    # networks: [proxy]
+
+# networks:
+#   proxy:
+#     external: true

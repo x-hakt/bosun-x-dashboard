@@ -1,0 +1,24 @@
+name: recipes-api
+slug: recipes-api
+key: RCP
+stage: active
+status: Live
+host: cloud-vps
+path: /opt/recipes-api
+repo:
+  default_branch: main
+containers:
+  - compose_service: recipes-api-web
+  - compose_service: recipes-api
+  - compose_service: recipes-api-postgres
+tags: [nodejs, postgres, public]
+links:
+  - label: Live
+    url: https://recipes.example.com
+created: "2026-01-03"
+updated: "2026-01-14"
+notes: >
+  Small Node API + a static frontend + Postgres, on the cloud VPS because it needs
+  a public address. Found by cross-host discovery over the least-privilege key
+  (read-only). Only recipes-api carries compose labels; the other two were grouped
+  by their shared /opt/recipes-api mount paths.

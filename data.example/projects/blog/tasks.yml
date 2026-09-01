@@ -1,0 +1,17 @@
+seq: 2
+tasks:
+  - id: demo-blog-1
+    num: 1
+    title: Move image assets to the CDN
+    description: The container is serving ~40 MB of images itself.
+    status: todo
+    depends_on: []
+    created: '2026-01-08T09:00:00.000+00:00'
+    updated: '2026-01-08T09:00:00.000+00:00'
+  - id: demo-blog-2
+    num: 2
+    title: Set up an RSS feed
+    status: backlog
+    depends_on: []
+    created: '2026-01-08T09:00:00.000+00:00'
+    updated: '2026-01-08T09:00:00.000+00:00'

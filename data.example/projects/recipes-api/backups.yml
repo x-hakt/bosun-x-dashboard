@@ -1,0 +1,15 @@
+backup_required: true
+method: agent
+destination: nas
+owner: you
+notes: >
+  One Postgres database. The frontend and API are stateless — rebuilt from the
+  repo, nothing to back up.
+stores:
+  - name: recipes-db
+    kind: postgres
+    container: recipes-api-postgres
+    database: recipes
+    schedule: "nightly"
+    retention:
+      keep_last: 14

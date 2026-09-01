@@ -1,0 +1,41 @@
+# The checks scored against every tracked project. `type` maps to a fixed set of
+# named functions in src/lib/checks/registry.ts — this file can't add new check
+# logic, only enable/label/grade the existing ones.
+checks:
+  - id: git-repo-present
+    label: Git Repo
+    description: "Project has a git repository initialized"
+    type: git-repo-present
+    severity: required
+
+  - id: git-remote-present
+    label: Git Remote
+    description: "Git repo has a configured remote (backed up off-box)"
+    type: git-remote-present
+    severity: required
+
+  - id: has-agent-context
+    label: Agent Context
+    description: "Has CLAUDE.md or AGENTS.md for agent context"
+    type: file-exists
+    params:
+      any_of: ["CLAUDE.md", "AGENTS.md"]
+    severity: recommended
+
+  - id: has-spec
+    label: Spec
+    description: "Has a canonical spec in the dashboard or SPEC.md in the repository"
+    type: spec-present
+    severity: recommended
+
+  - id: handoff-ready
+    label: Handoff
+    description: "Has cross-agent handoff log and machine-readable state"
+    type: handoff-ready
+    severity: required
+
+  - id: backup-fresh
+    label: Backup
+    description: "Backups are configured and the last run succeeded within its cadence. n/a unless backups.yml sets backup_required."
+    type: backup-fresh
+    severity: required

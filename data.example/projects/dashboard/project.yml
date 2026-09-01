@@ -1,0 +1,21 @@
+name: Dashboard
+slug: dashboard
+key: DASH
+stage: active
+status: Live
+host: home-server
+path: ~/stacks/dashboard
+repo:
+  default_branch: main
+container:
+  compose_service: dashboard
+tags: [infra, nextjs, self-hosted]
+links:
+  - label: Live
+    url: https://dashboard.example.com
+created: "2026-01-02"
+updated: "2026-01-14"
+notes: >
+  The dashboard describing itself — the dogfood seed project. Every record shape
+  (project.yml + SPEC/STATUS.md, the computed checklist, standards scoring, the
+  handoff log) is exercised here first.

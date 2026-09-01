@@ -1,0 +1,34 @@
+# bosun-x dashboard — instance config. Every field is optional and has a generic
+# default, so the dashboard also runs with no config.yml at all (a single local
+# host, the system timezone, open access, the running user's home scanned).
+
+# IANA timezone for timestamps. Default: the system zone.
+# timezone: Europe/London
+
+# Emails allowed to sign in once a provider is configured. Empty + auth enabled
+# means nobody gets in. The ALLOWED_EMAIL env var, if set, overrides this list.
+operators:
+  - you@example.com
+
+# The id (from infra/hosts.yml) of the machine this dashboard runs on.
+# Default: the one host in hosts.yml with no ssh_alias.
+local_host: home-server
+
+# Directories on the local host to scan for docker-compose*.yml files. A path
+# ending in /* is expanded to each of its immediate subdirectories.
+project_roots:
+  - ~/stacks
+  - ~/stacks/*
+
+# If the local host runs one large compose project made of many independent
+# sub-apps, name it here so those are grouped per folder rather than as one entry.
+# shared_compose_project: homelab
+
+# Where projects live on a remote host when a project.yml gives no explicit path.
+# remote_project_path: /opt
+
+# ssh config holding the least-privilege discovery keys. Default: ~/.ssh/config.
+# ssh_config: ~/.config/bosun-x/ssh_config
+
+# Where the backup agent writes its receipts. $BACKUP_RECEIPTS overrides this.
+# backup_receipts: ~/backup-receipts

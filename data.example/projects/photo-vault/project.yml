@@ -1,0 +1,20 @@
+name: photo-vault
+slug: photo-vault
+stage: active
+status: Live
+host: home-server
+path: ~/stacks/photo-vault
+vendored: true
+container:
+  compose_service: photo-vault
+tags: [media, self-hosted, not-compose-managed]
+links:
+  - label: Live
+    url: https://photos.example.com
+created: "2026-01-06"
+updated: "2026-01-06"
+notes: >
+  Off-the-shelf photo library (phone backup + web gallery). Found by the discovery
+  pass and imported metadata-only — the running container has drifted from its own
+  compose file and carries no compose labels, so it was matched back to this folder
+  by container name. Standards checks are skipped (vendored).

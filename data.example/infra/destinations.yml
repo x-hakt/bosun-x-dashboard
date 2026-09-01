@@ -1,0 +1,13 @@
+# Backup destinations. Referenced by `destination:` in a project's backups.yml.
+# The backup agent writes here; the dashboard only reads this file.
+destinations:
+  - id: nas
+    kind: cifs-path
+    path: /mnt/nas/backups
+    mount: /mnt/nas
+    sentinel: .backup-target
+    note: >
+      A folder on the NAS SMB share (//192.168.10.20/backups), mounted on the home
+      server. Push model — the backup agent writes over the existing mount; nothing
+      runs on the NAS itself. Guarded by the sentinel file so a dropped mount can't
+      silently write to local disk.

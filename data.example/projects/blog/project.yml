@@ -1,0 +1,20 @@
+name: blog
+slug: blog
+key: BLOG
+stage: active
+status: Live
+host: home-server
+path: ~/stacks/blog
+repo:
+  default_branch: main
+container:
+  compose_service: blog
+tags: [astro, static-site]
+links:
+  - label: Live
+    url: https://blog.example.com
+created: "2026-01-04"
+updated: "2026-01-11"
+notes: >
+  Static Astro site, rebuilt on push by a git hook. No database. Tracked mostly to
+  keep an eye on the standards checklist — it has no SPEC.md yet (see DASH-3).

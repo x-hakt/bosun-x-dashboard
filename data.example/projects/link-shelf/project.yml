@@ -1,0 +1,20 @@
+name: link-shelf
+slug: link-shelf
+key: LS
+stage: paused
+status: Paused
+host: cloud-vps
+path: /opt/link-shelf
+repo:
+  default_branch: main
+needs_review: true
+containers:
+  - compose_service: link-shelf-web
+  - compose_service: link-shelf-db
+tags: [nodejs, sqlite, hobby]
+created: "2026-01-02"
+updated: "2026-01-13"
+notes: >
+  A bookmark manager experiment. Both containers have been exited for three weeks.
+  `status: Paused` is a judgment call — it could equally be abandoned; flagged for
+  review rather than guessed.

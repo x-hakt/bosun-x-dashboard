@@ -1,0 +1,25 @@
+seq: 3
+tasks:
+  - id: demo-rcp-1
+    num: 1
+    title: Nightly Postgres dump to the NAS
+    description: Via the backup agent; destination `nas`, keep last 14.
+    status: done
+    depends_on: []
+    created: '2026-01-05T09:00:00.000+00:00'
+    updated: '2026-01-07T20:00:00.000+00:00'
+  - id: demo-rcp-2
+    num: 2
+    title: Add full-text search over recipe titles + ingredients
+    description: Postgres tsvector column + a GIN index; expose ?q= on the list endpoint.
+    status: in_progress
+    depends_on: []
+    created: '2026-01-12T09:00:00.000+00:00'
+    updated: '2026-01-14T15:30:00.000+00:00'
+  - id: demo-rcp-3
+    num: 3
+    title: Rate-limit the public read endpoints
+    status: todo
+    depends_on: []
+    created: '2026-01-12T09:00:00.000+00:00'
+    updated: '2026-01-12T09:00:00.000+00:00'

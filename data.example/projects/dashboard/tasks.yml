@@ -1,0 +1,36 @@
+seq: 4
+tasks:
+  - id: demo-dash-1
+    num: 1
+    title: Stand up the container behind Traefik
+    description: TLS via the existing cert resolver, health check on /api/health.
+    status: done
+    depends_on: []
+    created: '2026-01-02T09:00:00.000+00:00'
+    updated: '2026-01-03T18:20:00.000+00:00'
+  - id: demo-dash-2
+    num: 2
+    title: Wire the cross-host discovery key for cloud-vps
+    description: >-
+      Mint a dedicated keypair, restrict it server-side with a forced command so
+      it can only run `docker ps`, add the ssh_alias to config.yml.
+    status: todo
+    depends_on: []
+    created: '2026-01-10T09:00:00.000+00:00'
+    updated: '2026-01-14T11:00:00.000+00:00'
+  - id: demo-dash-3
+    num: 3
+    title: Write a SPEC.md for the blog project
+    description: It's tracked but has no spec, so the checklist flags it.
+    status: todo
+    depends_on: []
+    created: '2026-01-12T09:00:00.000+00:00'
+    updated: '2026-01-12T09:00:00.000+00:00'
+  - id: demo-dash-4
+    num: 4
+    title: Add an offsite backup tier
+    description: NAS is the only copy right now. Add restic to a cloud bucket.
+    status: backlog
+    depends_on: []
+    created: '2026-01-12T09:00:00.000+00:00'
+    updated: '2026-01-12T09:00:00.000+00:00'

@@ -1,0 +1,23 @@
+active: false
+agent: Claude
+summary: Container live behind Traefik; local discovery working; cloud-vps key still to wire.
+started_at: '2026-01-02T09:00:00.000+00:00'
+checkpoint_at: '2026-01-14T11:00:00.000+00:00'
+stale_after_minutes: 30
+latest:
+  kind: finish
+  work: Container is live behind Traefik and healthy; discovery works for the local host.
+  current_state: >-
+    Local discovery lists the blog and photo library. The cloud-vps discovery key
+    still needs its server-side restriction (DASH-2).
+  verification: /api/health 200 for 11 days; local docker ps grouping matches the running stack.
+  next_step: Pick up DASH-2 — restrict the cloud-vps key to `docker ps`, verify, add discovery-vps to config.yml.
+trail:
+  - at: '2026-01-14T11:00:00.000+00:00'
+    kind: finish
+    agent: Claude
+    work: Container live behind Traefik and healthy; local discovery working.
+  - at: '2026-01-03T18:20:00.000+00:00'
+    kind: checkpoint
+    agent: Claude
+    work: TLS + health check wired; DASH-1 done.

@@ -1,0 +1,12 @@
+active: false
+agent: System
+summary: Handoff tracking initialized; no agent work is currently active.
+started_at: '2026-01-06T10:00:00.000+00:00'
+checkpoint_at: '2026-01-06T10:00:00.000+00:00'
+stale_after_minutes: 30
+latest:
+  kind: finish
+  work: Handoff tracking initialized; no agent work has been recorded yet.
+  current_state: No active work is recorded for this project.
+  verification: Initialization files are present; project-specific work has not been verified.
+  next_step: Start a handoff session before the next substantive change.

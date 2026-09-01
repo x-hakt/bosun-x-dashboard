@@ -1,0 +1,9 @@
+# All small text files — backed up by pushing the data git repo, not the agent.
+backup_required: true
+method: git
+owner: you
+notes: >
+  The dashboard's data dir is a git repo pushed to a private remote on every
+  change by a cron script. The app code is a separate repo. The backup agent
+  does not touch this project.
+stores: []

@@ -1,0 +1,27 @@
+active: true
+agent: Claude
+summary: Adding full-text search to the recipes list endpoint (RCP-2).
+started_at: '2026-01-14T14:00:00.000+00:00'
+checkpoint_at: '2026-01-14T15:30:00.000+00:00'
+stale_after_minutes: 30
+latest:
+  kind: checkpoint
+  work: >-
+    Added a tsvector column + GIN index in a migration; the list endpoint accepts
+    ?q= and filters on it.
+  current_state: >-
+    Migration runs clean on a copy of prod. Search works for titles; ingredient
+    matching is partial — the ingredients are a JSON column, not yet in the tsvector.
+  verification: 28 API tests pass; manual check of ?q=lemon returns the expected 3 recipes.
+  next_step: Fold the ingredients JSON into the tsvector trigger, then re-run the migration test.
+  tasks:
+    - RCP-2
+trail:
+  - at: '2026-01-14T15:30:00.000+00:00'
+    kind: checkpoint
+    agent: Claude
+    work: tsvector column + GIN index + ?q= on the list endpoint; titles searchable.
+  - at: '2026-01-14T14:00:00.000+00:00'
+    kind: start
+    agent: Claude
+    work: Starting RCP-2 — full-text search over recipes.
