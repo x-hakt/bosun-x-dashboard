@@ -27,10 +27,7 @@ function compareIds(a: string, b: string): number {
 
 export default async function PlanningPage(props: { searchParams: Promise<{ status?: string }> }) {
   const { status: statusFilter } = await props.searchParams;
-  const all = await listPlanningTasks();
-  // Type "note" tasks live under /planning/notes instead — this page is only the
-  // idea -> planning -> ready -> graduated lifecycle.
-  const tasks = all.filter((t) => t.meta.type !== "note");
+  const tasks = await listPlanningTasks();
   const childCounts = new Map<string, number>();
   for (const t of tasks) {
     if (t.meta.parent) childCounts.set(t.meta.parent, (childCounts.get(t.meta.parent) ?? 0) + 1);
@@ -59,7 +56,7 @@ export default async function PlanningPage(props: { searchParams: Promise<{ stat
         </div>
       </div>
 
-      <NewPlanningItemForm kind="idea" />
+      <NewPlanningItemForm />
 
       {orderedStatuses.length === 0 ? (
         <p className="text-sm text-muted-foreground py-12 text-center">Nothing here yet.</p>
@@ -81,8 +78,8 @@ export default async function PlanningPage(props: { searchParams: Promise<{ stat
       )}
 
       <p className="text-xs text-muted-foreground">
-        Looking for freeform notes and bookmarks not tied to any idea?{" "}
-        <Link href="/planning/notes" className="hover:underline text-sky-400">
+        Just something to remember, not an idea to build?{" "}
+        <Link href="/notes" className="hover:underline text-sky-400">
           See Notes
         </Link>
         .

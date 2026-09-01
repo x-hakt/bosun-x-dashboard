@@ -86,7 +86,7 @@ export default async function PlanningDetailPage(props: { params: Promise<{ id: 
               ))}
             </div>
           )}
-          <NewPlanningItemForm kind="idea" parent={task.meta.id} />
+          <NewPlanningItemForm parent={task.meta.id} />
         </CardContent>
       </Card>
     </div>

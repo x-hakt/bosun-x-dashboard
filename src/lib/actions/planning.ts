@@ -16,11 +16,7 @@ export async function savePlanningNotes(id: string, content: string): Promise<vo
 }
 
 export async function createIdea(title: string, parent?: string): Promise<string> {
-  return createPlanningTask(title, parent, "idea");
-}
-
-export async function createNote(title: string): Promise<string> {
-  return createPlanningTask(title, undefined, "note");
+  return createPlanningTask(title, parent);
 }
 
 // Deletes a planning item and every descendant (a sub-idea can itself have

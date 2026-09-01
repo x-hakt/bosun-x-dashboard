@@ -1,0 +1,39 @@
+seq: 3
+notes:
+  - id: demo-note-1
+    num: 1
+    title: Things to try on the next rebuild
+    body: >-
+      --- You · 2026-01-11 · running list ---
+
+      - Swap the reverse proxy for Caddy — one less config language.
+
+      - Move the blog's images to a CDN or object store (BLOG-1 covers this).
+
+      - The NAS SMB mount drops after a power cut. A systemd automount unit would
+      remount on first access instead of failing the backup.
+    tags: [infra, ideas]
+    pinned: true
+    created: '2026-01-06T09:00:00.000+00:00'
+    updated: '2026-01-11T20:00:00.000+00:00'
+  - id: demo-note-2
+    num: 2
+    title: VPS sizing
+    body: >-
+      Currently on the 2 vCPU / 2 GB plan. The recipes API and the status page
+      barely touch it — check `docker stats` over a week and drop to 1 vCPU if
+      it's genuinely idle. Not urgent, just money.
+    tags: [cloud-vps, cost]
+    pinned: false
+    created: '2026-01-09T09:00:00.000+00:00'
+    updated: '2026-01-09T09:00:00.000+00:00'
+  - id: demo-note-3
+    num: 3
+    title: Restore drill
+    body: >-
+      Haven't actually tested restoring the recipes-db backup. Do a dry run into
+      a throwaway Postgres container and confirm row counts before trusting it.
+    tags: [backups]
+    pinned: false
+    created: '2026-01-13T09:00:00.000+00:00'
+    updated: '2026-01-13T09:00:00.000+00:00'

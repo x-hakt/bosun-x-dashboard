@@ -6,6 +6,11 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+### Changed
+- **Notes** are now entry-based (`<DATA_DIR>/notes.yml`, task-shaped, no status) with a
+  top-level `/notes` page — replacing the single freeform "Inbox" textarea and the
+  `planning` `type: note` items. Removed the hardcoded "Cool websites" pane.
+
 ### Added
 - `scripts/setup-remote.sh` — mint a least-privilege discovery SSH credential for a host.
 - GHCR release workflow: `git tag vX.Y.Z && git push --tags` publishes

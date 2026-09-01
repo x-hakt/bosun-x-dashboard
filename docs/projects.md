@@ -98,3 +98,10 @@ separate backup agent's job (`scripts/fleet-backup.sh` is the reference implemen
 
 Pre-project ideas live under `<DATA_DIR>/planning/<ID>/` with a `task.yml`
 (`status: idea | planning | ready | graduated`) and a free `NOTES.md`.
+
+## Notes
+
+`<DATA_DIR>/notes.yml` — the same shape as `tasks.yml` (a `seq` counter + a list of
+entries with `id`, `num`, `title`, `body`, `tags`, `pinned`) but with **no status**.
+Notes are things to remember or come back to, not work to complete. The `body` renders
+as the same running-thread editor a task description uses.

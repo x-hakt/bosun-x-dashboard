@@ -12,6 +12,7 @@ const TITLES: Record<string, string> = {
   "/": "Overview",
   "/projects": "Projects",
   "/planning": "Planning",
+  "/notes": "Notes",
   "/servers": "Servers",
   "/standards": "Standards",
   "/login": "Login",
@@ -21,9 +22,6 @@ function crumbsFor(pathname: string): Crumb[] {
   if (TITLES[pathname]) return [{ label: TITLES[pathname] }];
   if (pathname === "/standards/ai-handoff") {
     return [{ label: "Standards", href: "/standards" }, { label: "AI Handoff" }];
-  }
-  if (pathname === "/planning/notes") {
-    return [{ label: "Planning", href: "/planning" }, { label: "Notes" }];
   }
   if (pathname.startsWith("/projects/")) {
     const slug = pathname.split("/")[2];

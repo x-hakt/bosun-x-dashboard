@@ -10,7 +10,7 @@ export const DATA_DIR = process.env.DATA_DIR
 export const projectsDir = () => path.join(DATA_DIR, "projects");
 export const standardsFile = () => path.join(DATA_DIR, "standards.yml");
 export const importedDir = () => path.join(DATA_DIR, "imported");
-export const notesDir = () => path.join(DATA_DIR, "notes");
+export const notesFile = () => path.join(DATA_DIR, "notes.yml");
 export const hostsFile = () => path.join(DATA_DIR, "infra", "hosts.yml");
 export const docsDir = () => path.join(DATA_DIR, "docs");
 export const planningDir = () => path.join(DATA_DIR, "planning");

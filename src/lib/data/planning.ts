@@ -91,8 +91,8 @@ export async function writePlanningTaskYaml(id: string, patch: Record<string, un
   await fs.writeFile(filePath, dumpYaml(next), "utf-8");
 }
 
-export async function createPlanningTask(title: string, parent: string | undefined, type: "idea" | "note"): Promise<string> {
-  const id = await nextPlanningId(type === "idea" ? parent : undefined);
+export async function createPlanningTask(title: string, parent?: string): Promise<string> {
+  const id = await nextPlanningId(parent);
   const dir = path.join(planningDir(), id);
   await fs.mkdir(dir, { recursive: true });
   const now = dateStamp();
@@ -100,7 +100,7 @@ export async function createPlanningTask(title: string, parent: string | undefin
     id,
     title,
     status: "idea",
-    type,
+    type: "idea",
     parent: parent ?? null,
     graduated_project: null,
     created: now,

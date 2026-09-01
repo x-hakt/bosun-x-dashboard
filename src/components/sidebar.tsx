@@ -38,9 +38,9 @@ const NAV = [
       { href: "/planning?status=planning", label: "Planning", icon: ClipboardList },
       { href: "/planning?status=ready", label: "Ready", icon: Sparkles },
       { href: "/planning?status=graduated", label: "Graduated", icon: GraduationCap },
-      { href: "/planning/notes", label: "Notes", icon: StickyNote },
     ],
   },
+  { href: "/notes", label: "Notes", icon: StickyNote },
   { href: "/servers", label: "Servers", icon: Server, hostNav: true as const },
   { href: "/backups", label: "Backups", icon: DatabaseBackup },
   {
