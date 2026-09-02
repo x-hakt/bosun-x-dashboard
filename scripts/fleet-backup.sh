@@ -33,6 +33,8 @@ SSH_CONFIG=${BACKUP_SSH_CONFIG:-$HOME/.ssh/config}
 mkdir -p "$(dirname "$LOG")" "$RECEIPTS_DIR"
 # CR-36 job heartbeats — BACKUP_RECEIPTS is what job-marker.sh keys off.
 export BACKUP_RECEIPTS="$RECEIPTS_DIR"
+# shellcheck source=lib/docker-safe.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/docker-safe.sh"
 # shellcheck source=lib/job-marker.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
 ts() { date -u +%Y%m%dT%H%M%SZ; }
@@ -127,7 +129,15 @@ do_store() {
 
   guard_dest "$dest_mount" "$dest_path" "$dest_sentinel" || { receipt "$slug" "$store" false 0 "" "" "destination guard failed"; ((FAILURES++)); return; }
 
+  # Nothing below writes or deletes outside <dest_path>/<slug>. Prove the inputs
+  # first — an empty dest_path / slug / store would otherwise let a stray rm
+  # escape. (See the docker-safe.sh header.)
+  if [ -z "$dest_path" ] || [ -z "$slug" ] || [ -z "$store" ]; then
+    receipt "$slug" "$store" false 0 "" "" "empty dest_path/slug/store — refusing"; ((FAILURES++)); return
+  fi
   local out="$dest_path/$slug"
+  guard_path "$out" "$dest_path"
+  export BOSUN_PRUNE_ROOT="$dest_path"
   mkdir -p "$out"
 
   # extension + producer command
@@ -152,8 +162,9 @@ do_store() {
       if [ -n "$spath" ]; then
         producer=(tar -C "$(dirname "$spath")" -cf - "$(basename "$spath")")
       elif [ -n "$volume" ]; then
-        # read-only mount, no network, labelled — a throwaway that can't reach anything
-        producer=(docker run --rm --network none --label bosun.backup=1 -v "$volume":/src:ro alpine tar -C /src -cf - .)
+        # throwaway_run_stream forces --rm --network none --label — a container
+        # that cannot reach or affect anything, reading the volume read-only.
+        producer=(throwaway_run_stream -v "$volume":/src:ro alpine tar -C /src -cf - .)
       else
         receipt "$slug" "$store" false 0 "" "" "files store has neither path nor volume"; ((FAILURES++)); return
       fi
@@ -187,13 +198,9 @@ do_store() {
   say "$slug/$store: ok, $(numfmt --to=iec "$bytes")"
   receipt "$slug" "$store" true "$bytes" "$sha" "$archive"
 
-  # prune: keep the newest $keep archives for this store
-  local kept=0
-  # shellcheck disable=SC2012
-  ls -1t "$out/${store}-"*.* 2>/dev/null | while read -r f; do
-    kept=$((kept + 1))
-    [ "$kept" -gt "$keep" ] && rm -f "$f" && say "$slug/$store: pruned $(basename "$f")"
-  done
+  # prune: keep the newest $keep archives for this store (docker-safe.sh:
+  # one level, files only, under BOSUN_PRUNE_ROOT, name-pattern bounded)
+  prune_glob "$out" "${store}-*" "$keep"
 }
 
 # --- requests -------------------------------------------------------------

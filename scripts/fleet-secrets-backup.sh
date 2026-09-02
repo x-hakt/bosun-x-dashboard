@@ -27,6 +27,8 @@ IDENTITY="$CONTROL_ROOM_DATA/backup-keys/_secrets.age"
 
 mkdir -p "$(dirname "$LOG")" "$RECEIPTS_DIR"
 export BACKUP_RECEIPTS="$RECEIPTS_DIR"
+# shellcheck source=lib/docker-safe.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/docker-safe.sh"
 # shellcheck source=lib/job-marker.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
 
@@ -80,10 +82,13 @@ PY
 [ -n "$DEST_MOUNT" ] && ! mountpoint -q "$DEST_MOUNT" && fail "$DEST_MOUNT is not mounted"
 [ -n "$DEST_SENTINEL" ] && [ ! -f "$DEST_PATH/$DEST_SENTINEL" ] && fail "sentinel $DEST_PATH/$DEST_SENTINEL missing"
 OUT="$DEST_PATH/_secrets"
+guard_path "$OUT" "$DEST_PATH"
+export BOSUN_PRUNE_ROOT="$DEST_PATH"
 mkdir -p "$OUT" || fail "cannot create $OUT"
 
 # --- resolve the file list (globs, existence, sudo for root-owned) -----------
-LIST=$(mktemp); trap 'rm -f "$LIST"; _job_finish' EXIT
+LIST=$(mktemp /tmp/fleet-secrets.XXXXXX) || fail "mktemp failed"
+trap 'guard_path "$LIST" /tmp; rm -f -- "$LIST"; _job_finish' EXIT
 NEED_SUDO=0
 count=0
 for pat in "${CFG_PATHS[@]}"; do
@@ -122,10 +127,5 @@ mv "$TMP" "$ARCHIVE"
 say "ok — $(numfmt --to=iec "$bytes"), $count paths -> $ARCHIVE"
 receipt true "$bytes" "$sha" "$ARCHIVE" "$count"
 
-# --- prune ----------------------------------------------------------------
-kept=0
-# shellcheck disable=SC2012
-ls -1t "$OUT"/secrets-*.tar.zst.age 2>/dev/null | while read -r f; do
-  kept=$((kept+1))
-  [ "$kept" -gt "${CFG_KEEP:-14}" ] && rm -f "$f" && say "pruned $(basename "$f")"
-done
+# --- prune (docker-safe.sh: bounded to $OUT, files only, name-pattern) --------
+prune_glob "$OUT" "secrets-*.tar.zst.age" "${CFG_KEEP:-14}"
