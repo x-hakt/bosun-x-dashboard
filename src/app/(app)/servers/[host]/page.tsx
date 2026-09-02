@@ -36,7 +36,7 @@ export default async function HostDetailPage(props: { params: Promise<{ host: st
       <div>
         <h1 className="text-lg font-semibold tracking-tight">{host.name}</h1>
         <p className="text-sm text-muted-foreground mt-1 font-mono">
-          {[host.nebula_ip && `nebula ${host.nebula_ip}`, host.lan_ip && `lan ${host.lan_ip}`, host.public_ip && `public ${host.public_ip}`]
+          {[host.mesh_ip && `mesh ${host.mesh_ip}`, host.lan_ip && `lan ${host.lan_ip}`, host.public_ip && `public ${host.public_ip}`]
             .filter(Boolean)
             .join(" · ")}
           {" · "}

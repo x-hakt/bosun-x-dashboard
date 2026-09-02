@@ -21,7 +21,7 @@ export function HostCard({
           </Badge>
         </CardHeader>
         <CardContent className="space-y-2 text-xs font-mono text-muted-foreground">
-          {host.nebula_ip && <div>nebula {host.nebula_ip}</div>}
+          {host.mesh_ip && <div>mesh {host.mesh_ip}</div>}
           {host.lan_ip && <div>lan {host.lan_ip}</div>}
           {host.public_ip && <div>public {host.public_ip}</div>}
 
@@ -41,7 +41,7 @@ export function HostCard({
                 )}
               </div>
             ) : (
-              <span className="italic">reference only — not live-monitored yet</span>
+              <span className="italic">reference only — not live-monitored</span>
             )}
           </div>
         </CardContent>

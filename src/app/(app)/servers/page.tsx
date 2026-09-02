@@ -67,12 +67,12 @@ export default async function InfraPage() {
       {networkMap && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">Original reference doc</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Network map</CardTitle>
           </CardHeader>
           <CardContent>
             <details>
               <summary className="text-sm text-muted-foreground cursor-pointer mb-4">
-                Full hand-maintained network map
+                Hand-maintained notes on the hosts above (<span className="font-mono text-xs">imported/network-map.md</span>)
               </summary>
               <MarkdownRenderer content={networkMap} />
             </details>

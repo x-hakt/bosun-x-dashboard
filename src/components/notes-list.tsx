@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Pin, PinOff, Plus, Save, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pin, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesThread } from "@/components/notes-thread";
@@ -12,7 +12,11 @@ import { cn } from "@/lib/utils";
 
 function excerpt(value?: string | null): string | undefined {
   if (!value?.trim()) return undefined;
-  const clean = value.replace(/\s+/g, " ").trim();
+  const clean = value
+    .replace(/^\s*---.*?---\s*$/gm, "") // drop conversation-thread header lines
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return undefined;
   return clean.length > 120 ? `${clean.slice(0, 117)}…` : clean;
 }
 
@@ -68,10 +72,10 @@ function NoteRow({ note }: { note: Note }) {
           title={note.pinned ? "Unpin" : "Pin to top"}
           className={cn(
             "shrink-0 rounded p-1 transition-colors hover:bg-accent",
-            note.pinned ? "text-amber-400" : "text-muted-foreground hover:text-foreground",
+            note.pinned ? "text-amber-400" : "text-muted-foreground/40 hover:text-foreground",
           )}
         >
-          {note.pinned ? <Pin className="size-3.5" /> : <PinOff className="size-3.5" />}
+          <Pin className={cn("size-3.5", note.pinned && "fill-current")} />
         </button>
       </div>
 

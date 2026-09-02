@@ -73,6 +73,9 @@ export const HostSchema = z.object({
   id: z.string(),
   name: z.string(),
   role: z.enum(["lighthouse", "host-node", "workstation"]),
+  // The host's address on your private overlay / VPN (WireGuard, Tailscale, Nebula, …).
+  // `nebula_ip` is the old name and still accepted; loadHosts() normalises to `mesh_ip`.
+  mesh_ip: z.string().nullish(),
   nebula_ip: z.string().nullish(),
   lan_ip: z.string().nullish(),
   public_ip: z.string().nullish(),

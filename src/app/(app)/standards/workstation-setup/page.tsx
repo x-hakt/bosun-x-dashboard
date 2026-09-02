@@ -19,7 +19,8 @@ export default async function WorkstationSetupPage() {
         </Link>
         <h1 className="text-lg font-semibold tracking-tight">Workstation setup</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Bootstrapping a new workstation to drive this mesh the same way the reference box does.
+          An optional doc slot for how you bootstrap a new machine to work on these projects
+          — reads from <code className="font-mono text-xs">data/docs/workstation-setup.md</code>.
         </p>
       </div>
 

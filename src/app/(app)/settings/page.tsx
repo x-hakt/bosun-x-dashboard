@@ -38,7 +38,7 @@ export default async function SettingsPage() {
     {
       key: "operators",
       label: "Operators (sign-in allowlist)",
-      help: "One email address per line. Only these Google accounts can sign in. Leave blank and the dashboard is open to anyone who can reach it — fine on a home network, not on the public internet. An ALLOWED_EMAIL environment variable, if set, overrides this.",
+      help: "One email address per line. Only these accounts can sign in (via whichever provider you configured). Leave blank and the dashboard is open to anyone who can reach it — fine on a home network, not on the public internet. An ALLOWED_EMAIL environment variable, if set, overrides this.",
       kind: "list",
       effective: cfg.operators.join(", ") || "none set (env var, or open on your network)",
       isDefault: !set("operators"),

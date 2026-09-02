@@ -6,13 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Check, X, Minus, BookOpen, Laptop } from "lucide-react";
 
-const STANDARD_GUIDE = [
-  { title: "Git Repo", files: ".git", body: "Version history exists locally, so changes can be reviewed and recovered." },
-  { title: "Git Remote", files: "Git configuration", body: "The repository has an off-box destination for backup and collaboration." },
-  { title: "Agent Context", files: "AGENTS.md / CLAUDE.md", body: "Project-specific commands, boundaries and operating instructions for Codex and Claude." },
-  { title: "Spec", files: "SPEC.md", body: "Durable product intent: purpose, scope, architecture, constraints and what correct means." },
-  { title: "Handoff", files: "HANDOFF.yml / HANDOFF.md", body: "A bounded current resume snapshot plus the historical cross-agent audit trail." },
-];
+// Richer copy for the known checks. Anything in standards.yml that isn't here still
+// gets a card, using its `description` — so the cards can't fall out of step with the
+// registry the way a fixed list did.
+const STANDARD_GUIDE: Record<string, { files: string; body: string }> = {
+  "Git Repo": { files: ".git", body: "Version history exists locally, so changes can be reviewed and recovered." },
+  "Git Remote": { files: "Git configuration", body: "The repository has an off-box destination for backup and collaboration." },
+  "Agent Context": { files: "AGENTS.md / CLAUDE.md", body: "Project-specific commands, boundaries and operating instructions for AI coding agents." },
+  "Spec": { files: "SPEC.md", body: "Durable product intent: purpose, scope, architecture, constraints and what correct means." },
+  "Handoff": { files: "HANDOFF.yml / HANDOFF.md", body: "A bounded current resume snapshot plus the historical cross-agent audit trail." },
+  "Backup": { files: "backups.yml", body: "Data backups are configured and the last run succeeded within its cadence." },
+};
 
 export const dynamic = "force-dynamic";
 
@@ -50,16 +54,20 @@ export default async function StandardsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-        {STANDARD_GUIDE.map((item) => (
-          <Card key={item.title}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">{item.title}</CardTitle></CardHeader>
-            <CardContent>
-              <p className="font-mono text-[11px] text-sky-400 mb-2">{item.files}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">{item.body}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {checks.map((check) => {
+          const title = check.label ?? check.id;
+          const guide = STANDARD_GUIDE[title];
+          return (
+            <Card key={check.id}>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">{title}</CardTitle></CardHeader>
+              <CardContent>
+                {guide && <p className="font-mono text-[11px] text-sky-400 mb-2">{guide.files}</p>}
+                <p className="text-xs text-muted-foreground leading-relaxed">{guide?.body ?? check.description}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <Card>

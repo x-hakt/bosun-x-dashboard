@@ -59,7 +59,7 @@ export interface Host {
   id: string;
   name: string;
   role: HostRole;
-  nebula_ip?: string;
+  mesh_ip?: string; // private overlay / VPN address; hosts.yml may still use `nebula_ip`
   lan_ip?: string;
   public_ip?: string;
   connection: string;

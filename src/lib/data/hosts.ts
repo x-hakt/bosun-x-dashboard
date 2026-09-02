@@ -13,7 +13,18 @@ export async function loadHosts(): Promise<Host[]> {
     return [];
   }
   const parsed = HostsYmlSchema.safeParse(loadYaml(raw));
-  return parsed.success ? parsed.data.hosts.map((h) => ({ ...h, nebula_ip: h.nebula_ip ?? undefined, lan_ip: h.lan_ip ?? undefined, public_ip: h.public_ip ?? undefined, ssh_alias: h.ssh_alias ?? undefined })) : [];
+  if (!parsed.success) return [];
+  return parsed.data.hosts.map((h) => ({
+    id: h.id,
+    name: h.name,
+    role: h.role,
+    connection: h.connection,
+    live_monitored: h.live_monitored,
+    mesh_ip: h.mesh_ip ?? h.nebula_ip ?? undefined, // `nebula_ip` is the old field name
+    lan_ip: h.lan_ip ?? undefined,
+    public_ip: h.public_ip ?? undefined,
+    ssh_alias: h.ssh_alias ?? undefined,
+  }));
 }
 
 export async function getHost(id: string): Promise<Host | null> {
