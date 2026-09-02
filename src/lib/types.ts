@@ -70,7 +70,7 @@ export interface Host {
 }
 
 // ── Backups (IDEA-10) ────────────────────────────────────────────────────────
-export type DestinationKind = "cifs-path" | "local-path" | "restic" | "b2";
+export type DestinationKind = "cifs-path" | "local-path" | "restic" | "b2" | "s3";
 
 export interface Destination {
   id: string;
@@ -78,6 +78,10 @@ export interface Destination {
   path?: string;
   mount?: string;
   sentinel?: string;
+  bucket?: string;
+  endpoint?: string;
+  rclone_remote?: string;
+  credential_ref?: string;
   note?: string;
 }
 

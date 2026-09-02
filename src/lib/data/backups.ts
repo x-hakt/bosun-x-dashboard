@@ -24,6 +24,10 @@ export async function loadDestinations(): Promise<Destination[]> {
     path: d.path ?? undefined,
     mount: d.mount ?? undefined,
     sentinel: d.sentinel ?? undefined,
+    bucket: d.bucket ?? undefined,
+    endpoint: d.endpoint ?? undefined,
+    rclone_remote: d.rclone_remote ?? undefined,
+    credential_ref: d.credential_ref ?? undefined,
     note: d.note ?? undefined,
   }));
 }
