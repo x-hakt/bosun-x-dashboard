@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check, X, Minus, Clock, GitBranch, Lock, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, HelpCircle } from "lucide-react";
 import { getAllBackupStatuses } from "@/lib/data/backup-status";
 import { getJobStatuses, type JobState } from "@/lib/data/jobs";
+import { getSecretsBackupStatus } from "@/lib/data/secrets-backup";
 import { loadDestinations } from "@/lib/data/backups";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -45,10 +46,11 @@ const JOB_STATE: Record<JobState, { label: string; Icon: typeof Check; c: string
 };
 
 export default async function BackupsPage() {
-  const [statuses, destinations, jobInfo] = await Promise.all([
+  const [statuses, destinations, jobInfo, secrets] = await Promise.all([
     getAllBackupStatuses(),
     loadDestinations(),
     getJobStatuses(),
+    getSecretsBackupStatus(),
   ]);
   const snapshotAgeHours = jobInfo.snapshotAgeHours;
   const active = statuses.filter((s) => s.required);
@@ -203,6 +205,43 @@ export default async function BackupsPage() {
           )}
         </CardContent>
       </Card>
+
+      {secrets.configured && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Fleet secrets bundle</CardTitle></CardHeader>
+          <CardContent className="text-sm space-y-1.5">
+            <p className="text-xs text-muted-foreground">
+              env files, SSH keys and the Nebula cert — the state kept out of git. Nightly, always age-encrypted.
+            </p>
+            <div className="flex items-center gap-2">
+              {secrets.ok === false ? (
+                <span className={cn("inline-flex items-center gap-1.5", STATUS_TEXT_CLASS.down)}>
+                  <X className="size-4" /> last run failed{secrets.error ? ` · ${secrets.error}` : ""}
+                </span>
+              ) : secrets.ok === null ? (
+                <span className={cn("inline-flex items-center gap-1.5", STATUS_TEXT_CLASS.attention)}>
+                  <ShieldAlert className="size-4" /> never run yet
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5",
+                    secrets.stale ? STATUS_TEXT_CLASS.attention : STATUS_TEXT_CLASS.up,
+                  )}
+                >
+                  <Lock className="size-4" />
+                  {secrets.files ?? 0} paths · {fmtBytes(secrets.bytes)} · {fmtAge(secrets.ageHours)} ago
+                  {secrets.stale && " · overdue"}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground/60 font-mono">
+              → {secrets.destination ?? "?"}/_secrets · keep {secrets.keepLast ?? "?"}
+              {secrets.pathCount !== undefined && ` · ${secrets.pathCount} source rules`}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {destinations.length > 0 && (
         <Card>
