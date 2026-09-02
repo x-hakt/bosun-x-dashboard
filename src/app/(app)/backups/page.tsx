@@ -3,6 +3,7 @@ import { Check, X, Minus, Clock, GitBranch, Lock, ShieldCheck, ShieldAlert, Load
 import { getAllBackupStatuses } from "@/lib/data/backup-status";
 import { getJobStatuses, type JobState } from "@/lib/data/jobs";
 import { getSecretsBackupStatus } from "@/lib/data/secrets-backup";
+import { getOffsiteStatus } from "@/lib/data/offsite";
 import { loadDestinations } from "@/lib/data/backups";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -46,11 +47,12 @@ const JOB_STATE: Record<JobState, { label: string; Icon: typeof Check; c: string
 };
 
 export default async function BackupsPage() {
-  const [statuses, destinations, jobInfo, secrets] = await Promise.all([
+  const [statuses, destinations, jobInfo, secrets, offsite] = await Promise.all([
     getAllBackupStatuses(),
     loadDestinations(),
     getJobStatuses(),
     getSecretsBackupStatus(),
+    getOffsiteStatus(),
   ]);
   const snapshotAgeHours = jobInfo.snapshotAgeHours;
   const active = statuses.filter((s) => s.required);
@@ -243,6 +245,47 @@ export default async function BackupsPage() {
         </Card>
       )}
 
+      {offsite.configured && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Off-site copy</CardTitle></CardHeader>
+          <CardContent className="text-sm space-y-2">
+            <p className="text-xs text-muted-foreground">
+              The critical set — gp-forms dump, secrets bundle, control-room-data — pushed age-encrypted to{" "}
+              {offsite.bucket ? <span className="font-mono">{offsite.kind}:{offsite.bucket}</span> : "object storage"}.
+              Survives losing Caspar and the NAS together.
+            </p>
+            {!offsite.enabled ? (
+              <p className={cn("inline-flex items-center gap-1.5 text-xs", STATUS_TEXT_CLASS.attention)}>
+                <ShieldAlert className="size-4" /> configured but not enabled — needs a bucket + rclone credentials, then{" "}
+                <span className="font-mono">enabled: true</span> in <span className="font-mono">infra/offsite.yml</span>
+              </p>
+            ) : (
+              <ul className="divide-y divide-border/50">
+                {offsite.items.map((it) => (
+                  <li key={it.name} className="flex items-center gap-2 py-1.5">
+                    {it.ok === true ? (
+                      <Check className={cn("size-4", STATUS_TEXT_CLASS.up)} />
+                    ) : it.ok === false ? (
+                      <X className={cn("size-4", STATUS_TEXT_CLASS.down)} />
+                    ) : (
+                      <Minus className={cn("size-4", STATUS_TEXT_CLASS.unknown)} />
+                    )}
+                    <span className="font-mono text-xs">{it.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {it.ok === true
+                        ? `pushed ${fmtAge(it.ageHours)} ago`
+                        : it.ok === false
+                          ? `failed${it.error ? ` · ${it.error}` : ""}`
+                          : "not pushed yet"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {destinations.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-base">Destinations</CardTitle></CardHeader>
@@ -252,6 +295,7 @@ export default async function BackupsPage() {
                 <span className="font-mono text-xs">{d.id}</span>
                 <span className="ml-2 text-[10px] font-mono uppercase text-muted-foreground/60">{d.kind}</span>
                 {d.path && <span className="ml-2 text-muted-foreground font-mono text-xs">{d.path}</span>}
+                {d.bucket && <span className="ml-2 text-muted-foreground font-mono text-xs">{d.bucket}</span>}
                 {d.note && <p className="text-xs text-muted-foreground mt-0.5">{d.note}</p>}
               </div>
             ))}

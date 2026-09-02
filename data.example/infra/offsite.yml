@@ -1,0 +1,12 @@
+# The off-site copy of the critical set (optional). Caspar-and-NAS-in-one-room
+# is a single point of failure; this pushes the few things you can't rebuild to
+# object storage, age-encrypted, after the nightly local backup.
+#
+# fleet-offsite-push.sh needs `rclone` and a config file at the destination's
+# credential_ref. Until enabled it no-ops and the dashboard shows "not set up".
+
+enabled: false
+destination: b2           # id from infra/destinations.yml, kind b2 or s3
+keep_last: 30
+age_recipient: age1exampleexampleexampleexampleexampleexampleexampleexampleex
+data_repo: ~/control-room-data

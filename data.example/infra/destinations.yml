@@ -11,3 +11,14 @@ destinations:
       server. Push model — the backup agent writes over the existing mount; nothing
       runs on the NAS itself. Guarded by the sentinel file so a dropped mount can't
       silently write to local disk.
+
+  # Off-site tier (optional). Used by fleet-offsite-push.sh + infra/offsite.yml.
+  - id: b2
+    kind: b2                    # or s3
+    rclone_remote: b2           # remote name inside the rclone config file
+    bucket: my-fleet-offsite
+    endpoint:                   # blank = provider default
+    credential_ref: ~/.config/rclone/rclone.conf   # the AGENT reads this, not the dashboard
+    note: >
+      Backblaze B2 / S3-compatible bucket for the critical set only. Enable
+      bucket versioning + object-lock so a bad push can't destroy history.

@@ -100,15 +100,22 @@ export const HostsYmlSchema = z.object({
 
 export const DestinationSchema = z.object({
   id: z.string(),
-  // cifs-path: a folder on a mounted network share. local-path: a
-  // plain directory. restic / b2: reserved for a later offsite tier.
-  kind: z.enum(["cifs-path", "local-path", "restic", "b2"]),
+  // cifs-path: a folder on a mounted network share. local-path: a plain
+  // directory. b2 / s3: an offsite object-storage bucket (CR-32). restic:
+  // reserved.
+  kind: z.enum(["cifs-path", "local-path", "restic", "b2", "s3"]),
   path: z.string().nullish(),
   // cifs-path only: the mountpoint the agent must verify is live, plus a sentinel
   // filename under `path` that must exist — guards against a dropped mount
   // silently writing to local disk.
   mount: z.string().nullish(),
   sentinel: z.string().nullish(),
+  // b2 / s3 only: the bucket, an optional custom endpoint, the rclone remote
+  // name, and the path to a credentials file the *agent* reads — never bosun-x.
+  bucket: z.string().nullish(),
+  endpoint: z.string().nullish(),
+  rclone_remote: z.string().nullish(),
+  credential_ref: z.string().nullish(),
   note: z.string().nullish(),
 });
 
