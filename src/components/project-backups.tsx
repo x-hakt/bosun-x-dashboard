@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X, Minus, Clock, Lock, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
-import type { BackupStatus, BackupRestoreStatus } from "@/lib/types";
+import type { BackupStatus, BackupRestoreStatus, BackupsConfig } from "@/lib/types";
 import { triggerBackup, triggerRestoreTest } from "@/lib/actions/backups";
+import { BackupConfigEditor } from "@/components/backup-config-editor";
 import { STATUS_TEXT_CLASS } from "@/lib/status-colors";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +55,19 @@ function RestoreLine({ r }: { r: BackupRestoreStatus | null }) {
   );
 }
 
-export function ProjectBackups({ status, pending, restorePending }: { status: BackupStatus; pending: boolean; restorePending?: boolean }) {
+export function ProjectBackups({
+  status,
+  pending,
+  restorePending,
+  config,
+  destinations = [],
+}: {
+  status: BackupStatus;
+  pending: boolean;
+  restorePending?: boolean;
+  config?: BackupsConfig | null;
+  destinations?: { id: string; kind: string }[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [requested, setRequested] = useState(pending);
@@ -145,6 +158,12 @@ export function ProjectBackups({ status, pending, restorePending }: { status: Ba
           <span className="text-[11px] text-muted-foreground">→ {status.destination}</span>
         )}
       </div>
+
+      {config && config.stores.length > 0 && (
+        <div className="pt-1">
+          <BackupConfigEditor slug={status.slug} config={config} destinations={destinations} />
+        </div>
+      )}
     </div>
   );
 }
