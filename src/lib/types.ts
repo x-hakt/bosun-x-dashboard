@@ -105,7 +105,23 @@ export interface BackupsConfig {
 }
 
 // Runtime status assembled from backups.yml + the agent's receipts.
-export type BackupHealth = "ok" | "stale" | "failing" | "unknown" | "git" | "none";
+// "unverified" = the backup itself is fine but the restore test is stale or has
+// never run (past the grace window). See fleet-restore-test.sh / CR-29.
+export type BackupHealth = "ok" | "unverified" | "stale" | "failing" | "unknown" | "git" | "none";
+
+// The weekly restore-test receipt (fleet-restore-test.sh writes <store>.restore.json).
+export interface BackupRestoreStatus {
+  testedAt?: string;
+  ageHours?: number;
+  kind?: string;
+  checksumOk: boolean;
+  tocEntries?: number;
+  tables?: number;
+  rows?: number;
+  ok: boolean;
+  error?: string;
+  stale: boolean; // no test, or older than the restore cadence (past grace)
+}
 
 export interface BackupStoreStatus {
   name: string;
@@ -119,6 +135,7 @@ export interface BackupStoreStatus {
   encrypted: boolean;
   scheduleHours: number; // expected cadence, for staleness
   stale: boolean;
+  restore: BackupRestoreStatus | null; // null = never restore-tested
 }
 
 export interface BackupStatus {

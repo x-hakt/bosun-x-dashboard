@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, X, Minus, Clock, GitBranch, Lock } from "lucide-react";
+import { Check, X, Minus, Clock, GitBranch, Lock, ShieldCheck, ShieldAlert } from "lucide-react";
 import { getAllBackupStatuses } from "@/lib/data/backup-status";
 import { loadDestinations } from "@/lib/data/backups";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,12 +11,13 @@ import { cn } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 const HEALTH: Record<BackupHealth, { label: string; Icon: typeof Check; c: string }> = {
-  ok:      { label: "ok",       Icon: Check,     c: STATUS_TEXT_CLASS.up },
-  stale:   { label: "stale",    Icon: Clock,     c: STATUS_TEXT_CLASS.attention },
-  failing: { label: "failing",  Icon: X,         c: STATUS_TEXT_CLASS.down },
-  unknown: { label: "no data",  Icon: Minus,     c: STATUS_TEXT_CLASS.unknown },
-  git:     { label: "git",      Icon: GitBranch, c: STATUS_TEXT_CLASS.up },
-  none:    { label: "none",     Icon: Minus,     c: STATUS_TEXT_CLASS.unknown },
+  ok:         { label: "ok",         Icon: Check,       c: STATUS_TEXT_CLASS.up },
+  unverified: { label: "unverified", Icon: ShieldAlert, c: STATUS_TEXT_CLASS.attention },
+  stale:      { label: "stale",      Icon: Clock,       c: STATUS_TEXT_CLASS.attention },
+  failing:    { label: "failing",    Icon: X,           c: STATUS_TEXT_CLASS.down },
+  unknown:    { label: "no data",    Icon: Minus,       c: STATUS_TEXT_CLASS.unknown },
+  git:        { label: "git",        Icon: GitBranch,   c: STATUS_TEXT_CLASS.up },
+  none:       { label: "none",       Icon: Minus,       c: STATUS_TEXT_CLASS.unknown },
 };
 
 function fmtBytes(n?: number) {
@@ -60,6 +61,7 @@ export default async function BackupsPage() {
                 <TableHead>Health</TableHead>
                 <TableHead>Stores</TableHead>
                 <TableHead>Newest</TableHead>
+                <TableHead>Restore-tested</TableHead>
                 <TableHead>Destination</TableHead>
               </TableRow>
             </TableHeader>
@@ -68,6 +70,10 @@ export default async function BackupsPage() {
                 const h = HEALTH[s.health];
                 const newest = Math.min(...s.stores.map((st) => st.ageHours ?? Infinity));
                 const totalBytes = s.stores.reduce((a, st) => a + (st.bytes ?? 0), 0);
+                const restores = s.stores.map((st) => st.restore).filter(Boolean);
+                const restoreNewest = Math.min(...restores.map((r) => r!.ageHours ?? Infinity));
+                const restoreFail = restores.some((r) => !r!.ok);
+                const restoreStale = restores.some((r) => r!.stale) || (s.stores.length > 0 && restores.length < s.stores.length);
                 return (
                   <TableRow key={s.slug}>
                     <TableCell>
@@ -98,6 +104,23 @@ export default async function BackupsPage() {
                       {s.method === "git" ? "continuous" : Number.isFinite(newest)
                         ? `${fmtAge(newest)} ago${totalBytes ? ` · ${fmtBytes(totalBytes)}` : ""}`
                         : "never"}
+                    </TableCell>
+                    <TableCell className="text-sm tabular-nums">
+                      {s.method === "git" || s.stores.length === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : restoreFail ? (
+                        <span className={cn("inline-flex items-center gap-1", STATUS_TEXT_CLASS.down)}>
+                          <ShieldAlert className="size-3.5" /> failed
+                        </span>
+                      ) : restores.length === 0 ? (
+                        <span className={cn("inline-flex items-center gap-1", restoreStale ? STATUS_TEXT_CLASS.attention : "text-muted-foreground/60")}>
+                          <ShieldAlert className="size-3.5" /> never
+                        </span>
+                      ) : (
+                        <span className={cn("inline-flex items-center gap-1", restoreStale ? STATUS_TEXT_CLASS.attention : STATUS_TEXT_CLASS.up)}>
+                          <ShieldCheck className="size-3.5" /> {fmtAge(restoreNewest)} ago{restoreStale && " · overdue"}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground font-mono text-xs">{s.destination ?? "—"}</TableCell>
                   </TableRow>

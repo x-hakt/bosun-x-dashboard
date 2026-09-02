@@ -201,6 +201,14 @@ process_requests() {
     rm -f "$req"
     run_for "$slug"
   done
+  # "run a restore test now" — hand off to the sibling script
+  local rt="$(dirname "${BASH_SOURCE[0]}")/fleet-restore-test.sh"
+  for req in "$REQUEST_DIR"/*.restore-request; do
+    local slug; slug=$(basename "$req" .restore-request)
+    say "restore-test request: $slug"
+    rm -f "$req"
+    [ -x "$rt" ] && "$rt" "$slug" || say "restore-test: $rt not found"
+  done
 }
 
 run_for() {

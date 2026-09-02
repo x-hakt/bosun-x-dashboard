@@ -17,7 +17,7 @@ import { ProjectStandards, type ProjectStandardRow } from "@/components/project-
 import { ProjectContainers } from "@/components/project-containers";
 import { ProjectBackups } from "@/components/project-backups";
 import { getBackupStatus } from "@/lib/data/backup-status";
-import { backupRequestPending } from "@/lib/data/backup-request";
+import { backupRequestPending, restoreTestPending } from "@/lib/data/backup-request";
 import { TaskList } from "@/components/task-list";
 import { HandoffLog } from "@/components/handoff-log";
 import { HandoffStatus } from "@/components/handoff-status";
@@ -41,12 +41,13 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
   const checksAvailable = checkTarget.mode !== "none";
 
   const standards = await loadStandards();
-  const [scored, tasks, { containers: liveContainers, liveMonitored: containersLiveMonitored }, backupStatus, backupPending] = await Promise.all([
+  const [scored, tasks, { containers: liveContainers, liveMonitored: containersLiveMonitored }, backupStatus, backupPending, restorePending] = await Promise.all([
     evaluateStandardsForProject(project, standards),
     loadTasks(slug),
     getContainersForProject(meta.host),
     getBackupStatus(slug),
     backupRequestPending(slug),
+    restoreTestPending(slug),
   ]);
 
   // Zip the registry definitions (which carry the human label + severity) with their
@@ -158,7 +159,7 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
                 <CardTitle className="text-base">Backups</CardTitle>
               </CardHeader>
               <CardContent>
-                <ProjectBackups status={backupStatus} pending={backupPending} />
+                <ProjectBackups status={backupStatus} pending={backupPending} restorePending={restorePending} />
               </CardContent>
             </Card>
           )}
