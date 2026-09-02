@@ -139,5 +139,10 @@ export async function getJobStatuses(): Promise<{
   const recognised = [...KNOWN_JOBS.map((d) => d.match), ...RECOGNISED_EXTRA];
   const unmonitored = cron.filter((l) => !recognised.some((re) => re.test(l)));
 
-  return { jobs, unmonitored, snapshot, snapshotAgeHours };
+  // Only surface a known job the operator actually runs — it's in the crontab,
+  // or it has left a heartbeat behind. A built-in feature that was never set up
+  // (e.g. the offsite push) shouldn't read as "no data".
+  const visibleJobs = jobs.filter((j) => j.inCrontab || j.lastRun || j.state === "running");
+
+  return { jobs: visibleJobs, unmonitored, snapshot, snapshotAgeHours };
 }
