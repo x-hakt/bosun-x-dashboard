@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X, Minus, Clock, Lock, RefreshCw } from "lucide-react";
-import type { BackupStatus } from "@/lib/types";
-import { triggerBackup } from "@/lib/actions/backups";
+import { Check, X, Minus, Clock, Lock, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
+import type { BackupStatus, BackupRestoreStatus } from "@/lib/types";
+import { triggerBackup, triggerRestoreTest } from "@/lib/actions/backups";
 import { STATUS_TEXT_CLASS } from "@/lib/status-colors";
 import { cn } from "@/lib/utils";
 
@@ -24,10 +24,41 @@ function fmtAge(h?: number) {
   return `${Math.round(h / 24)}d ago`;
 }
 
-export function ProjectBackups({ status, pending }: { status: BackupStatus; pending: boolean }) {
+function RestoreLine({ r }: { r: BackupRestoreStatus | null }) {
+  if (!r) {
+    return (
+      <span className="block text-xs text-muted-foreground/70">
+        <ShieldAlert className="inline size-3 mr-1" />restore: not verified yet
+      </span>
+    );
+  }
+  if (!r.ok) {
+    return (
+      <span className={cn("block text-xs", STATUS_TEXT_CLASS.down)}>
+        <ShieldAlert className="inline size-3 mr-1" />
+        restore FAILED{r.error ? `: ${r.error}` : ""}
+      </span>
+    );
+  }
+  const detail =
+    r.kind === "postgres"
+      ? `${r.tables ?? 0} tables${r.rows ? `, ${r.rows.toLocaleString()} rows` : ""}`
+      : `${r.rows ?? 0} files`;
+  return (
+    <span className={cn("block text-xs", r.stale ? STATUS_TEXT_CLASS.attention : "text-muted-foreground")}>
+      <ShieldCheck className="inline size-3 mr-1" />
+      restore verified {fmtAge(r.ageHours)} · {detail}
+      {r.stale && " · overdue"}
+      {!r.checksumOk && " · checksum unchecked"}
+    </span>
+  );
+}
+
+export function ProjectBackups({ status, pending, restorePending }: { status: BackupStatus; pending: boolean; restorePending?: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [requested, setRequested] = useState(pending);
+  const [restoreRequested, setRestoreRequested] = useState(Boolean(restorePending));
 
   if (status.method === "git") {
     return (
@@ -62,6 +93,7 @@ export function ProjectBackups({ status, pending }: { status: BackupStatus; pend
                       ? "no run recorded yet"
                       : `${fmtAge(s.ageHours)}${s.bytes ? ` · ${fmtBytes(s.bytes)}` : ""}${s.stale ? " · stale" : ""}`}
                 </span>
+                <RestoreLine r={s.restore} />
               </span>
               <span className="shrink-0 text-[10px] font-mono uppercase tracking-wide text-muted-foreground/50">{s.kind}</span>
             </li>
@@ -88,10 +120,28 @@ export function ProjectBackups({ status, pending }: { status: BackupStatus; pend
           <RefreshCw className={cn("size-3.5", isPending && "animate-spin")} />
           {requested ? "queued" : "run backup now"}
         </button>
-        {requested && (
+        <button
+          type="button"
+          disabled={isPending || restoreRequested}
+          onClick={() =>
+            startTransition(async () => {
+              await triggerRestoreTest(status.slug);
+              setRestoreRequested(true);
+              router.refresh();
+            })
+          }
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card px-2.5 py-1",
+            "text-xs font-mono text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50",
+          )}
+        >
+          <ShieldCheck className="size-3.5" />
+          {restoreRequested ? "queued" : "test restore"}
+        </button>
+        {(requested || restoreRequested) && (
           <span className="text-[11px] text-muted-foreground">the agent picks this up within ~2 min</span>
         )}
-        {status.destination && !requested && (
+        {status.destination && !requested && !restoreRequested && (
           <span className="text-[11px] text-muted-foreground">→ {status.destination}</span>
         )}
       </div>

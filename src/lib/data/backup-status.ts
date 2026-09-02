@@ -3,7 +3,7 @@ import path from "node:path";
 import { loadBackups } from "./backups";
 import { receiptsDir } from "./config";
 import { listProjects } from "./projects";
-import type { BackupHealth, BackupStatus, BackupStoreStatus } from "@/lib/types";
+import type { BackupHealth, BackupRestoreStatus, BackupStatus, BackupStoreStatus } from "@/lib/types";
 
 // Read-only. Combines a project's backups.yml with the receipts fleet-backup.sh
 // leaves under receiptsDir()/<slug>/<store>.latest.json. bosun-x never runs
@@ -20,6 +20,55 @@ interface Receipt {
 }
 
 const GRACE_HOURS = 12;
+// The restore test runs weekly; give it a week + a day before "stale". A store
+// is only counted stale once its backup is at least this old too — a brand-new
+// project isn't failing just because Monday hasn't come round yet.
+const RESTORE_CADENCE_HOURS = 8 * 24;
+
+interface RestoreReceipt {
+  tested_at?: string;
+  archive_age_h?: number;
+  kind?: string;
+  checksum_ok?: boolean;
+  toc_entries?: number;
+  tables?: number;
+  rows?: number;
+  ok?: boolean;
+  error?: string;
+}
+
+async function readRestoreReceipt(slug: string, store: string): Promise<RestoreReceipt | null> {
+  try {
+    const raw = await fs.readFile(path.join(receiptsDir(), slug, `${store}.restore.json`), "utf-8");
+    return JSON.parse(raw) as RestoreReceipt;
+  } catch {
+    return null;
+  }
+}
+
+function restoreStatusOf(r: RestoreReceipt | null, backupAgeHours: number | undefined): BackupRestoreStatus | null {
+  if (!r) {
+    return backupAgeHours !== undefined && backupAgeHours > RESTORE_CADENCE_HOURS
+      ? { checksumOk: false, ok: false, stale: true }
+      : null;
+  }
+  const ageHours = r.tested_at
+    ? Math.max(0, (Date.now() - Date.parse(r.tested_at)) / 3_600_000)
+    : undefined;
+  const stale = !r.ok || ageHours === undefined || ageHours > RESTORE_CADENCE_HOURS;
+  return {
+    testedAt: r.tested_at,
+    ageHours,
+    kind: r.kind,
+    checksumOk: Boolean(r.checksum_ok),
+    tocEntries: r.toc_entries,
+    tables: r.tables,
+    rows: r.rows,
+    ok: Boolean(r.ok),
+    error: r.error,
+    stale,
+  };
+}
 
 function scheduleToHours(schedule: string | undefined): number {
   switch ((schedule ?? "nightly").toLowerCase()) {
@@ -64,6 +113,7 @@ export async function getBackupStatus(slug: string): Promise<BackupStatus | null
         ? Math.max(0, (Date.now() - Date.parse(r.finished_at)) / 3_600_000)
         : undefined;
       const stale = r?.ok === true && ageHours !== undefined && ageHours > scheduleHours + GRACE_HOURS;
+      const restore = restoreStatusOf(await readRestoreReceipt(slug, s.name), ageHours);
       return {
         name: s.name,
         kind: s.kind,
@@ -76,6 +126,7 @@ export async function getBackupStatus(slug: string): Promise<BackupStatus | null
         encrypted: Boolean(s.encrypt?.age_recipient),
         scheduleHours,
         stale,
+        restore,
       };
     }),
   );
@@ -85,6 +136,7 @@ export async function getBackupStatus(slug: string): Promise<BackupStatus | null
   else if (stores.some((s) => s.ok === false)) health = "failing";
   else if (stores.some((s) => s.ok === null)) health = "unknown";
   else if (stores.some((s) => s.stale)) health = "stale";
+  else if (stores.some((s) => s.restore?.stale)) health = "unverified";
 
   return {
     slug,
