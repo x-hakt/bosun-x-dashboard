@@ -11,6 +11,18 @@
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# Run against a scratch receipts dir + log so real backup state / job markers
+# are untouched. The scripts still hit the real Docker daemon and the real
+# backup destination (read-only for the canary assertions we care about).
+SCRATCH=$(mktemp -d /tmp/bosun-safety.XXXXXX)
+export BACKUP_RECEIPTS="$SCRATCH/receipts"
+export BACKUP_LOG="$SCRATCH/log"
+mkdir -p "$BACKUP_RECEIPTS"
+trap 'rm -rf "$SCRATCH"' EXIT
+# exercise both code paths: a files store and a postgres store (the latter is
+# the one that creates + removes containers — the whole point of this test).
+SLUGS=(${SAFETY_CHECK_SLUGS:-cgburchell sportsball-coach})
+
 fail=0
 note() { echo "  $*"; }
 check() { if eval "$2"; then echo "PASS  $1"; else echo "FAIL  $1"; fail=1; fi; }
@@ -26,9 +38,11 @@ done
 before_all=$(docker ps -aq | sort)
 before_throwaway=$(docker ps -aq --filter label=bosun.throwaway | sort)
 
-echo "== running fleet-backup.sh + fleet-restore-test.sh =="
-BACKUP_LOG=/tmp/safety-check.log ./scripts/fleet-backup.sh >/dev/null 2>&1 || true
-BACKUP_LOG=/tmp/safety-check.log ./scripts/fleet-restore-test.sh >/dev/null 2>&1 || true
+for SLUG in "${SLUGS[@]}"; do
+  echo "== fleet-backup.sh $SLUG + fleet-restore-test.sh $SLUG =="
+  ./scripts/fleet-backup.sh "$SLUG" >/dev/null 2>&1 || true
+  ./scripts/fleet-restore-test.sh "$SLUG" >/dev/null 2>&1 || true
+done
 
 after_all=$(docker ps -aq | sort)
 
