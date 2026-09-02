@@ -26,45 +26,25 @@ LOG=${BACKUP_LOG:-$HOME/.local/state/fleet-backup.log}
 PG_IMAGE=${RESTORE_TEST_PG_IMAGE:-postgres:17-alpine}
 
 ONLY=${1:-}
-WORK=$(mktemp -d /tmp/fleet-restore-test.XXXXXX)
 mkdir -p "$(dirname "$LOG")"
 
-# Everything this script starts carries this label, unique to this run. Cleanup
-# only ever removes containers with it — the script must never be able to touch a
-# real service container, whatever a store is named. (See the 2026-09-02
-# playtopia incident.)
-RUN_LABEL="bosun.restore-test"
-RUN_ID="$$-$(date +%s)"
-
 export BACKUP_RECEIPTS="$RECEIPTS_DIR"
+# shellcheck source=lib/docker-safe.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/docker-safe.sh"
 # shellcheck source=lib/job-marker.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
 
+WORK=$(mktemp -d /tmp/fleet-restore-test.XXXXXX) || { echo "mktemp failed" >&2; exit 1; }
+
 cleanup() {
-  # remove ONLY this run's throwaway containers, by label — never by name
-  local ids
-  ids=$(docker ps -aq --filter "label=$RUN_LABEL=$RUN_ID" 2>/dev/null)
-  [ -n "$ids" ] && docker rm -f $ids >/dev/null 2>&1
-  rm -rf "$WORK"
+  throwaway_rm_all              # only this run's --network-none postgres containers
+  guard_path "$WORK" /tmp
+  rm -rf -- "$WORK"
 }
 trap 'cleanup; _job_finish' EXIT
 
 now() { date -u +%FT%TZ; }
 say() { echo "[$(now)] restore-test: $*" | tee -a "$LOG"; }
-
-# Force-remove a container we started — but only after confirming it carries our
-# run label. Refuses to touch anything else.
-safe_rm() {
-  local id=$1
-  [ -n "$id" ] || return 0
-  local lbl
-  lbl=$(docker inspect -f "{{index .Config.Labels \"$RUN_LABEL\"}}" "$id" 2>/dev/null)
-  if [ "$lbl" = "$RUN_ID" ]; then
-    docker rm -f "$id" >/dev/null 2>&1
-  else
-    say "REFUSING to remove $id — not one of ours (label='$lbl')"
-  fi
-}
 
 FAIL=0
 TESTED=0
@@ -117,11 +97,10 @@ test_store() { # <receipt-file>
   esac
 
   if [ -z "$err" ] && [ "$kind" = postgres ]; then
-    # No --name (avoids any collision with a real container), no network at all,
-    # and a per-run label so cleanup() / safe_rm can only ever reach this one.
+    # throwaway_run_d forces -d --rm --network none --label bosun.throwaway=<run id>.
+    # No --name, no network — it cannot collide with or reach a real container.
     local cid=""
-    cid=$(docker run -d --rm --network none --label "$RUN_LABEL=$RUN_ID" \
-      -v "$WORK":/work:ro -e POSTGRES_PASSWORD=test -e POSTGRES_DB=restore "$PG_IMAGE" 2>>"$LOG")
+    cid=$(throwaway_run_d -v "$WORK":/work:ro -e POSTGRES_PASSWORD=test -e POSTGRES_DB=restore "$PG_IMAGE" 2>>"$LOG")
     if [ -z "$cid" ]; then
       err="could not start $PG_IMAGE"
     else
@@ -146,7 +125,7 @@ test_store() { # <receipt-file>
       rows=$(docker exec "$cid" psql -U postgres -d restore -tAc "select coalesce(sum(n_live_tup),0)::bigint from pg_stat_user_tables" 2>>"$LOG" | tr -dc '0-9'); rows=${rows:-0}
       if [ "$toc" -gt 0 ] && [ "$tables" -gt 0 ]; then ok=true; else err="restore produced ${tables} tables / ${toc} TOC entries"; fi
     fi
-    safe_rm "$cid"
+    throwaway_rm "$cid"
   elif [ -z "$err" ] && [ "$kind" = files ]; then
     local n
     n=$(tar -tf "$plain" 2>>"$LOG" | grep -c . || true)

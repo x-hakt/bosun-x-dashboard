@@ -31,13 +31,15 @@ OFFSITE_CONFIG="$CONTROL_ROOM_DATA/infra/offsite.yml"
 
 mkdir -p "$(dirname "$LOG")" "$RECEIPTS_DIR/_offsite"
 export BACKUP_RECEIPTS="$RECEIPTS_DIR"
+# shellcheck source=lib/docker-safe.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/docker-safe.sh"
 # shellcheck source=lib/job-marker.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
 
 now() { date -u +%FT%TZ; }
 say() { echo "[$(now)] offsite: $*" | tee -a "$LOG"; }
 DATE=$(date -u +%Y%m%d)
-WORK=$(mktemp -d /tmp/fleet-offsite.XXXXXX)
+WORK=$(mktemp -d /tmp/fleet-offsite.XXXXXX) || { echo "mktemp failed" >&2; exit 1; }
 
 item_receipt() { # <name> <ok|null> <remote-path> [error]
   local f="$RECEIPTS_DIR/_offsite/$1.latest.json"
@@ -56,7 +58,7 @@ unconfigured() { # <reason>
 exec 9>"/tmp/fleet-offsite-push.lock"
 flock -n 9 || { say "another run in progress; skipping"; exit 0; }
 job_begin fleet-offsite-push
-trap 'rm -rf "$WORK"; _job_finish' EXIT
+trap 'guard_path "$WORK" /tmp; rm -rf -- "$WORK"; _job_finish' EXIT
 
 command -v rclone >/dev/null 2>&1 || unconfigured "rclone not installed"
 [ -f "$OFFSITE_CONFIG" ] || unconfigured "no infra/offsite.yml"
@@ -91,12 +93,17 @@ FAIL=0
 
 push() { # <local-file> <remote-subdir> <item-name>
   local src=$1 sub=$2 name=$3
+  case "$sub" in gp-forms|_secrets|control-room-data) : ;; *) say "push: bad subdir '$sub'"; FAIL=1; return ;; esac
   if rclone copy --immutable "$src" "$DEST/$sub/" --log-file "$LOG" --log-level INFO; then
     say "$name -> $DEST/$sub/$(basename "$src")"
     item_receipt "$name" true "$sub/$(basename "$src")"
-    # prune: keep newest $O_KEEP in that subdir
+    # prune: keep newest $O_KEEP in that subdir (only ever files rclone itself
+    # lists under this one bucket path; the bucket also has object-lock on)
     rclone lsf "$DEST/$sub/" --files-only 2>/dev/null | sort -r | tail -n +"$((O_KEEP + 1))" \
-      | while read -r old; do rclone deletefile "$DEST/$sub/$old" 2>>"$LOG" && say "pruned $sub/$old"; done
+      | while read -r old; do
+          [ -n "$old" ] || continue
+          rclone deletefile "$DEST/$sub/$old" 2>>"$LOG" && say "pruned $sub/$old"
+        done
   else
     say "$name: rclone copy FAILED"; item_receipt "$name" false "" "rclone copy failed"; FAIL=1
   fi
