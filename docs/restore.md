@@ -113,6 +113,22 @@ Bring the app up, hit its health endpoint, log in, load one record that lives in
 the restored data. Note the result (and the archive timestamp you restored from)
 in `control-room-data/docs/restore-drills.md`.
 
+## The secrets bundle
+
+If `infra/secrets-backup.yml` is set, `scripts/fleet-secrets-backup.sh` also
+writes `<destination>/_secrets/secrets-<date>.tar.zst.age` — the env files, SSH
+keys and VPN certs that are deliberately not in any git repo. It is always
+age-encrypted with the `_secrets` restore key.
+
+```sh
+age -d -i backup-keys/_secrets.age -o secrets.tar.zst secrets-<date>.tar.zst.age
+zstd -d secrets.tar.zst -o secrets.tar
+sudo tar -xpf secrets.tar -C /        # paths are absolute; restores in place
+```
+
+This is the one archive whose restore key can't be recovered from another
+backup — it must come from your password manager.
+
 ## Testing without a disaster
 
 `scripts/fleet-restore-test.sh` does steps 1–4 weekly into a throwaway

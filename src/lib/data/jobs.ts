@@ -48,6 +48,7 @@ interface JobDef {
 const KNOWN_JOBS: JobDef[] = [
   { name: "fleet-backup", label: "Fleet backup", cadenceHours: 24, graceHours: 14, match: /fleet-backup\.sh(?![^\n]*--requests)/ },
   { name: "fleet-restore-test", label: "Restore test", cadenceHours: 24 * 7, graceHours: 48, match: /fleet-restore-test\.sh/ },
+  { name: "fleet-secrets-backup", label: "Secrets bundle", cadenceHours: 24, graceHours: 14, match: /fleet-secrets-backup\.sh/ },
   { name: "control-room-data-backup", label: "Data-store backup", cadenceHours: 1, graceHours: 1, match: /control-room-data-backup\.sh/ },
 ];
 
