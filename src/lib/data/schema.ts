@@ -36,6 +36,9 @@ export const ProjectYmlSchema = z.object({
   containers: z.array(ContainerRefSchema).nullish(),
   tags: z.array(z.string()).nullish(),
   links: z.array(z.object({ label: z.string(), url: z.string() })).nullish(),
+  // Optional link to this project's error tracker (GlitchTip/Sentry/…). bosun-x
+  // doesn't run error tracking — this just puts the dashboard one click away.
+  error_tracking_url: z.string().nullish(),
   created: z.string().nullish(),
   updated: z.string().nullish(),
   notes: z.string().nullish(),

@@ -198,17 +198,22 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
             </CardContent>
           </Card>
 
-          {meta.links && meta.links.length > 0 && (
+          {((meta.links && meta.links.length > 0) || meta.error_tracking_url) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Links</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1.5 text-sm">
-                {meta.links.map((l) => (
+                {meta.links?.map((l) => (
                   <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" className="block text-sky-400 hover:underline">
                     {l.label}
                   </a>
                 ))}
+                {meta.error_tracking_url && (
+                  <a href={meta.error_tracking_url} target="_blank" rel="noopener noreferrer" className="block text-sky-400 hover:underline">
+                    Error tracker ↗
+                  </a>
+                )}
               </CardContent>
             </Card>
           )}
