@@ -32,6 +32,8 @@ export interface ProjectMeta {
   containers?: ProjectContainer[];
   tags?: string[];
   links?: ProjectLink[];
+  /** Link to this project's error tracker (GlitchTip/Sentry/…) — bosun-x just surfaces it. */
+  error_tracking_url?: string;
   created?: string;
   updated?: string;
   notes?: string;

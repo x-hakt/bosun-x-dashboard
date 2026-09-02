@@ -27,8 +27,12 @@ PG_IMAGE=${RESTORE_TEST_PG_IMAGE:-postgres:17-alpine}
 
 ONLY=${1:-}
 WORK=$(mktemp -d /tmp/fleet-restore-test.XXXXXX)
-trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$(dirname "$LOG")"
+
+export BACKUP_RECEIPTS="$RECEIPTS_DIR"
+# shellcheck source=lib/job-marker.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
+trap 'rm -rf "$WORK"; _job_finish' EXIT
 
 now() { date -u +%FT%TZ; }
 say() { echo "[$(now)] restore-test: $*" | tee -a "$LOG"; }
@@ -137,6 +141,7 @@ test_store() { # <receipt-file>
 
 exec 9>"/tmp/fleet-restore-test.lock"
 flock -n 9 || { say "another run in progress; skipping"; exit 0; }
+job_begin fleet-restore-test
 
 shopt -s nullglob
 for rf in "$RECEIPTS_DIR"/*/*.latest.json; do

@@ -31,6 +31,10 @@ LOG=${BACKUP_LOG:-$HOME/.local/state/fleet-backup.log}
 SSH_CONFIG=${BACKUP_SSH_CONFIG:-$HOME/.ssh/config}
 
 mkdir -p "$(dirname "$LOG")" "$RECEIPTS_DIR"
+# CR-36 job heartbeats — BACKUP_RECEIPTS is what job-marker.sh keys off.
+export BACKUP_RECEIPTS="$RECEIPTS_DIR"
+# shellcheck source=lib/job-marker.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
 ts() { date -u +%Y%m%dT%H%M%SZ; }
 now() { date -u +%FT%TZ; }
 log() { echo "[$(now)] $*" >>"$LOG"; }
@@ -228,7 +232,7 @@ flock -n 9 || { say "another run in progress; skipping"; exit 0; }
 
 case "${1:-}" in
   --requests) process_requests ;;
-  "")         run_for "" ;;
+  "")         job_begin fleet-backup; trap '_job_finish' EXIT; job_snapshot_schedule; run_for "" ;;
   *)          run_for "$1" ;;
 esac
 

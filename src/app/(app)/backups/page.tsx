@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Check, X, Minus, Clock, GitBranch, Lock, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Check, X, Minus, Clock, GitBranch, Lock, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, HelpCircle } from "lucide-react";
 import { getAllBackupStatuses } from "@/lib/data/backup-status";
+import { getJobStatuses, type JobState } from "@/lib/data/jobs";
 import { loadDestinations } from "@/lib/data/backups";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -34,8 +35,22 @@ function fmtAge(h?: number) {
   return `${Math.round(h / 24)}d`;
 }
 
+const JOB_STATE: Record<JobState, { label: string; Icon: typeof Check; c: string }> = {
+  ok:      { label: "ok",              Icon: Check,         c: STATUS_TEXT_CLASS.up },
+  running: { label: "running now",     Icon: Loader2,       c: STATUS_TEXT_CLASS.unknown },
+  failed:  { label: "failed",          Icon: X,             c: STATUS_TEXT_CLASS.down },
+  stalled: { label: "started, stalled", Icon: AlertTriangle, c: STATUS_TEXT_CLASS.down },
+  overdue: { label: "no run — overdue", Icon: AlertTriangle, c: STATUS_TEXT_CLASS.attention },
+  unknown: { label: "no data",         Icon: HelpCircle,    c: STATUS_TEXT_CLASS.unknown },
+};
+
 export default async function BackupsPage() {
-  const [statuses, destinations] = await Promise.all([getAllBackupStatuses(), loadDestinations()]);
+  const [statuses, destinations, jobInfo] = await Promise.all([
+    getAllBackupStatuses(),
+    loadDestinations(),
+    getJobStatuses(),
+  ]);
+  const snapshotAgeHours = jobInfo.snapshotAgeHours;
   const active = statuses.filter((s) => s.required);
   const lastRun = Math.min(
     ...active.flatMap((s) => s.stores.map((st) => st.ageHours ?? Infinity)),
@@ -128,6 +143,64 @@ export default async function BackupsPage() {
               })}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Scheduled jobs</CardTitle></CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          <ul className="divide-y divide-border/50">
+            {jobInfo.jobs.map((j) => {
+              const st = JOB_STATE[j.state];
+              return (
+                <li key={j.name} className="flex items-start gap-2.5 py-2">
+                  <span className={cn("inline-flex items-center gap-1.5 shrink-0 w-40", st.c)}>
+                    <st.Icon className={cn("size-4", j.state === "running" && "animate-spin")} />
+                    <span className="font-mono text-xs">{j.label}</span>
+                  </span>
+                  <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+                    <span className={st.c}>
+                      {j.state === "unknown" && j.inCrontab ? "scheduled · awaiting first heartbeat" : st.label}
+                    </span>
+                    {j.state === "running" && j.runningForHours !== undefined && ` · for ${fmtAge(j.runningForHours)}`}
+                    {j.state === "stalled" && j.runningForHours !== undefined && ` · marker ${fmtAge(j.runningForHours)} old`}
+                    {(j.state === "ok" || j.state === "overdue" || j.state === "failed") &&
+                      j.ageHours !== undefined && ` · last run ${fmtAge(j.ageHours)} ago`}
+                    {j.lastRun?.exit !== undefined && j.lastRun.exit !== 0 && ` (exit ${j.lastRun.exit})`}
+                    {!j.inCrontab && j.state === "unknown" && " · not found in crontab"}
+                    <span className="block text-muted-foreground/50">
+                      every {j.cadenceHours < 24 ? `${j.cadenceHours}h` : `${Math.round(j.cadenceHours / 24)}d`}
+                      {j.lastRun?.host && ` · ${j.lastRun.host}`}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+
+          {jobInfo.unmonitored.length > 0 && (
+            <div>
+              <p className="text-xs font-mono uppercase tracking-wide text-muted-foreground/60 mb-1.5">
+                Other scheduled jobs on this host · not monitored by bosun-x
+              </p>
+              <ul className="space-y-1">
+                {jobInfo.unmonitored.map((l, i) => (
+                  <li key={i} className="font-mono text-[11px] text-muted-foreground/70 break-all">{l}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {snapshotAgeHours !== undefined ? (
+            <p className="text-[11px] text-muted-foreground/50">
+              crontab snapshot from {fmtAge(snapshotAgeHours)} ago
+              (written by fleet-backup.sh on its nightly run).
+            </p>
+          ) : (
+            <p className="text-[11px] text-muted-foreground/50">
+              No crontab snapshot yet — it is written on the next nightly fleet-backup run.
+            </p>
+          )}
         </CardContent>
       </Card>
 
