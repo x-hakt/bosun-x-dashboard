@@ -18,8 +18,12 @@
 # ============================================================================
 set -uo pipefail
 
-# Point these at your setup (or export them from the caller / a cron env file):
-CONTROL_ROOM_DATA=${CONTROL_ROOM_DATA:-$HOME/control-room-data}
+# Override any of these from the cron line / a sourced env file. The data-dir
+# default follows the dashboard's own layout: a `control-room-data` sibling of
+# the app repo (this script lives at <repo>/scripts/fleet-backup.sh).
+_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONTROL_ROOM_DATA=${CONTROL_ROOM_DATA:-$(dirname "$_repo_root")/control-room-data}
+[ -d "$CONTROL_ROOM_DATA" ] || CONTROL_ROOM_DATA=${DATA_DIR:-$HOME/control-room-data}
 RECEIPTS_DIR=${BACKUP_RECEIPTS:-$HOME/backup-receipts}
 REQUEST_DIR=${BACKUP_REQUEST_DIR:-$CONTROL_ROOM_DATA/.backup-requests}
 KEYS_DIR="$CONTROL_ROOM_DATA/backup-keys"
