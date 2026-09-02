@@ -113,3 +113,26 @@ env (single address, wins) or `operators:` in `config.yml`. Full setup: `docs/au
   fictional `data.example/`; a real deployment (operator domains, allow-listed email,
   host paths, Traefik labels) is kept out of it. Never commit operator-specific data
   or deployment config here.
+
+## Fleet scripts — the destructive-op rules (non-negotiable)
+
+`scripts/fleet-*.sh` run on the host and touch Docker, databases, and the backup
+destination. On 2026-09-02 a restore-test run (executed mid-edit by the
+`--requests` cron) removed live `playtopia-db`/`tournament-db` containers. Rules:
+
+- **Start containers only via `throwaway_run_d` / `throwaway_run_stream`** from
+  `scripts/lib/docker-safe.sh` — they force `--rm --network none`, no `--name`,
+  and a per-run label.
+- **Remove containers only via `throwaway_rm` / `throwaway_rm_all`** — label-only,
+  re-checked with `docker inspect`. Never `docker rm <name>`, never
+  `--filter name=`/`ancestor=`. No `docker stop|kill|prune`, `volume rm`, or
+  `compose down` anywhere in these scripts.
+- **Delete files only via `prune_glob`** or after `guard_path`. No bare
+  `ls | rm`, no `rm -rf "$var"` without a guard.
+- The dashboard's dockerode client is **list/inspect only** — never add
+  `.stop()`/`.remove()`/`.kill()`/`.createContainer()`/`.exec()`.
+- After changing any `fleet-*.sh` or `scripts/lib/`, run
+  `scripts/test/safety-check.sh` — it must print `ALL SAFETY CHECKS PASSED`.
+- Never edit a `fleet-*.sh` in place while its cron is live; the `--requests`
+  runner now refuses a script changed in the last 2 min or failing `bash -n`,
+  but disable the cron line or edit-and-swap anyway.
