@@ -152,7 +152,8 @@ do_store() {
       if [ -n "$spath" ]; then
         producer=(tar -C "$(dirname "$spath")" -cf - "$(basename "$spath")")
       elif [ -n "$volume" ]; then
-        producer=(docker run --rm -v "$volume":/src:ro alpine tar -C /src -cf - .)
+        # read-only mount, no network, labelled — a throwaway that can't reach anything
+        producer=(docker run --rm --network none --label bosun.backup=1 -v "$volume":/src:ro alpine tar -C /src -cf - .)
       else
         receipt "$slug" "$store" false 0 "" "" "files store has neither path nor volume"; ((FAILURES++)); return
       fi
@@ -205,13 +206,24 @@ process_requests() {
     rm -f "$req"
     run_for "$slug"
   done
-  # "run a restore test now" — hand off to the sibling script
+  # "run a restore test now" — hand off to the sibling script, but never execute
+  # it if it was touched in the last 2 minutes (guards against running a
+  # half-saved edit) or fails a syntax check.
   local rt="$(dirname "${BASH_SOURCE[0]}")/fleet-restore-test.sh"
   for req in "$REQUEST_DIR"/*.restore-request; do
     local slug; slug=$(basename "$req" .restore-request)
     say "restore-test request: $slug"
     rm -f "$req"
-    [ -x "$rt" ] && "$rt" "$slug" || say "restore-test: $rt not found"
+    if [ ! -x "$rt" ]; then
+      say "restore-test: $rt not found"; continue
+    fi
+    if [ "$(( $(date +%s) - $(stat -c %Y "$rt") ))" -lt 120 ]; then
+      say "restore-test: $rt changed <2 min ago — skipping this request"; continue
+    fi
+    if ! bash -n "$rt" 2>>"$LOG"; then
+      say "restore-test: $rt failed syntax check — skipping"; continue
+    fi
+    "$rt" "$slug"
   done
 }
 
