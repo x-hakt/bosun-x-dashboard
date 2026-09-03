@@ -18,7 +18,8 @@ import { ProjectContainers } from "@/components/project-containers";
 import { ProjectBackups } from "@/components/project-backups";
 import { getBackupStatus } from "@/lib/data/backup-status";
 import { loadBackups, loadDestinations } from "@/lib/data/backups";
-import { readBackupLog, readRestoreLog } from "@/lib/data/backup-log";
+import { readBackupLog, readRestoreLog, readLiveRestoreReceipt } from "@/lib/data/backup-log";
+import { liveRestorePending } from "@/lib/data/backup-request";
 import { backupRequestPending, restoreTestPending } from "@/lib/data/backup-request";
 import { TaskList } from "@/components/task-list";
 import { HandoffLog } from "@/components/handoff-log";
@@ -57,11 +58,14 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
   // Per-store run history for the Backups panel (backup + restore-test *.jsonl).
   const backupLog = backupStatus?.method === "agent" ? await readBackupLog(slug, 10) : [];
   const restoreLog: Record<string, Awaited<ReturnType<typeof readRestoreLog>>> = {};
+  const liveRestoreReceipts: Record<string, Awaited<ReturnType<typeof readLiveRestoreReceipt>>> = {};
   if (backupStatus?.method === "agent") {
     for (const s of backupStatus.stores) {
       restoreLog[s.name] = await readRestoreLog(slug, s.name, 8);
+      liveRestoreReceipts[s.name] = await readLiveRestoreReceipt(slug, s.name);
     }
   }
+  const liveRestoreIsPending = backupStatus?.method === "agent" ? await liveRestorePending(slug) : false;
 
   // Zip the registry definitions (which carry the human label + severity) with their
   // scored results (same order — Promise.all over `standards`). This one panel is the
@@ -180,6 +184,8 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
                   destinations={destinations.map((d) => ({ id: d.id, kind: d.kind }))}
                   backupLog={backupLog}
                   restoreLog={restoreLog}
+                  liveRestorePending={liveRestoreIsPending}
+                  liveRestoreReceipts={liveRestoreReceipts}
                 />
               </CardContent>
             </Card>

@@ -232,6 +232,26 @@ process_requests() {
     fi
     "$rt" "$slug"
   done
+
+  # "restore into the live database now" (CR-38). The request file is written
+  # only by the authenticated dashboard after a type-to-confirm. fleet-restore.sh
+  # always takes a pre-restore dump first, so the action is reversible.
+  local fr="$(dirname "${BASH_SOURCE[0]}")/fleet-restore.sh"
+  for req in "$REQUEST_DIR"/*.restore-live-request; do
+    local slug store archive
+    slug=$(jq -r '.slug // empty' "$req" 2>/dev/null)
+    store=$(jq -r '.store // empty' "$req" 2>/dev/null)
+    archive=$(jq -r '.archive // "latest"' "$req" 2>/dev/null)
+    say "LIVE restore request: $slug / $store <- ${archive}"
+    rm -f "$req"
+    [ -n "$slug" ] && [ -n "$store" ] || { say "live-restore: bad request file"; continue; }
+    if [ ! -x "$fr" ]; then say "live-restore: $fr not found"; continue; fi
+    if [ "$(( $(date +%s) - $(stat -c %Y "$fr") ))" -lt 120 ]; then
+      say "live-restore: $fr changed <2 min ago — skipping"; continue
+    fi
+    if ! bash -n "$fr" 2>>"$LOG"; then say "live-restore: $fr failed syntax check — skipping"; continue; fi
+    FLEET_RESTORE_CONFIRM="$slug" "$fr" "$slug" "$store" "$archive"
+  done
 }
 
 run_for() {

@@ -4,9 +4,10 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X, Minus, Clock, Lock, RefreshCw, ShieldCheck, ShieldAlert, ChevronDown } from "lucide-react";
 import type { BackupStatus, BackupRestoreStatus, BackupsConfig } from "@/lib/types";
-import type { BackupLogEntry, RestoreLogEntry } from "@/lib/data/backup-log";
+import type { BackupLogEntry, RestoreLogEntry, LiveRestoreReceipt } from "@/lib/data/backup-log";
 import { triggerBackup, triggerRestoreTest } from "@/lib/actions/backups";
 import { BackupConfigEditor } from "@/components/backup-config-editor";
+import { LiveRestorePanel } from "@/components/live-restore-panel";
 import { useRefreshUntil } from "@/lib/hooks/use-refresh-until";
 import { STATUS_TEXT_CLASS } from "@/lib/status-colors";
 import { cn } from "@/lib/utils";
@@ -145,6 +146,8 @@ export function ProjectBackups({
   destinations = [],
   backupLog = [],
   restoreLog = {},
+  liveRestorePending = false,
+  liveRestoreReceipts = {},
 }: {
   status: BackupStatus;
   pending: boolean;
@@ -153,6 +156,8 @@ export function ProjectBackups({
   destinations?: { id: string; kind: string }[];
   backupLog?: BackupLogEntry[];
   restoreLog?: Record<string, RestoreLogEntry[]>;
+  liveRestorePending?: boolean;
+  liveRestoreReceipts?: Record<string, LiveRestoreReceipt | null>;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -261,8 +266,14 @@ export function ProjectBackups({
       </p>
 
       {config && config.stores.length > 0 && (
-        <div className="pt-1">
+        <div className="pt-1 space-y-1">
           <BackupConfigEditor slug={status.slug} config={config} destinations={destinations} />
+          <LiveRestorePanel
+            slug={status.slug}
+            config={config}
+            pending={liveRestorePending}
+            receipts={liveRestoreReceipts}
+          />
         </div>
       )}
     </div>
