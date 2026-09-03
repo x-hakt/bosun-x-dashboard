@@ -62,6 +62,39 @@ export async function readBackupLog(slug: string, limit = 10): Promise<BackupLog
     .slice(0, limit);
 }
 
+export interface LiveRestoreReceipt {
+  store: string;
+  restoredAt?: string;
+  ok: boolean;
+  fromArchive?: string;
+  preRestoreDump?: string; // the rollback archive (basename usable with fleet-restore.sh)
+  tablesAfter?: number;
+  error?: string;
+}
+
+export async function readLiveRestoreReceipt(slug: string, store: string): Promise<LiveRestoreReceipt | null> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(path.join(receiptsDir(), slug, `${store}.restore-live.json`), "utf-8");
+  } catch {
+    return null;
+  }
+  try {
+    const r = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      store: String(r.store ?? store),
+      restoredAt: r.restored_at as string | undefined,
+      ok: Boolean(r.ok),
+      fromArchive: r.from_archive as string | undefined,
+      preRestoreDump: (r.pre_restore_dump as string | undefined)?.split("/").pop(),
+      tablesAfter: typeof r.tables_after === "number" ? r.tables_after : undefined,
+      error: (r.error as string | undefined) || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function readRestoreLog(slug: string, store: string, limit = 10): Promise<RestoreLogEntry[]> {
   const rows = await tailJsonl(path.join(receiptsDir(), slug, `${store}.restore-log.jsonl`), limit * 2);
   return rows

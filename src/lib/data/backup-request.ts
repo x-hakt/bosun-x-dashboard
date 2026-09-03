@@ -48,3 +48,35 @@ export async function restoreTestPending(slug: string): Promise<boolean> {
     return false;
   }
 }
+
+// "restore into the live database now" (CR-38). Written only after a
+// type-to-confirm in the UI. fleet-restore.sh always takes a pre-restore dump
+// first, so the operation is reversible. One in-flight request per project.
+export async function requestLiveRestore(
+  slug: string,
+  store: string,
+  archive: string,
+  by = "control-room",
+): Promise<void> {
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug)) throw new Error("bad slug");
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(store)) throw new Error("bad store");
+  // archive is either "latest" or a bare filename (no path separators)
+  if (archive !== "latest" && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(archive)) {
+    throw new Error("bad archive name");
+  }
+  await fs.mkdir(REQUEST_DIR, { recursive: true });
+  await fs.writeFile(
+    path.join(REQUEST_DIR, `${slug}.restore-live-request`),
+    JSON.stringify({ slug, store, archive, requested_at: new Date().toISOString(), by }) + "\n",
+    "utf-8",
+  );
+}
+
+export async function liveRestorePending(slug: string): Promise<boolean> {
+  try {
+    await fs.access(path.join(REQUEST_DIR, `${slug}.restore-live-request`));
+    return true;
+  } catch {
+    return false;
+  }
+}

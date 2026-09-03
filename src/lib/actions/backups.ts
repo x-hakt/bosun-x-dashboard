@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { load as loadYaml, dump as dumpYaml } from "js-yaml";
 import { revalidatePath } from "next/cache";
-import { requestBackup, requestRestoreTest } from "@/lib/data/backup-request";
+import { requestBackup, requestRestoreTest, requestLiveRestore } from "@/lib/data/backup-request";
 import { backupsFile, DATA_DIR } from "@/lib/data/paths";
 import { BackupsYmlSchema } from "@/lib/data/schema";
 
@@ -17,6 +17,20 @@ export async function triggerBackup(slug: string): Promise<void> {
 // Same handshake for a restore test — the agent hands it to fleet-restore-test.sh.
 export async function triggerRestoreTest(slug: string): Promise<void> {
   await requestRestoreTest(slug);
+}
+
+// CR-38 — a REAL restore into the live database. The caller must pass the
+// project slug twice (the UI makes the user type it); fleet-restore.sh then
+// takes a mandatory pre-restore dump before it touches anything, so this is
+// reversible. Postgres container stores only for now.
+export async function triggerLiveRestore(
+  slug: string,
+  confirmSlug: string,
+  store: string,
+  archive: string,
+): Promise<void> {
+  if (slug !== confirmSlug) throw new Error("confirmation text does not match the project slug");
+  await requestLiveRestore(slug, store, archive);
 }
 
 export interface BackupsPatch {
