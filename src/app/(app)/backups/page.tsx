@@ -5,6 +5,8 @@ import { getJobStatuses, type JobState } from "@/lib/data/jobs";
 import { getSecretsBackupStatus } from "@/lib/data/secrets-backup";
 import { getOffsiteStatus } from "@/lib/data/offsite";
 import { loadDestinations } from "@/lib/data/backups";
+import { backupRequestPending, restoreTestPending } from "@/lib/data/backup-request";
+import { BackupRowActions } from "@/components/backup-row-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { BackupHealth } from "@/lib/types";
@@ -54,6 +56,17 @@ export default async function BackupsPage() {
     getSecretsBackupStatus(),
     getOffsiteStatus(),
   ]);
+  const pending = Object.fromEntries(
+    await Promise.all(
+      statuses.map(async (s) => [
+        s.slug,
+        {
+          backup: await backupRequestPending(s.slug),
+          restore: await restoreTestPending(s.slug),
+        },
+      ] as const),
+    ),
+  );
   const snapshotAgeHours = jobInfo.snapshotAgeHours;
   const active = statuses.filter((s) => s.required);
   const lastRun = Math.min(
@@ -67,6 +80,10 @@ export default async function BackupsPage() {
         <p className="text-sm text-muted-foreground mt-1">
           {active.length} project{active.length === 1 ? "" : "s"} require backups.
           {Number.isFinite(lastRun) && ` Most recent run ${fmtAge(lastRun)} ago.`}
+        </p>
+        <p className="text-xs text-muted-foreground/70 mt-1">
+          The <span className="font-mono">Run</span> column queues a job for the host agent (picked up within ~2&nbsp;min).
+          Per-store schedule, retention, encryption and the restore key are on each project&rsquo;s page.
         </p>
       </div>
 
@@ -82,6 +99,7 @@ export default async function BackupsPage() {
                 <TableHead>Newest</TableHead>
                 <TableHead>Restore-tested</TableHead>
                 <TableHead>Destination</TableHead>
+                <TableHead>Run</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -142,6 +160,15 @@ export default async function BackupsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground font-mono text-xs">{s.destination ?? "—"}</TableCell>
+                    <TableCell>
+                      <BackupRowActions
+                        slug={s.slug}
+                        method={s.method}
+                        hasStores={s.stores.length > 0}
+                        backupPending={pending[s.slug]?.backup ?? false}
+                        restorePending={pending[s.slug]?.restore ?? false}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })}
