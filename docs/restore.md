@@ -129,6 +129,25 @@ sudo tar -xpf secrets.tar -C /        # paths are absolute; restores in place
 This is the one archive whose restore key can't be recovered from another
 backup — it must come from your password manager.
 
+## Restoring from the dashboard
+
+The project's Backups pane has a red **"restore into the live database"** section
+(postgres container stores only). It runs `scripts/fleet-restore.sh` via the
+same request queue as the other buttons. That script:
+
+1. refuses to run without `FLEET_RESTORE_CONFIRM=<slug>` (the queue sets it from
+   the type-to-confirm request);
+2. takes a **pre-restore dump** of the current database first —
+   `<dest>/<slug>/<store>-pre-restore-<ts>.dump.zst` — and aborts if it can't.
+   That dump is the undo: pick "undo last restore" in the pane, or
+   `fleet-restore.sh <slug> <store> <that-filename>`;
+3. checks the archive's sha256 against its receipt;
+4. resets the `public` schema and `pg_restore`s, so the database ends up as
+   *exactly* the archive (a table added after that backup won't linger).
+
+`ssh_alias` (remote) stores have no restore path yet — do those by hand with the
+steps above.
+
 ## Testing without a disaster
 
 `scripts/fleet-restore-test.sh` does steps 1–4 weekly into a throwaway
