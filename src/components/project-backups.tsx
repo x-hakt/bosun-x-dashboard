@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X, Minus, Clock, Lock, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Check, X, Minus, Clock, Lock, RefreshCw, ShieldCheck, ShieldAlert, ChevronDown } from "lucide-react";
 import type { BackupStatus, BackupRestoreStatus, BackupsConfig } from "@/lib/types";
+import type { BackupLogEntry, RestoreLogEntry } from "@/lib/data/backup-log";
 import { triggerBackup, triggerRestoreTest } from "@/lib/actions/backups";
 import { BackupConfigEditor } from "@/components/backup-config-editor";
+import { useRefreshUntil } from "@/lib/hooks/use-refresh-until";
 import { STATUS_TEXT_CLASS } from "@/lib/status-colors";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +27,18 @@ function fmtAge(h?: number) {
   return `${Math.round(h / 24)}d ago`;
 }
 
+function fmtWhen(iso?: string) {
+  if (!iso) return "—";
+  const h = Math.max(0, (Date.now() - Date.parse(iso)) / 3_600_000);
+  return fmtAge(h);
+}
+
+function restoreDetail(r: { kind?: string; tables?: number; rows?: number }) {
+  return r.kind === "postgres"
+    ? `${r.tables ?? 0} tables${r.rows ? `, ${r.rows.toLocaleString()} rows` : ""}`
+    : `${r.rows ?? 0} files`;
+}
+
 function RestoreLine({ r }: { r: BackupRestoreStatus | null }) {
   if (!r) {
     return (
@@ -41,17 +55,85 @@ function RestoreLine({ r }: { r: BackupRestoreStatus | null }) {
       </span>
     );
   }
-  const detail =
-    r.kind === "postgres"
-      ? `${r.tables ?? 0} tables${r.rows ? `, ${r.rows.toLocaleString()} rows` : ""}`
-      : `${r.rows ?? 0} files`;
   return (
     <span className={cn("block text-xs", r.stale ? STATUS_TEXT_CLASS.attention : "text-muted-foreground")}>
       <ShieldCheck className="inline size-3 mr-1" />
-      restore verified {fmtAge(r.ageHours)} · {detail}
+      restore verified {fmtAge(r.ageHours)} · {restoreDetail(r)}
       {r.stale && " · overdue"}
       {!r.checksumOk && " · checksum unchecked"}
     </span>
+  );
+}
+
+// Expandable per-store run history — backup runs and restore tests, most recent
+// first, straight from the agents' *.jsonl logs.
+function StoreHistory({ backups, restores }: { backups: BackupLogEntry[]; restores: RestoreLogEntry[] }) {
+  if (backups.length === 0 && restores.length === 0) return null;
+  return (
+    <details className="mt-1 group">
+      <summary className="cursor-pointer list-none text-[11px] font-mono text-muted-foreground/60 hover:text-foreground inline-flex items-center gap-1">
+        <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
+        run history
+      </summary>
+      <div className="mt-1.5 space-y-2 border-l border-border/40 pl-2.5">
+        {restores.length > 0 && (
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground/50">restore tests</p>
+            <ul className="mt-0.5 space-y-0.5">
+              {restores.map((r, i) => (
+                <li key={i} className="text-[11px] font-mono flex items-start gap-1.5">
+                  {r.ok ? (
+                    <Check className={cn("size-3 shrink-0 mt-0.5", STATUS_TEXT_CLASS.up)} />
+                  ) : (
+                    <X className={cn("size-3 shrink-0 mt-0.5", STATUS_TEXT_CLASS.down)} />
+                  )}
+                  <span className="text-muted-foreground">
+                    {fmtWhen(r.testedAt)} ·{" "}
+                    {r.ok ? (
+                      <>
+                        {restoreDetail(r)}
+                        {r.checksumOk ? " · checksum ok" : " · checksum unchecked"}
+                      </>
+                    ) : (
+                      <span className={STATUS_TEXT_CLASS.down}>FAILED{r.error ? `: ${r.error}` : ""}</span>
+                    )}
+                    {r.archive && (
+                      <span className="block text-muted-foreground/40 break-all">{r.archive.split("/").pop()}</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {backups.length > 0 && (
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground/50">backups</p>
+            <ul className="mt-0.5 space-y-0.5">
+              {backups.map((b, i) => (
+                <li key={i} className="text-[11px] font-mono flex items-start gap-1.5">
+                  {b.ok ? (
+                    <Check className={cn("size-3 shrink-0 mt-0.5", STATUS_TEXT_CLASS.up)} />
+                  ) : (
+                    <X className={cn("size-3 shrink-0 mt-0.5", STATUS_TEXT_CLASS.down)} />
+                  )}
+                  <span className="text-muted-foreground">
+                    {fmtWhen(b.finishedAt)}
+                    {b.ok
+                      ? ` · ${fmtBytes(b.bytes) || "ok"}`
+                      : ` · `}
+                    {!b.ok && <span className={STATUS_TEXT_CLASS.down}>FAILED{b.error ? `: ${b.error}` : ""}</span>}
+                    {b.archive && (
+                      <span className="block text-muted-foreground/40 break-all">{b.archive.split("/").pop()}</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -61,17 +143,21 @@ export function ProjectBackups({
   restorePending,
   config,
   destinations = [],
+  backupLog = [],
+  restoreLog = {},
 }: {
   status: BackupStatus;
   pending: boolean;
   restorePending?: boolean;
   config?: BackupsConfig | null;
   destinations?: { id: string; kind: string }[];
+  backupLog?: BackupLogEntry[];
+  restoreLog?: Record<string, RestoreLogEntry[]>;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [requested, setRequested] = useState(pending);
-  const [restoreRequested, setRestoreRequested] = useState(Boolean(restorePending));
+  const backup = useRefreshUntil(pending);
+  const restore = useRefreshUntil(Boolean(restorePending));
 
   if (status.method === "git") {
     return (
@@ -84,6 +170,9 @@ export function ProjectBackups({
   if (status.method === "none" || !status.required) {
     return <p className="text-sm text-muted-foreground">Not backed up (deliberate).</p>;
   }
+
+  const backupBusy = isPending || pending || backup.watching;
+  const restoreBusy = isPending || Boolean(restorePending) || restore.watching;
 
   return (
     <div className="space-y-3">
@@ -107,6 +196,10 @@ export function ProjectBackups({
                       : `${fmtAge(s.ageHours)}${s.bytes ? ` · ${fmtBytes(s.bytes)}` : ""}${s.stale ? " · stale" : ""}`}
                 </span>
                 <RestoreLine r={s.restore} />
+                <StoreHistory
+                  backups={backupLog.filter((b) => b.store === s.name)}
+                  restores={restoreLog[s.name] ?? []}
+                />
               </span>
               <span className="shrink-0 text-[10px] font-mono uppercase tracking-wide text-muted-foreground/50">{s.kind}</span>
             </li>
@@ -114,14 +207,14 @@ export function ProjectBackups({
         })}
       </ul>
 
-      <div className="flex items-center gap-3 pt-1">
+      <div className="flex flex-wrap items-center gap-3 pt-1">
         <button
           type="button"
-          disabled={isPending || requested}
+          disabled={backupBusy}
           onClick={() =>
             startTransition(async () => {
+              backup.start();
               await triggerBackup(status.slug);
-              setRequested(true);
               router.refresh();
             })
           }
@@ -130,16 +223,16 @@ export function ProjectBackups({
             "text-xs font-mono text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50",
           )}
         >
-          <RefreshCw className={cn("size-3.5", isPending && "animate-spin")} />
-          {requested ? "queued" : "run backup now"}
+          <RefreshCw className={cn("size-3.5", backupBusy && "animate-spin")} />
+          {backup.watching ? "backing up…" : pending ? "queued" : "run backup now"}
         </button>
         <button
           type="button"
-          disabled={isPending || restoreRequested}
+          disabled={restoreBusy}
           onClick={() =>
             startTransition(async () => {
+              restore.start();
               await triggerRestoreTest(status.slug);
-              setRestoreRequested(true);
               router.refresh();
             })
           }
@@ -148,16 +241,24 @@ export function ProjectBackups({
             "text-xs font-mono text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50",
           )}
         >
-          <ShieldCheck className="size-3.5" />
-          {restoreRequested ? "queued" : "test restore"}
+          <ShieldCheck className={cn("size-3.5", restoreBusy && "animate-spin")} />
+          {restore.watching ? "testing…" : restorePending ? "queued" : "test restore"}
         </button>
-        {(requested || restoreRequested) && (
-          <span className="text-[11px] text-muted-foreground">the agent picks this up within ~2 min</span>
-        )}
-        {status.destination && !requested && !restoreRequested && (
+        {(backup.watching || restore.watching) ? (
+          <span className="text-[11px] text-muted-foreground">
+            waiting for the agent (runs within ~2 min) · this updates itself
+          </span>
+        ) : (pending || restorePending) ? (
+          <span className="text-[11px] text-muted-foreground">queued — the agent picks this up within ~2 min</span>
+        ) : status.destination ? (
           <span className="text-[11px] text-muted-foreground">→ {status.destination}</span>
-        )}
+        ) : null}
       </div>
+
+      <p className="text-[11px] text-muted-foreground/60">
+        A restore test decrypts + restores each archive into a throwaway container, then removes it —
+        nothing on disk to clean up, nothing live is touched.
+      </p>
 
       {config && config.stores.length > 0 && (
         <div className="pt-1">
