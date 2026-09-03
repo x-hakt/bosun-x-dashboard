@@ -18,6 +18,7 @@ import { ProjectContainers } from "@/components/project-containers";
 import { ProjectBackups } from "@/components/project-backups";
 import { getBackupStatus } from "@/lib/data/backup-status";
 import { loadBackups, loadDestinations } from "@/lib/data/backups";
+import { readBackupLog, readRestoreLog } from "@/lib/data/backup-log";
 import { backupRequestPending, restoreTestPending } from "@/lib/data/backup-request";
 import { TaskList } from "@/components/task-list";
 import { HandoffLog } from "@/components/handoff-log";
@@ -52,6 +53,15 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
     loadBackups(slug),
     loadDestinations(),
   ]);
+
+  // Per-store run history for the Backups panel (backup + restore-test *.jsonl).
+  const backupLog = backupStatus?.method === "agent" ? await readBackupLog(slug, 10) : [];
+  const restoreLog: Record<string, Awaited<ReturnType<typeof readRestoreLog>>> = {};
+  if (backupStatus?.method === "agent") {
+    for (const s of backupStatus.stores) {
+      restoreLog[s.name] = await readRestoreLog(slug, s.name, 8);
+    }
+  }
 
   // Zip the registry definitions (which carry the human label + severity) with their
   // scored results (same order — Promise.all over `standards`). This one panel is the
@@ -168,6 +178,8 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
                   restorePending={restorePending}
                   config={backupConfig}
                   destinations={destinations.map((d) => ({ id: d.id, kind: d.kind }))}
+                  backupLog={backupLog}
+                  restoreLog={restoreLog}
                 />
               </CardContent>
             </Card>

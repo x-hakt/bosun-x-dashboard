@@ -155,7 +155,14 @@ export default async function BackupsPage() {
                         </span>
                       ) : (
                         <span className={cn("inline-flex items-center gap-1", restoreStale ? STATUS_TEXT_CLASS.attention : STATUS_TEXT_CLASS.up)}>
-                          <ShieldCheck className="size-3.5" /> {fmtAge(restoreNewest)} ago{restoreStale && " · overdue"}
+                          <ShieldCheck className="size-3.5" />
+                          {fmtAge(restoreNewest)} ago
+                          {(() => {
+                            const t = restores.reduce((a, r) => a + (r!.tables ?? 0), 0);
+                            const rw = restores.reduce((a, r) => a + (r!.rows ?? 0), 0);
+                            return t > 0 ? ` · ${t} tbl / ${rw.toLocaleString()} rows` : rw > 0 ? ` · ${rw} files` : "";
+                          })()}
+                          {restoreStale && " · overdue"}
                         </span>
                       )}
                     </TableCell>
