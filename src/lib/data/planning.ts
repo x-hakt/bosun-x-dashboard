@@ -6,6 +6,7 @@ import { PlanningTaskYmlSchema } from "./schema";
 import { readMarkdownIfExists } from "./markdown";
 import type { PlanningTaskWithDoc } from "@/lib/types";
 import { dateStamp } from "@/lib/time/stamp";
+import { countClientReplies } from "@/lib/notes-thread";
 
 function taskYmlPath(id: string): string {
   return path.join(planningDir(), id, "task.yml");
@@ -42,9 +43,18 @@ async function loadTaskDir(id: string): Promise<PlanningTaskWithDoc | null> {
       updated: parsed.data.updated ?? undefined,
       portals: parsed.data.portals ?? undefined,
       shared_with: parsed.data.shared_with ?? undefined,
+      client_replies_seen: parsed.data.client_replies_seen ?? undefined,
     },
     notes,
   };
+}
+
+// CGB-6: portal-client reply tally for a thread — how many the client has posted
+// vs. how many the operator has marked reviewed. `unseen > 0` drives the nudge.
+export function clientReplyStatus(task: PlanningTaskWithDoc): { total: number; unseen: number } {
+  const total = countClientReplies(task.notes);
+  const seen = task.meta.client_replies_seen ?? 0;
+  return { total, unseen: Math.max(0, total - seen) };
 }
 
 export async function listPlanningTasks(): Promise<PlanningTaskWithDoc[]> {
