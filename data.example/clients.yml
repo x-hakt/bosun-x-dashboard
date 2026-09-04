@@ -1,0 +1,28 @@
+# Client portal registry (CGB-2.1). Optional — with no clients.yml there are no
+# portals and every share gate stays closed. `portals` are branded client-facing
+# surfaces (one per business you run projects "as"); `clients` are the people
+# invited into one. A project reaches a portal only if BOTH:
+#   project.yml  portals: [<portal-slug>]        (Gate 1 — "this is <business> work")
+#   project.yml  shared_with: [<client-slug>]    (Gate 2 — which clients, per project)
+# The operator sees every Gate-1 project in the portal without a Gate-2 grant.
+
+portals:
+  northwind:
+    name: Northwind Studio
+    url: https://portal.northwind.example
+    theme:
+      brand_name: Northwind Studio
+      accent: "#5b8def"
+      accent_strong: "#3f6fd1"
+      paper: "#0f1420"
+      ink: "#e6ecf5"
+      heading_font: '"Poppins", system-ui, sans-serif'
+      body_font: '"Manrope", system-ui, sans-serif'
+
+clients:
+  - slug: acme-foods
+    name: Acme Foods
+    portal: northwind
+    emails:
+      - jordan@acme-foods.example
+    note: Pilot client — sees the recipes API build only.

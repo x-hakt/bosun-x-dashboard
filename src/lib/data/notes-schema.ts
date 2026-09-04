@@ -11,6 +11,9 @@ export const NoteSchema = z.object({
   body: z.string().nullish(),
   tags: z.array(z.string()).optional().default([]),
   pinned: z.boolean().optional().default(false),
+  // Client portal (CGB-2.1) — same two gates as project.yml / planning tasks.
+  portals: z.array(z.string()).nullish(),
+  shared_with: z.array(z.string()).nullish(),
   created: z.string(),
   updated: z.string(),
 });
