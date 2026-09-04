@@ -131,6 +131,33 @@ process.exit(bad);
 " || bad "portal registry edits"
 rm -rf scripts/test/.tmp-portal-admin
 
+echo "== 6. portal seen-store (CGB-9) =="
+# Per-client visit timestamps for the digest — round-trip + slug guard.
+tmp4=scripts/test/.tmp-seen
+seendata=$(mktemp -d)
+rm -rf "$tmp4"
+npx tsc src/lib/portal-seen-store.ts src/lib/data/paths.ts \
+  --rootDir src/lib --outDir "$tmp4" --module nodenext --moduleResolution nodenext \
+  --target es2022 --skipLibCheck --esModuleInterop >/dev/null 2>&1
+sed -i 's#@/lib/data/paths#./data/paths.js#' "$tmp4/portal-seen-store.js"
+DATA_DIR="$seendata" node --input-type=module -e "
+import * as S from './$tmp4/portal-seen-store.js';
+let bad = 0;
+if (await S.readPortalSeenAt('bob') === null) console.log('  ok   unseen client -> null');
+else { console.log('  FAIL first visit not null'); bad = 1; }
+await S.writePortalSeenAt('bob', '2026-09-04T10:00:00.000Z');
+if (await S.readPortalSeenAt('bob') === '2026-09-04T10:00:00.000Z') console.log('  ok   write then read round-trips');
+else { console.log('  FAIL round-trip'); bad = 1; }
+let threw = false;
+try { await S.writePortalSeenAt('../etc', 'x'); } catch { threw = true; }
+if (threw) console.log('  ok   path-traversal slug rejected');
+else { console.log('  FAIL bad slug not rejected'); bad = 1; }
+if (await S.readPortalSeenAt('../etc') === null) console.log('  ok   bad slug reads null');
+else { console.log('  FAIL bad slug read'); bad = 1; }
+process.exit(bad);
+" || bad "portal seen-store"
+rm -rf "$tmp4" "$seendata"
+
 echo
 [ "$fail" = 0 ] && echo "PORTAL ISOLATION OK" || echo "PORTAL ISOLATION FAILED"
 exit "$fail"

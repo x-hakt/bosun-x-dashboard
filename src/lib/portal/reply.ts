@@ -16,6 +16,7 @@ import { planningDir } from "@/lib/data/paths";
 import { getClient } from "@/lib/data/clients";
 import { noteTurnHeader } from "@/lib/notes-thread";
 import { isoTimestamp, dateStamp } from "@/lib/time/stamp";
+import { writePortalSeenAt } from "@/lib/portal-seen-store";
 import { passesGates, canSeeSharedTask } from "./gates";
 import { getPortalViewer } from "./auth";
 import { PORTAL_SLUG } from "./mode";
@@ -123,4 +124,14 @@ export async function postPortalTaskReply(projectSlug: string, taskId: string, t
 export async function acknowledgePortalTask(projectSlug: string, taskId: string): Promise<void> {
   const { slug } = await requireClient();
   await appendToTask(projectSlug, taskId, slug, SIGNOFF_LABEL, SIGNOFF_BODY);
+}
+
+// ── "Since your last visit" digest (CGB-9) ───────────────────────────────────
+
+// Stamp this client's visit — called by a beacon on the portal home page after
+// the digest for the *previous* visit has rendered. No-op for operators.
+export async function markPortalSeen(): Promise<void> {
+  const viewer = await getPortalViewer();
+  if (!viewer || viewer.kind !== "client") return;
+  await writePortalSeenAt(viewer.slug, isoTimestamp());
 }

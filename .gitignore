@@ -48,5 +48,5 @@ deploy/docker-compose.bosun-x.yml
 deploy/docker-compose.control-room.yml
 .bosun-data-path
 
-# portal-isolation.sh section 5 scratch
-scripts/test/.tmp-portal-admin/
+# portal-isolation.sh scratch (compiled-module test sections)
+scripts/test/.tmp-*/

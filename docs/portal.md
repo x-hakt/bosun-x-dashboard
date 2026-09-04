@@ -56,13 +56,25 @@ carries `shared_with: [bob]` (in `tasks.yml`).
 Client-facing prose: an optional `projects/<slug>/PORTAL.md` renders at the top
 of the portal project page.
 
-### Seeing client replies
+### Client interaction
 
-When a client replies into a shared idea thread, the operator dashboard flags
-it: an amber card in the thread, a "N new" badge on the Planning list, a "Mark
-reviewed" notice on the idea page, and a **Client replies** tile on the
-overview. "Mark reviewed" pins a `client_replies_seen` count on the task's
-`task.yml`; the nudge returns when the next reply lands.
+A signed-in client can reply into any shared **idea** thread and any shared
+**task** thread (a task's thread shows only when its own `shared_with` lists the
+client), and can post a one-click **Approve / sign off**.
+
+When they do, the operator dashboard flags it: an amber card in the thread, a
+"N new" badge on the Planning list / task list, a "Mark reviewed" notice, and a
+**Client replies** tile on the overview. "Mark reviewed" pins a
+`client_replies_seen` count on the idea's `task.yml` / the task in `tasks.yml`;
+the nudge returns when the next reply lands.
+
+### "Since your last visit"
+
+The portal home shows each returning client a digest of the shared projects,
+ideas and notes whose `updated` stamp moved since their previous visit. Visit
+timestamps are one small JSON file per client under
+`<DATA_DIR>/.portal-state/` (gitignored; written by the portal, never operator
+content). First visit shows nothing; there's no email — it's an in-portal nudge.
 
 ### 3. Deploy
 
