@@ -284,7 +284,7 @@ export default async function BackupsPage() {
           <CardHeader><CardTitle className="text-base">Off-site copy</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-2">
             <p className="text-xs text-muted-foreground">
-              The critical set — gp-forms dump, secrets bundle, control-room-data — pushed age-encrypted to{" "}
+              The critical set — gp-forms dump, secrets bundle, bosun-x-data — pushed age-encrypted to{" "}
               {offsite.bucket ? <span className="font-mono">{offsite.kind}:{offsite.bucket}</span> : "object storage"}.
               Survives losing Caspar and the NAS together.
             </p>

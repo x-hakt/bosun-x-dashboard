@@ -9,4 +9,4 @@ enabled: false
 destination: b2           # id from infra/destinations.yml, kind b2 or s3
 keep_last: 30
 age_recipient: age1exampleexampleexampleexampleexampleexampleexampleexampleex
-data_repo: ~/control-room-data
+data_repo: ~/bosun-x-data
