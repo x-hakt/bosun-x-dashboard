@@ -55,17 +55,15 @@ html:has(.pt-shell) {
 .pt-header {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 100;
   background: transparent;
-  border-bottom: 1px solid transparent;
-  transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease, border-color 0.3s ease;
+  transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
 }
 .pt-header[data-scrolled="true"] {
   background: rgba(11, 19, 20, 0.88);
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  border-bottom-color: var(--portal-line);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 0 var(--portal-line), 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 .pt-header__inner {
   display: flex;
@@ -74,6 +72,9 @@ html:has(.pt-shell) {
   gap: 1.5rem;
   padding-block: 1.1rem;
 }
+/* Sign-out sits at the end of the nav where cgburchell.com puts "Get in touch". */
+.pt-nav > form { margin-left: 0.5rem; }
+.pt-nav > form .pt-cta { box-shadow: 0 2px 12px rgba(45, 212, 191, 0.3); }
 .pt-logo {
   font-family: var(--portal-heading-font);
   font-size: 1.15rem;
@@ -107,7 +108,7 @@ html:has(.pt-shell) {
   transform-origin: left;
   transition: transform 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.pt-nav__link:hover { color: var(--portal-ink); background: rgba(200, 230, 218, 0.04); }
+.pt-nav__link:hover { color: var(--portal-ink); background: rgba(23, 33, 38, 0.04); }
 .pt-nav__link:hover::after,
 .pt-nav__link[aria-current="page"]::after { transform: scaleX(1); }
 .pt-nav__link[aria-current="page"] { color: var(--portal-ink); }
@@ -131,7 +132,7 @@ html:has(.pt-shell) {
 .pt-cta:hover {
   background: var(--portal-accent-strong);
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(45, 212, 191, 0.42);
+  box-shadow: 0 4px 20px rgba(45, 212, 191, 0.4);
 }
 .pt-cta--block { width: 100%; justify-content: center; padding-block: 0.65rem; }
 

@@ -15,7 +15,8 @@ portals:
       tagline: Design & build studio
       # logo_url: https://northwind.example/logo.svg   # header image; omit for a text wordmark
       favicon_url: https://northwind.example/favicon.ico
-      site_url: https://northwind.example
+      site_url: https://northwind.example        # "back to <site>" link in the footer
+      contact_email: hello@northwind.example     # shown in the footer copy line
       accent: "#5b8def"
       accent_strong: "#3f6fd1"
       paper: "#0f1420"

@@ -36,6 +36,7 @@ export async function loadClientRegistry(): Promise<ClientRegistry> {
           logo_url: def.theme.logo_url ?? undefined,
           favicon_url: def.theme.favicon_url ?? undefined,
           site_url: def.theme.site_url ?? undefined,
+          contact_email: def.theme.contact_email ?? undefined,
           accent: def.theme.accent ?? undefined,
           accent_strong: def.theme.accent_strong ?? undefined,
           paper: def.theme.paper ?? undefined,

@@ -259,6 +259,7 @@ export interface PortalTheme {
   logo_url?: string;
   favicon_url?: string;
   site_url?: string;
+  contact_email?: string;
   accent?: string;
   accent_strong?: string;
   paper?: string;
