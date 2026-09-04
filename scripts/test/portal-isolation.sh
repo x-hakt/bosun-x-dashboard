@@ -26,14 +26,15 @@ fi
 
 echo "== 2. no direct operator-module import in portal code =="
 # every file under the fenced dirs EXCEPT the two audited boundary files
+# the three audited boundary files may reach operator modules; nothing else may
 hits=$(grep -rlE "from ['\"]@/lib/(data|actions|infra|checks)" \
         src/app/'(portal)' src/lib/portal 2>/dev/null \
-        | grep -vE "src/lib/portal/(projection|auth)\.ts$" || true)
+        | grep -vE "src/lib/portal/(projection|auth|reply)\.ts$" || true)
 if [ -n "$hits" ]; then
   bad "these portal files import an operator module directly:"
   echo "$hits" | sed 's/^/       /'
 else
-  ok "only projection.ts / auth.ts touch operator modules"
+  ok "only projection.ts / auth.ts / reply.ts touch operator modules"
 fi
 
 echo "== 3. share-gate truth table =="

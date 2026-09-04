@@ -24,7 +24,7 @@ export async function createNote(title: string): Promise<void> {
 
 export async function updateNote(
   id: string,
-  patch: { title?: string; body?: string; tags?: string[] },
+  patch: { title?: string; body?: string; tags?: string[]; portals?: string[]; shared_with?: string[] },
 ): Promise<void> {
   await mutate((state) => {
     const note = state.notes.find((n) => n.id === id);
@@ -32,6 +32,8 @@ export async function updateNote(
     if (patch.title !== undefined) note.title = patch.title.trim() || note.title;
     if (patch.body !== undefined) note.body = patch.body;
     if (patch.tags !== undefined) note.tags = [...new Set(patch.tags.map((t) => t.trim()).filter(Boolean))];
+    if (patch.portals !== undefined) note.portals = patch.portals.length ? patch.portals : undefined;
+    if (patch.shared_with !== undefined) note.shared_with = patch.shared_with.length ? patch.shared_with : undefined;
     note.updated = isoTimestamp();
   });
 }

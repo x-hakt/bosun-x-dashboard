@@ -4,6 +4,7 @@ import { PORTAL_SLUG } from "@/lib/portal/mode";
 import { getPortalViewer } from "@/lib/portal/auth";
 import { getPortalIdea } from "@/lib/portal/projection";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { PortalReplyForm } from "@/components/portal/portal-reply-form";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,6 +32,13 @@ export default async function PortalIdeaPage({ params }: PageProps<"/c/ideas/[id
         </div>
       ) : (
         <p className="text-sm text-[var(--portal-ink)]/50">No notes on this idea yet.</p>
+      )}
+
+      {viewer.kind === "client" && (
+        <div className="rounded-lg border border-white/10 p-4">
+          <h2 className="mb-2 text-sm font-mono uppercase tracking-wide text-[var(--portal-ink)]/50">Reply</h2>
+          <PortalReplyForm ideaId={idea.id} />
+        </div>
       )}
     </div>
   );

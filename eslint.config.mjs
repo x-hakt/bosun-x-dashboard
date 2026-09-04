@@ -22,7 +22,7 @@ const eslintConfig = defineConfig([
   // below are the audited boundary; adding one is a deliberate review step.
   {
     files: ["src/lib/portal/**/*.{ts,tsx}", "src/app/(portal)/**/*.{ts,tsx}"],
-    ignores: ["src/lib/portal/projection.ts", "src/lib/portal/auth.ts"],
+    ignores: ["src/lib/portal/projection.ts", "src/lib/portal/auth.ts", "src/lib/portal/reply.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
