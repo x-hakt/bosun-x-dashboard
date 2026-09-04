@@ -47,6 +47,12 @@ export interface ProjectMeta {
    * primary host/path stays the bosun-x authority; these just stop discovery flagging
    * the extra copy as "unregistered". */
   also_on?: ProjectDeployment[];
+  /** Client portal Gate 1 (CGB-2.1): portal slugs this project is exposed to. Empty/absent
+   * = control-panel-only. */
+  portals?: string[];
+  /** Client portal Gate 2 (CGB-2.1): client slugs allowed to see this project in a portal
+   * it's exposed to. Empty/absent = operator-only within the portal. */
+  shared_with?: string[];
 }
 
 export interface ProjectDeployment {
@@ -241,6 +247,36 @@ export interface PlanningTask {
   graduated_project?: string;
   created?: string;
   updated?: string;
+  /** Client portal (CGB-2.1) — same two gates as ProjectMeta. */
+  portals?: string[];
+  shared_with?: string[];
+}
+
+// ── Client portal (CGB-2.1) ──────────────────────────────────────────────────
+export interface PortalTheme {
+  brand_name?: string;
+  logo_url?: string;
+  accent?: string;
+  accent_strong?: string;
+  paper?: string;
+  ink?: string;
+  heading_font?: string;
+  body_font?: string;
+}
+
+export interface Portal {
+  slug: string;
+  name: string;
+  url?: string;
+  theme?: PortalTheme;
+}
+
+export interface Client {
+  slug: string;
+  name: string;
+  portal: string;
+  emails: string[]; // lower-cased on load
+  note?: string;
 }
 
 export interface PlanningTaskWithDoc {

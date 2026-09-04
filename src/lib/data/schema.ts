@@ -57,6 +57,13 @@ export const ProjectYmlSchema = z.object({
   also_on: z
     .array(z.object({ host: z.string(), path: z.string().nullish(), note: z.string().nullish() }))
     .nullish(),
+  // ── Client portal (CGB-2.1) ────────────────────────────────────────────────
+  // Gate 1: portal slugs (see clients.yml `portals:`) this project is exposed to.
+  // Absent/empty = control-panel-only, never visible in any client portal.
+  portals: z.array(z.string()).nullish(),
+  // Gate 2: client slugs (see clients.yml `clients:`) allowed to see this project
+  // in a portal it's exposed to. Absent/empty = only the operator sees it in-portal.
+  shared_with: z.array(z.string()).nullish(),
 });
 
 export const StandardCheckDefSchema = z.object({
@@ -166,6 +173,51 @@ export const PlanningTaskYmlSchema = z.object({
   graduated_project: z.string().nullish(),
   created: z.string().nullish(),
   updated: z.string().nullish(),
+  // Client portal (CGB-2.1) — same two gates as project.yml. An idea thread can be
+  // shared into a portal for a client to follow / (later) reply to.
+  portals: z.array(z.string()).nullish(),
+  shared_with: z.array(z.string()).nullish(),
+});
+
+// ── Client portal registry (CGB-2.1) ─────────────────────────────────────────
+// Optional <DATA_DIR>/clients.yml. `portals` are the branded surfaces (one per
+// business you run projects "as"); `clients` are the people invited into one.
+// Every gate defaults closed: no clients.yml, or a project with no `portals`,
+// means nothing is exposed.
+export const PortalThemeSchema = z.object({
+  // A handful of CSS custom-property values the portal layout injects at :root.
+  // Enough to make the portal read as the business's site without vendoring it.
+  brand_name: z.string().nullish(),
+  logo_url: z.string().nullish(),
+  accent: z.string().nullish(),
+  accent_strong: z.string().nullish(),
+  paper: z.string().nullish(),
+  ink: z.string().nullish(),
+  heading_font: z.string().nullish(),
+  body_font: z.string().nullish(),
+});
+
+export const PortalDefSchema = z.object({
+  name: z.string(),
+  // Public origin the portal is served from, e.g. https://portal.cgburchell.com —
+  // used for magic-link URLs and the allowed redirect.
+  url: z.string().nullish(),
+  theme: PortalThemeSchema.nullish(),
+});
+
+export const ClientDefSchema = z.object({
+  slug: z.string(),
+  name: z.string(),
+  // Which portal (key in `portals`) this client belongs to.
+  portal: z.string(),
+  // Lower-cased on load. A magic-link request for one of these addresses is honoured.
+  emails: z.array(z.string()).nullish(),
+  note: z.string().nullish(),
+});
+
+export const ClientsYmlSchema = z.object({
+  portals: z.record(z.string(), PortalDefSchema).nullish(),
+  clients: z.array(ClientDefSchema).nullish(),
 });
 
 // ── Instance config (CR-15) ──────────────────────────────────────────────────

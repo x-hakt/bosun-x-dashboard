@@ -12,6 +12,10 @@ export const TaskSchema = z.object({
   description: z.string().nullish(),
   status: TaskStatusSchema,
   parent_id: z.string().nullish(),
+  // Client portal (CGB-2.1): client slugs allowed to see this individual task in a
+  // portal its project is exposed to. Absent = the client sees the task's title +
+  // status (from the shared project) but not its description/thread.
+  shared_with: z.array(z.string()).nullish(),
   depends_on: z.array(z.string()).optional().default([]),
   created: z.string(),
   updated: z.string(),

@@ -40,6 +40,8 @@ async function loadTaskDir(id: string): Promise<PlanningTaskWithDoc | null> {
       graduated_project: parsed.data.graduated_project ?? undefined,
       created: parsed.data.created ?? undefined,
       updated: parsed.data.updated ?? undefined,
+      portals: parsed.data.portals ?? undefined,
+      shared_with: parsed.data.shared_with ?? undefined,
     },
     notes,
   };

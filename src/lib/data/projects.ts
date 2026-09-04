@@ -41,6 +41,8 @@ function normalizeMeta(raw: z.infer<typeof ProjectYmlSchema>): ProjectMeta {
     also_on: raw.also_on
       ? raw.also_on.map((d) => ({ host: d.host, path: d.path ?? undefined, note: d.note ?? undefined }))
       : undefined,
+    portals: raw.portals ?? undefined,
+    shared_with: raw.shared_with ?? undefined,
   };
 }
 

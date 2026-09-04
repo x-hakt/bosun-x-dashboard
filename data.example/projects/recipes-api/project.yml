@@ -15,6 +15,9 @@ tags: [nodejs, postgres, public]
 links:
   - label: Live
     url: https://recipes.example.com
+# Client-portal share gates (CGB-2.1): built "as" Northwind Studio, visible to Acme Foods.
+portals: [northwind]
+shared_with: [acme-foods]
 created: "2026-01-03"
 updated: "2026-01-14"
 notes: >

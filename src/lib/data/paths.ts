@@ -17,4 +17,5 @@ export const planningDir = () => path.join(DATA_DIR, "planning");
 export const destinationsFile = () => path.join(DATA_DIR, "infra", "destinations.yml");
 export const backupsFile = (slug: string) => path.join(projectsDir(), slug, "backups.yml");
 export const configFile = () => path.join(DATA_DIR, "config.yml");
+export const clientsFile = () => path.join(DATA_DIR, "clients.yml");
 // receiptsDir() moved to lib/data/config.ts (it reads config.yml).
