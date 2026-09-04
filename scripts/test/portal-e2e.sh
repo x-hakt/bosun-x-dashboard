@@ -41,6 +41,14 @@ mkproj() { # slug portalsline sharedline
 mkproj shared    "portals: [acme]" "shared_with: [bob]"
 mkproj gate1only "portals: [acme]" ""
 mkproj private   "" ""
+# CGB-8: on the shared project, one task whose thread is shared with bob and one
+# that isn't. bob sees the first task's detail + a reply box; not the second's.
+cat > "$FX/projects/shared/tasks.yml" <<YAML
+seq: 2
+tasks:
+  - { id: task-shared, num: 1, title: Shared task, description: "secret-task-thread-shared", status: in_progress, shared_with: [bob], depends_on: [], created: "2026-01-01", updated: "2026-01-01" }
+  - { id: task-private, num: 2, title: Private task, description: "secret-task-thread-private", status: todo, depends_on: [], created: "2026-01-01", updated: "2026-01-01" }
+YAML
 cat > "$FX/planning/IDEA-1/task.yml" <<YAML
 id: IDEA-1
 title: Shared idea
@@ -78,6 +86,9 @@ grep -q 'gate1only' /tmp/portal-body && bad "leaked gate1only into the list" || 
 grep -q '>private<' /tmp/portal-body && bad "leaked private into the list" || ok "private not listed"
 [ "$(get "$CLIENT" /c/projects/shared)" = 200 ] && ok "shared detail -> 200" || bad "shared detail"
 grep -qE 'secret-shared|caspar|/opt/' /tmp/portal-body && bad "host/path LEAKED in project detail" || ok "no host/path in detail"
+grep -q 'secret-task-thread-shared' /tmp/portal-body && ok "CGB-8: shared task thread visible" || bad "shared task thread missing"
+grep -q 'secret-task-thread-private' /tmp/portal-body && bad "CGB-8: unshared task thread LEAKED" || ok "unshared task thread withheld"
+grep -q 'Approve / sign off' /tmp/portal-body && ok "CGB-8: reply/sign-off box on shared task" || bad "no reply box on shared task"
 [ "$(get "$CLIENT" /c/projects/gate1only)" = 404 ] && ok "gate1only detail -> 404" || bad "gate1only detail not 404"
 [ "$(get "$CLIENT" /c/projects/private)" = 404 ] && ok "private detail -> 404" || bad "private detail not 404"
 [ "$(get "$CLIENT" /c/ideas/IDEA-1)" = 200 ] && ok "shared idea -> 200" || bad "shared idea"

@@ -5,6 +5,7 @@ import { loadTasksFile, saveTasks } from "@/lib/data/tasks";
 import type { Task, TaskStatus } from "@/lib/data/tasks-schema";
 import { isoTimestamp } from "@/lib/time/stamp";
 import { syncStatusBoardForProject } from "@/lib/data/status-board";
+import { countClientReplies } from "@/lib/notes-thread";
 
 export async function createTask(slug: string, title: string, description: string, parentId?: string): Promise<void> {
   const { seq, tasks } = await loadTasksFile(slug);
@@ -72,6 +73,17 @@ export async function updateTaskDescription(slug: string, taskId: string, descri
   );
   await saveTasks(slug, next, seq);
   await syncStatusBoardForProject(slug);
+}
+
+// CGB-8: operator acknowledges the portal-client replies on a task thread — pins
+// the seen count to the current client-reply count so the nudge clears.
+export async function markTaskClientRepliesReviewed(slug: string, taskId: string): Promise<void> {
+  const { seq, tasks } = await loadTasksFile(slug);
+  const target = tasks.find((t) => t.id === taskId);
+  if (!target) throw new Error("Task not found");
+  const seen = countClientReplies(target.description ?? "");
+  const next = tasks.map((t) => (t.id === taskId ? { ...t, client_replies_seen: seen } : t));
+  await saveTasks(slug, next, seq);
 }
 
 export async function updateTaskStatus(slug: string, taskId: string, status: TaskStatus): Promise<void> {

@@ -5,8 +5,16 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, CornerDownRight, Link2, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createTask, deleteTask, updateTask, updateTaskDescription, updateTaskStatus } from "@/lib/actions/tasks";
+import {
+  createTask,
+  deleteTask,
+  markTaskClientRepliesReviewed,
+  updateTask,
+  updateTaskDescription,
+  updateTaskStatus,
+} from "@/lib/actions/tasks";
 import type { Task, TaskStatus } from "@/lib/data/tasks-schema";
+import { countClientReplies } from "@/lib/notes-thread";
 import { NotesThread } from "@/components/notes-thread";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +107,7 @@ function TaskRow({
   const [error, setError] = useState<string>();
   const childTasks = childrenByParent.get(task.id) ?? [];
   const rowKey = taskId(prefix, task.num);
+  const unseenReplies = Math.max(0, countClientReplies(task.description ?? "") - (task.client_replies_seen ?? 0));
   const blockedBy = (task.depends_on ?? []).map((id) => allTasks.find((candidate) => candidate.id === id)).filter(Boolean) as Task[];
   const unavailableDependencies = descendantIds(task.id, childrenByParent);
   unavailableDependencies.add(task.id);
@@ -151,6 +160,14 @@ function TaskRow({
               <Link2 className="size-3" /> {blockedBy.length}
             </span>
           )}
+          {unseenReplies > 0 && (
+            <span
+              className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+              title="Unreviewed client replies"
+            >
+              {unseenReplies} new
+            </span>
+          )}
           {childTasks.length > 0 && <span className="text-[11px] text-muted-foreground">{childTasks.length}</span>}
           <select
             value={task.status}
@@ -169,6 +186,23 @@ function TaskRow({
               <label className="text-xs font-medium text-muted-foreground" htmlFor={`title-${task.id}`}>Title</label>
               <Input id={`title-${task.id}`} value={title} onChange={(event) => setTitle(event.target.value)} />
             </div>
+            {unseenReplies > 0 && (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/[0.06] px-3 py-2">
+                <span className="text-xs text-amber-300">
+                  {unseenReplies} new client repl{unseenReplies === 1 ? "y" : "ies"} on this task
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1 px-2 text-xs"
+                  disabled={isPending}
+                  onClick={() => run(() => markTaskClientRepliesReviewed(slug, task.id))}
+                >
+                  Mark reviewed
+                </Button>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <span className="text-xs font-medium text-muted-foreground">Details</span>
               <NotesThread

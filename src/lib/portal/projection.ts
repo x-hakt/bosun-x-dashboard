@@ -22,7 +22,7 @@ import { projectsDir } from "@/lib/data/paths";
 import { taskKey, taskPrefix } from "@/lib/data/task-key";
 import type { ProjectStage, PlanningTaskStatus } from "@/lib/types";
 import type { TaskStatus } from "@/lib/data/tasks-schema";
-import { passesGates, type PortalViewer } from "./gates";
+import { passesGates, canSeeSharedTask, type PortalViewer } from "./gates";
 
 export type { PortalViewer };
 
@@ -40,6 +40,9 @@ export interface PortalTaskView {
   status: TaskStatus;
   /** The task description/thread — only present when the task itself is shared. */
   detail?: string;
+  /** Opaque reply handle — only present when the task thread is shared with this
+   * client, i.e. exactly when `detail` is. The portal posts task replies against it. */
+  id?: string;
 }
 
 export interface PortalProjectDetail extends PortalProjectSummary {
@@ -94,12 +97,19 @@ export async function getPortalProject(
   const prefix = taskPrefix(project.meta);
   const allTasks = await loadTasks(slug);
   const tasks: PortalTaskView[] = allTasks.map((t) => {
-    const taskShared = viewer.kind === "operator" || Boolean(t.shared_with?.includes(viewer.slug));
+    const taskShared = canSeeSharedTask(
+      project.meta.portals,
+      project.meta.shared_with,
+      t.shared_with ?? undefined,
+      viewer,
+      portalSlug,
+    );
     return {
       key: taskKey(prefix, t.num),
       title: t.title,
       status: t.status,
       detail: taskShared ? t.description ?? undefined : undefined,
+      id: taskShared ? t.id : undefined,
     };
   });
 

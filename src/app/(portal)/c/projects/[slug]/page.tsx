@@ -4,6 +4,7 @@ import { PORTAL_SLUG } from "@/lib/portal/mode";
 import { getPortalViewer } from "@/lib/portal/auth";
 import { getPortalProject } from "@/lib/portal/projection";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { PortalReplyForm } from "@/components/portal/portal-reply-form";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -75,6 +76,11 @@ export default async function PortalProjectPage({ params }: PageProps<"/c/projec
                 {t.detail && (
                   <div className="pt-prose mt-2 border-t pt-2" style={{ borderColor: "var(--portal-line)", fontSize: "0.9rem" }}>
                     <MarkdownRenderer content={t.detail} />
+                  </div>
+                )}
+                {viewer.kind === "client" && t.id && (
+                  <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--portal-line)" }}>
+                    <PortalReplyForm target={{ kind: "task", project: project.slug, taskId: t.id }} />
                   </div>
                 )}
               </li>

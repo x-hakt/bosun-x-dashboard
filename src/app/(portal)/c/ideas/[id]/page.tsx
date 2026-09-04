@@ -44,7 +44,7 @@ export default async function PortalIdeaPage({ params }: PageProps<"/c/ideas/[id
           <h2 className="mb-2 text-[13px] font-medium uppercase tracking-wide" style={{ color: "var(--portal-ink-soft)" }}>
             Reply
           </h2>
-          <PortalReplyForm ideaId={idea.id} />
+          <PortalReplyForm target={{ kind: "idea", ideaId: idea.id }} />
         </div>
       )}
     </div>

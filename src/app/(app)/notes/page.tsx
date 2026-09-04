@@ -1,10 +1,11 @@
 import { loadNotes } from "@/lib/data/notes";
+import { loadClientRegistry } from "@/lib/data/clients";
 import { NotesList } from "@/components/notes-list";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotesPage() {
-  const notes = await loadNotes();
+  const [notes, registry] = await Promise.all([loadNotes(), loadClientRegistry()]);
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -16,7 +17,11 @@ export default async function NotesPage() {
         </p>
       </div>
 
-      <NotesList notes={notes} />
+      <NotesList
+        notes={notes}
+        portals={registry.portals.map((p) => ({ slug: p.slug, name: p.name }))}
+        clients={registry.clients.map((c) => ({ slug: c.slug, name: c.name, portal: c.portal }))}
+      />
     </div>
   );
 }

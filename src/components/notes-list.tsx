@@ -6,9 +6,20 @@ import { ChevronDown, ChevronRight, Pin, Plus, Save, Trash2 } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesThread } from "@/components/notes-thread";
+import { SharingControl } from "@/components/portal/sharing-control";
 import { createNote, deleteNote, toggleNotePin, updateNote } from "@/lib/actions/notes";
 import type { Note } from "@/lib/data/notes-schema";
 import { cn } from "@/lib/utils";
+
+interface PortalOpt {
+  slug: string;
+  name: string;
+}
+interface ClientOpt {
+  slug: string;
+  name: string;
+  portal: string;
+}
 
 function excerpt(value?: string | null): string | undefined {
   if (!value?.trim()) return undefined;
@@ -20,7 +31,7 @@ function excerpt(value?: string | null): string | undefined {
   return clean.length > 120 ? `${clean.slice(0, 117)}…` : clean;
 }
 
-function NoteRow({ note }: { note: Note }) {
+function NoteRow({ note, portals, clients }: { note: Note; portals: PortalOpt[]; clients: ClientOpt[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
@@ -107,6 +118,19 @@ function NoteRow({ note }: { note: Note }) {
             />
           </div>
 
+          {portals.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground">Client portal</span>
+              <SharingControl
+                kind="note"
+                id={note.id}
+                portals={portals}
+                clients={clients}
+                current={{ portals: note.portals ?? [], shared_with: note.shared_with ?? [] }}
+              />
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
@@ -134,7 +158,15 @@ function NoteRow({ note }: { note: Note }) {
   );
 }
 
-export function NotesList({ notes }: { notes: Note[] }) {
+export function NotesList({
+  notes,
+  portals = [],
+  clients = [],
+}: {
+  notes: Note[];
+  portals?: PortalOpt[];
+  clients?: ClientOpt[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [newTitle, setNewTitle] = useState("");
@@ -177,7 +209,9 @@ export function NotesList({ notes }: { notes: Note[] }) {
         <p className="py-8 text-center text-sm text-muted-foreground">No notes yet.</p>
       ) : (
         <div className="overflow-hidden rounded-md border border-border/60 bg-card px-3">
-          {ordered.map((note) => <NoteRow key={note.id} note={note} />)}
+          {ordered.map((note) => (
+            <NoteRow key={note.id} note={note} portals={portals} clients={clients} />
+          ))}
         </div>
       )}
     </div>
