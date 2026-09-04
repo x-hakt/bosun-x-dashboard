@@ -194,10 +194,14 @@ export const PortalThemeSchema = z.object({
   site_url: z.string().nullish(), // "back to <site>" link in the footer
   accent: z.string().nullish(),
   accent_strong: z.string().nullish(),
-  paper: z.string().nullish(),
-  ink: z.string().nullish(),
-  // CSS font-family strings. If they name a Google-hosted family, the portal
-  // loads it (see the <link> in the portal layout / login page).
+  paper: z.string().nullish(), // page background base
+  surface: z.string().nullish(), // cards / the login panel; defaults to paper
+  footer_bg: z.string().nullish(), // footer strip; defaults to a near-black
+  ink: z.string().nullish(), // primary text
+  ink_soft: z.string().nullish(), // secondary text (nav, captions)
+  ink_faint: z.string().nullish(), // hints
+  // CSS font-family strings. Omit to use the portal's default (Poppins /
+  // Manrope). Naming a Google-hosted family loads it automatically.
   heading_font: z.string().nullish(),
   body_font: z.string().nullish(),
 });

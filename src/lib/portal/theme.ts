@@ -1,5 +1,28 @@
 // Portal theme helpers. Pure — no data imports.
 
+import type { CSSProperties } from "react";
+import type { PortalTheme } from "@/lib/types";
+
+// The CSS custom properties the portal skin (portal.css) reads. Defaults match
+// cgburchell.com; a clients.yml theme overrides any of them.
+export function portalThemeVars(t: PortalTheme = {}): CSSProperties {
+  return {
+    "--portal-accent": t.accent ?? "#2dd4bf",
+    "--portal-accent-strong": t.accent_strong ?? "#14b8a6",
+    "--portal-paper": t.paper ?? "#141e1f",
+    "--portal-surface": t.surface ?? t.paper ?? "#141e1f",
+    "--portal-footer-bg": t.footer_bg ?? "#070e0f",
+    "--portal-ink": t.ink ?? "#ddeee8",
+    "--portal-ink-soft": t.ink_soft ?? "#8db8ae",
+    "--portal-ink-faint": t.ink_faint ?? "#4e7068",
+    "--portal-line": "rgba(200, 230, 218, 0.08)",
+    "--portal-line-strong": "rgba(200, 230, 218, 0.15)",
+    // heading/body: a theme string wins; otherwise the next/font variables.
+    "--portal-heading-font": t.heading_font ?? "var(--portal-font-heading), system-ui, sans-serif",
+    "--portal-body-font": t.body_font ?? "var(--portal-font-body), system-ui, sans-serif",
+  } as CSSProperties;
+}
+
 // Pull the first family name out of a CSS font-family string:
 //   '"Poppins", system-ui, sans-serif'  ->  "Poppins"
 export function primaryFamily(cssFontFamily?: string): string | null {

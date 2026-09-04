@@ -15,20 +15,22 @@ export default async function PortalIdeas() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-semibold tracking-tight font-[var(--portal-heading-font)]">Ideas</h1>
+      <h1 className="text-2xl">Ideas</h1>
       {ideas.length === 0 ? (
-        <p className="text-[var(--portal-ink)]/60 text-sm">No idea threads shared with you.</p>
+        <p className="text-sm" style={{ color: "var(--portal-ink-soft)" }}>
+          No idea threads shared with you.
+        </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2.5">
           {ideas.map((idea) => (
             <li key={idea.id}>
-              <Link
-                href={`/c/ideas/${idea.id}`}
-                className="block rounded-lg border border-white/10 hover:border-[var(--portal-accent)] px-4 py-3 transition-colors"
-              >
+              <Link href={`/c/ideas/${idea.id}`} className="pt-card pt-card--row block">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-medium">{idea.title}</span>
-                  <span className="text-[11px] font-mono uppercase tracking-wide text-[var(--portal-ink)]/50">
+                  <span
+                    className="text-[11px] font-medium uppercase tracking-wide"
+                    style={{ color: "var(--portal-ink-faint)" }}
+                  >
                     {idea.status}
                   </span>
                 </div>
