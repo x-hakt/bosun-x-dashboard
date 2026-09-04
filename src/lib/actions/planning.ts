@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { writePlanningTaskYaml, createPlanningTask, listPlanningTasks } from "@/lib/data/planning";
 import { planningDir } from "@/lib/data/paths";
+import { countClientReplies } from "@/lib/notes-thread";
 
 const PLANNING_ID = /^IDEA-\d+(\.\d+)*$/;
 
@@ -13,6 +14,16 @@ export async function updatePlanningStatus(id: string, status: string): Promise<
 
 export async function savePlanningNotes(id: string, content: string): Promise<void> {
   await fs.writeFile(path.join(planningDir(), id, "NOTES.md"), content, "utf-8");
+}
+
+// CGB-6: operator acknowledges the portal-client replies on a thread — pins the
+// seen count to the current client-reply count so the nudge clears.
+export async function markClientRepliesReviewed(id: string): Promise<void> {
+  if (!PLANNING_ID.test(id)) throw new Error(`invalid planning id: ${id}`);
+  const notes = await fs
+    .readFile(path.join(planningDir(), id, "NOTES.md"), "utf-8")
+    .catch(() => "");
+  await writePlanningTaskYaml(id, { client_replies_seen: countClientReplies(notes) });
 }
 
 export async function createIdea(title: string, parent?: string): Promise<string> {

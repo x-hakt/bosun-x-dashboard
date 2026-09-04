@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getPlanningTask, listPlanningTasks } from "@/lib/data/planning";
+import { getPlanningTask, listPlanningTasks, clientReplyStatus } from "@/lib/data/planning";
 import { loadClientRegistry } from "@/lib/data/clients";
 import { SharingControl } from "@/components/portal/sharing-control";
+import { PlanningClientRepliesNotice } from "@/components/planning-client-replies-notice";
 import { PlanningStatusEditor } from "@/components/planning-status-editor";
 import { PlanningNotesEditor } from "@/components/planning-notes-editor";
 import { GraduatedLinkEditor } from "@/components/graduated-link-editor";
@@ -22,6 +23,8 @@ export default async function PlanningDetailPage(props: { params: Promise<{ id: 
   const children = all.filter((t) => t.meta.parent === id);
   const parent = task.meta.parent ? await getPlanningTask(task.meta.parent) : null;
   const clientRegistry = await loadClientRegistry();
+  const replyStatus = clientReplyStatus(task);
+  const childReplies = new Map(all.map((t) => [t.meta.id, clientReplyStatus(t).unseen]));
 
   const grandchildCounts = new Map<string, number>();
   for (const t of all) {
@@ -56,6 +59,10 @@ export default async function PlanningDetailPage(props: { params: Promise<{ id: 
           />
         </div>
       </div>
+
+      {replyStatus.unseen > 0 && (
+        <PlanningClientRepliesNotice id={task.meta.id} unseen={replyStatus.unseen} />
+      )}
 
       {task.meta.status === "graduated" && (
         <Card>
@@ -102,7 +109,12 @@ export default async function PlanningDetailPage(props: { params: Promise<{ id: 
           {children.length > 0 && (
             <div className="space-y-1.5">
               {children.map((c) => (
-                <PlanningTaskRow key={c.meta.id} task={c.meta} childCount={grandchildCounts.get(c.meta.id)} />
+                <PlanningTaskRow
+                  key={c.meta.id}
+                  task={c.meta}
+                  childCount={grandchildCounts.get(c.meta.id)}
+                  clientReplies={childReplies.get(c.meta.id)}
+                />
               ))}
             </div>
           )}

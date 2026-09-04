@@ -11,7 +11,7 @@
 //     (`RESEARCH + BRAINSTORM 2026-08-31 (Claude).`, `DONE 2026-08-30 (Claude), ...`).
 // Everything before the first boundary is the opening turn.
 
-export type TurnRole = "agent" | "user" | "neutral";
+export type TurnRole = "agent" | "user" | "client" | "neutral";
 
 export interface NoteTurn {
   author?: string;
@@ -58,6 +58,24 @@ function cleanLabel(raw: string): string {
 
 function parseHeaderText(text: string): { author?: string; date?: string; label?: string } {
   const date = text.match(DATE_RE)?.[0];
+
+  // Canonical going-forward form: "<Author> · <YYYY-MM-DD>[ · <label>]" — middot
+  // separated. Split on it directly so a multi-word author ("Chris Burchell")
+  // and a trailing label ("client reply") both survive; the paren logic below
+  // only ever handled the older "(date, Author)" organic shape.
+  if (text.includes("·")) {
+    const segs = text.split("·").map((s) => s.trim()).filter(Boolean);
+    let dividedAuthor: string | undefined;
+    const labelSegs: string[] = [];
+    for (const seg of segs) {
+      if (DATE_RE.test(seg)) continue;
+      if (dividedAuthor === undefined) dividedAuthor = seg;
+      else labelSegs.push(seg);
+    }
+    const dividedLabel = cleanLabel(labelSegs.join(" "));
+    return { author: dividedAuthor || undefined, date, label: dividedLabel || undefined };
+  }
+
   const paren = text.match(/\(([^)]*)\)/)?.[1];
   let author: string | undefined;
 
@@ -134,7 +152,11 @@ export function parseNoteThread(content: string): NoteTurn[] {
     const body = bodyLines.join("\n").replace(/^\n+|\n+$/g, "").trimEnd();
     const meta = boundary?.meta ?? {};
     if (!body.trim() && !meta.label && !meta.author) return;
-    turns.push({ ...meta, role: roleFor(meta.author), body });
+    // A "client reply" label is only ever written by src/lib/portal/reply.ts —
+    // the one audited client write path — so it's a reliable signal that this
+    // turn came from a portal client rather than the operator or an agent.
+    const role: TurnRole = /client reply/i.test(meta.label ?? "") ? "client" : roleFor(meta.author);
+    turns.push({ ...meta, role, body });
   };
 
   if (boundaries.length === 0) return [{ role: "neutral", body: text.trim() }];
@@ -146,6 +168,12 @@ export function parseNoteThread(content: string): NoteTurn[] {
   }
 
   return turns;
+}
+
+// How many turns in this thread are portal-client replies (see reply.ts). Used by
+// the operator UI to show an "unread client reply" nudge against a seen count.
+export function countClientReplies(content: string): number {
+  return parseNoteThread(content).filter((turn) => turn.role === "client").length;
 }
 
 // The canonical header the UI inserts for a new human note and that agents should use.

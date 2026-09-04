@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listPlanningTasks } from "@/lib/data/planning";
+import { listPlanningTasks, clientReplyStatus } from "@/lib/data/planning";
 import { PlanningTaskRow } from "@/components/planning-task-row";
 import { NewPlanningItemForm } from "@/components/new-planning-item-form";
 import type { PlanningTaskStatus } from "@/lib/types";
@@ -32,6 +32,7 @@ export default async function PlanningPage(props: { searchParams: Promise<{ stat
   for (const t of tasks) {
     if (t.meta.parent) childCounts.set(t.meta.parent, (childCounts.get(t.meta.parent) ?? 0) + 1);
   }
+  const unseenReplies = new Map(tasks.map((t) => [t.meta.id, clientReplyStatus(t).unseen]));
 
   const groups = new Map<PlanningTaskStatus, typeof tasks>();
   for (const t of tasks) {
@@ -69,7 +70,12 @@ export default async function PlanningPage(props: { searchParams: Promise<{ stat
               </div>
               <div className="space-y-1.5">
                 {groups.get(status)!.map((t) => (
-                  <PlanningTaskRow key={t.meta.id} task={t.meta} childCount={childCounts.get(t.meta.id)} />
+                  <PlanningTaskRow
+                    key={t.meta.id}
+                    task={t.meta}
+                    childCount={childCounts.get(t.meta.id)}
+                    clientReplies={unseenReplies.get(t.meta.id)}
+                  />
                 ))}
               </div>
             </div>

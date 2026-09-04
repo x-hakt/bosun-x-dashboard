@@ -1,5 +1,8 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { listProjects } from "@/lib/data/projects";
+import { listPlanningTasks, clientReplyStatus } from "@/lib/data/planning";
+import { loadClientRegistry } from "@/lib/data/clients";
 import { StatTile } from "@/components/stat-tile";
 import { HealthStatTiles } from "@/components/health-stat-tiles";
 import { UnregisteredStatTile } from "@/components/unregistered-stat-tile";
@@ -17,6 +20,14 @@ export default async function OverviewPage() {
   // separately via their own <Suspense> boundaries below so a cold cache on either
   // (several seconds, worst case) never blocks the rest of this page from rendering.
   const projects = await listProjects();
+
+  // CGB-6: only meaningful once a client portal exists. Sum unreviewed portal
+  // replies across every shared idea thread.
+  const [planning, clientRegistry] = await Promise.all([listPlanningTasks(), loadClientRegistry()]);
+  const unseenClientReplies =
+    clientRegistry.portals.length === 0
+      ? null
+      : planning.reduce((total, task) => total + clientReplyStatus(task).unseen, 0);
 
   const byStage = STAGE_ORDER.map((stage) => ({
     stage,
@@ -43,6 +54,14 @@ export default async function OverviewPage() {
           value={byStage.map((s) => `${s.stage[0].toUpperCase()}${s.stage.slice(1)}: ${s.count}`).join(" · ")}
           compact
         />
+        {unseenClientReplies !== null &&
+          (unseenClientReplies > 0 ? (
+            <Link href="/planning" className="contents">
+              <StatTile label="Client replies" value={`${unseenClientReplies} new`} tone="warn" />
+            </Link>
+          ) : (
+            <StatTile label="Client replies" value="None" />
+          ))}
       </div>
     </div>
   );

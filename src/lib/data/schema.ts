@@ -177,6 +177,9 @@ export const PlanningTaskYmlSchema = z.object({
   // shared into a portal for a client to follow / (later) reply to.
   portals: z.array(z.string()).nullish(),
   shared_with: z.array(z.string()).nullish(),
+  // How many portal-client replies (CGB-6) the operator has marked reviewed on
+  // this thread. The UI nudges when the thread's client-reply count exceeds it.
+  client_replies_seen: z.number().int().nonnegative().nullish(),
 });
 
 // ── Client portal registry (CGB-2.1) ─────────────────────────────────────────

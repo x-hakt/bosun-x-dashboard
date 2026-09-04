@@ -12,7 +12,7 @@ import { revalidatePath } from "next/cache";
 import { getPlanningTask } from "@/lib/data/planning";
 import { planningDir } from "@/lib/data/paths";
 import { getClient } from "@/lib/data/clients";
-import { noteTurnHeader } from "@/lib/data/notes-thread";
+import { noteTurnHeader } from "@/lib/notes-thread";
 import { isoTimestamp } from "@/lib/time/stamp";
 import { passesGates } from "./gates";
 import { getPortalViewer } from "./auth";

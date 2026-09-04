@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { parseNoteThread, noteTurnHeader, type NoteTurn } from "@/lib/data/notes-thread";
+import { parseNoteThread, noteTurnHeader, type NoteTurn } from "@/lib/notes-thread";
 import { cn } from "@/lib/utils";
 
 const PROSE = cn(
@@ -28,7 +28,9 @@ function TurnCard({ turn }: { turn: NoteTurn }) {
       ? "border-sky-500/25 bg-sky-500/[0.04]"
       : turn.role === "user"
         ? "border-emerald-500/30 bg-emerald-500/[0.05]"
-        : "border-border/60 bg-muted/20";
+        : turn.role === "client"
+          ? "border-amber-500/40 bg-amber-500/[0.06]"
+          : "border-border/60 bg-muted/20";
 
   const hasHeader = Boolean(turn.author || turn.date || turn.label);
 
@@ -38,7 +40,14 @@ function TurnCard({ turn }: { turn: NoteTurn }) {
         <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
           {turn.author && <span className="font-medium text-foreground">{turn.author}</span>}
           {turn.label && (
-            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+            <span
+              className={cn(
+                "rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
+                turn.role === "client"
+                  ? "bg-amber-500/20 text-amber-300"
+                  : "bg-muted text-muted-foreground",
+              )}
+            >
               {turn.label}
             </span>
           )}

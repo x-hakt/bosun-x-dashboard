@@ -3,7 +3,15 @@ import { PlanningStatusBadge } from "@/components/planning-status-badge";
 import { PlanningDeleteButton } from "@/components/planning-delete-button";
 import type { PlanningTask } from "@/lib/types";
 
-export function PlanningTaskRow({ task, childCount }: { task: PlanningTask; childCount?: number }) {
+export function PlanningTaskRow({
+  task,
+  childCount,
+  clientReplies,
+}: {
+  task: PlanningTask;
+  childCount?: number;
+  clientReplies?: number;
+}) {
   return (
     <div className="group/row flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 hover:bg-accent/40 transition-colors">
       <Link href={`/planning/${task.id}`} className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -18,6 +26,14 @@ export function PlanningTaskRow({ task, childCount }: { task: PlanningTask; chil
           </span>
         )}
       </Link>
+      {Boolean(clientReplies) && (
+        <span
+          className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+          title="Unreviewed client replies"
+        >
+          {clientReplies} new
+        </span>
+      )}
       <PlanningStatusBadge status={task.status} className="shrink-0" />
       <PlanningDeleteButton
         id={task.id}

@@ -250,6 +250,8 @@ export interface PlanningTask {
   /** Client portal (CGB-2.1) — same two gates as ProjectMeta. */
   portals?: string[];
   shared_with?: string[];
+  /** CGB-6: count of portal-client replies the operator has marked reviewed on this thread. */
+  client_replies_seen?: number;
 }
 
 // ── Client portal (CGB-2.1) ──────────────────────────────────────────────────
