@@ -117,6 +117,26 @@ env (single address, wins) or `operators:` in `config.yml`. Full setup: `docs/au
   host paths, Traefik labels) is kept out of it. Never commit operator-specific data
   or deployment config here.
 
+## Client portal (CGB-2.1)
+
+A second deployment of this image in `BOSUN_MODE=portal` renders a per-client
+projection of the shared data store. Isolation rules:
+
+- Portal code (`src/lib/portal/**`, `src/app/(portal)/**`) reaches operator data
+  ONLY through `projection.ts` / `auth.ts` / `reply.ts` — the three audited
+  boundary files. An eslint `no-restricted-imports` fence enforces this; the
+  three are the only entries in its `ignores`.
+- `projection.ts` builds every returned shape field-by-field from a whitelist —
+  never spread a full `Project`/`PlanningTask`/`Note`, or host/path/repo/handoff
+  leaks.
+- Both gates (`portals[]`, `shared_with[]`) are checked via `gates.passesGates`
+  on every read. Default closed.
+- `reply.ts` is the only portal write path — re-checks the gate before appending.
+- After any change under `src/lib/portal` or `src/app/(portal)`, run
+  `scripts/test/portal-isolation.sh` **and** `scripts/test/portal-e2e.sh`
+  (needs a prior `npm run build`) — both must pass.
+- See `docs/portal.md`.
+
 ## Fleet scripts — the destructive-op rules (non-negotiable)
 
 `scripts/fleet-*.sh` run on the host and touch Docker, databases, and the backup
