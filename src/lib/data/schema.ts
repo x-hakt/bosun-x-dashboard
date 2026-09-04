@@ -192,6 +192,7 @@ export const PortalThemeSchema = z.object({
   logo_url: z.string().nullish(), // header wordmark image; falls back to brand_name text
   favicon_url: z.string().nullish(), // tab icon for the portal + its login page
   site_url: z.string().nullish(), // "back to <site>" link in the footer
+  contact_email: z.string().nullish(), // shown in the footer copy line
   accent: z.string().nullish(),
   accent_strong: z.string().nullish(),
   paper: z.string().nullish(), // page background base

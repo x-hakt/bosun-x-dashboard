@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import "../portal.css";
 import { PORTAL_MODE } from "@/lib/portal/mode";
@@ -57,15 +58,26 @@ export default async function PortalLayout({ children }: LayoutProps<"/c">) {
               <p className="pt-footer__brand">{brand}</p>
               {t.tagline && <p className="pt-footer__tagline">{t.tagline}</p>}
             </div>
-            {t.site_url && (
-              <div className="pt-footer__links">
+            <div className="pt-footer__links">
+              <Link className="pt-footer__link" href="/c">Projects</Link>
+              <Link className="pt-footer__link" href="/c/ideas">Ideas</Link>
+              <Link className="pt-footer__link" href="/c/notes">Notes</Link>
+              {t.site_url && (
                 <a className="pt-footer__link" href={t.site_url}>
                   {t.site_url.replace(/^https?:\/\//, "")} ↗
                 </a>
-              </div>
-            )}
+              )}
+            </div>
             <p className="pt-footer__copy">
-              © {year} {brand}
+              © {year} {brand}. All rights reserved.
+              {t.contact_email && (
+                <>
+                  {" · "}
+                  <a href={`mailto:${t.contact_email}`} style={{ color: "inherit" }}>
+                    {t.contact_email}
+                  </a>
+                </>
+              )}
             </p>
           </div>
         </footer>
