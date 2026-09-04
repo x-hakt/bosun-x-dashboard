@@ -18,6 +18,7 @@ import {
   Sparkles,
   GraduationCap,
   StickyNote,
+  MessageSquare,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ const NAV = [
     ],
   },
   { href: "/notes", label: "Notes", icon: StickyNote },
+  { href: "/messages", label: "Messages", icon: MessageSquare },
   { href: "/servers", label: "Servers", icon: Server, hostNav: true as const },
   { href: "/backups", label: "Backups", icon: DatabaseBackup },
   {
@@ -126,7 +128,15 @@ function ProjectNav({ projects, pathname, searchParams }: { projects: NavProject
   );
 }
 
-function SidebarInner({ projects, hosts }: { projects: NavProject[]; hosts: NavHost[] }) {
+function SidebarInner({
+  projects,
+  hosts,
+  unreadMessages,
+}: {
+  projects: NavProject[];
+  hosts: NavHost[];
+  unreadMessages: number;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const hostChildren = hosts.map((h) => ({
@@ -157,6 +167,11 @@ function SidebarInner({ projects, hosts }: { projects: NavProject[]; hosts: NavH
               >
                 <Icon className="size-4 shrink-0" strokeWidth={1.75} />
                 {item.label}
+                {item.href === "/messages" && unreadMessages > 0 && (
+                  <span className="ml-auto rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                    {unreadMessages}
+                  </span>
+                )}
               </Link>
 
               {item.projectNav && active && (
@@ -203,10 +218,18 @@ function SidebarInner({ projects, hosts }: { projects: NavProject[]; hosts: NavH
 // (Next.js build-time requirement) — the sidebar renders in the root layout, on every
 // page, so this wraps it right at the export rather than requiring every consumer to
 // remember to.
-export function Sidebar({ projects, hosts }: { projects: NavProject[]; hosts: NavHost[] }) {
+export function Sidebar({
+  projects,
+  hosts,
+  unreadMessages = 0,
+}: {
+  projects: NavProject[];
+  hosts: NavHost[];
+  unreadMessages?: number;
+}) {
   return (
     <Suspense fallback={<aside className="w-56 shrink-0 h-full border-r border-border/60 bg-sidebar" />}>
-      <SidebarInner projects={projects} hosts={hosts} />
+      <SidebarInner projects={projects} hosts={hosts} unreadMessages={unreadMessages} />
     </Suspense>
   );
 }

@@ -24,6 +24,8 @@ import type { ProjectStage, PlanningTaskStatus } from "@/lib/types";
 import type { TaskStatus } from "@/lib/data/tasks-schema";
 import { passesGates, canSeeSharedTask, type PortalViewer } from "./gates";
 import { readPortalSeenAt } from "@/lib/portal-seen-store";
+import { readClientThread } from "@/lib/data/portal-messages";
+import { parseNoteThread } from "@/lib/notes-thread";
 
 export type { PortalViewer };
 
@@ -162,6 +164,20 @@ export async function listPortalNotes(portalSlug: string, viewer: PortalViewer):
     .sort((a, b) => (b.updated ?? "").localeCompare(a.updated ?? ""));
 }
 
+// ── Direct client<->operator messages (CGB-10) ───────────────────────────────
+
+export interface PortalMessageThread {
+  thread?: string;
+}
+
+// A client's own message thread — only ever their own; there's no gate to check
+// beyond "signed in as this client" since every invited client has exactly one.
+export async function getPortalMessages(viewer: PortalViewer): Promise<PortalMessageThread> {
+  if (viewer.kind !== "client") return {};
+  const { notes } = await readClientThread(viewer.slug);
+  return { thread: notes || undefined };
+}
+
 // ── "Since your last visit" digest (CGB-9) ───────────────────────────────────
 
 export interface PortalDigest {
@@ -172,13 +188,15 @@ export interface PortalDigest {
   projects: { slug: string; name: string; updated?: string }[];
   ideas: { id: string; title: string; updated?: string }[];
   notes: { title: string; updated?: string }[];
+  /** A new operator message landed on the client's message thread (CGB-10). */
+  newMessage: boolean;
 }
 
 // What changed among a client's shared items since they last opened the portal.
 // Uses each item's `updated` stamp (idea threads bump it on every reply, projects
 // on any edit). Operators get an empty digest — the nudge is a client feature.
 export async function getPortalDigest(portalSlug: string, viewer: PortalViewer): Promise<PortalDigest> {
-  const empty = { firstVisit: false, projects: [], ideas: [], notes: [] };
+  const empty = { firstVisit: false, projects: [], ideas: [], notes: [], newMessage: false };
   if (viewer.kind !== "client") return empty;
 
   const since = await readPortalSeenAt(viewer.slug);
@@ -191,11 +209,18 @@ export async function getPortalDigest(portalSlug: string, viewer: PortalViewer):
     return Number.isFinite(ms) && ms > sinceMs;
   };
 
-  const [projects, ideas, notes] = await Promise.all([
+  const [projects, ideas, notes, messages] = await Promise.all([
     listPortalProjects(portalSlug, viewer),
     listPortalIdeas(portalSlug, viewer),
     listPortalNotes(portalSlug, viewer),
+    readClientThread(viewer.slug),
   ]);
+
+  // "New message" = the thread changed since the client's last visit AND the
+  // most recent turn isn't one of their own (they don't need to be told about
+  // their own message).
+  const lastTurn = parseNoteThread(messages.notes).at(-1);
+  const newMessage = isNewer(messages.updatedAt) && Boolean(lastTurn) && lastTurn!.role !== "client";
 
   return {
     since,
@@ -203,5 +228,6 @@ export async function getPortalDigest(portalSlug: string, viewer: PortalViewer):
     projects: projects.filter((p) => isNewer(p.updated)).map((p) => ({ slug: p.slug, name: p.name, updated: p.updated })),
     ideas: ideas.filter((i) => isNewer(i.updated)).map((i) => ({ id: i.id, title: i.title, updated: i.updated })),
     notes: notes.filter((n) => isNewer(n.updated)).map((n) => ({ title: n.title, updated: n.updated })),
+    newMessage,
   };
 }

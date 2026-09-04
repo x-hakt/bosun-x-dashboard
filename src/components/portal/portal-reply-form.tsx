@@ -5,15 +5,19 @@ import { useRouter } from "next/navigation";
 import {
   postPortalIdeaReply,
   postPortalTaskReply,
+  postPortalMessage,
   acknowledgePortalIdea,
   acknowledgePortalTask,
 } from "@/lib/portal/reply";
 
-// Where a reply / sign-off lands: a planning idea thread, or one project task's
-// thread. The portal page picks the target; this component just posts to it.
+// Where a reply / sign-off lands: a planning idea thread, one project task's
+// thread, or the client's general message thread (CGB-10, no sign-off there —
+// "approve" doesn't mean anything for a freeform chat). The portal page picks
+// the target; this component just posts to it.
 export type ReplyTarget =
   | { kind: "idea"; ideaId: string }
-  | { kind: "task"; project: string; taskId: string };
+  | { kind: "task"; project: string; taskId: string }
+  | { kind: "message" };
 
 export function PortalReplyForm({ target }: { target: ReplyTarget }) {
   const router = useRouter();
@@ -34,20 +38,18 @@ export function PortalReplyForm({ target }: { target: ReplyTarget }) {
     });
 
   const postReply = () =>
-    run(
-      () =>
-        target.kind === "idea"
-          ? postPortalIdeaReply(target.ideaId, text)
-          : postPortalTaskReply(target.project, target.taskId, text),
-      true,
-    );
+    run(() => {
+      if (target.kind === "idea") return postPortalIdeaReply(target.ideaId, text);
+      if (target.kind === "task") return postPortalTaskReply(target.project, target.taskId, text);
+      return postPortalMessage(text);
+    }, true);
 
   const signOff = () =>
-    run(() =>
-      target.kind === "idea"
-        ? acknowledgePortalIdea(target.ideaId)
-        : acknowledgePortalTask(target.project, target.taskId),
-    );
+    run(() => {
+      if (target.kind === "idea") return acknowledgePortalIdea(target.ideaId);
+      if (target.kind === "task") return acknowledgePortalTask(target.project, target.taskId);
+      return Promise.resolve();
+    });
 
   return (
     <form
@@ -61,7 +63,7 @@ export function PortalReplyForm({ target }: { target: ReplyTarget }) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={target.kind === "task" ? 3 : 4}
-        placeholder="Add a reply…"
+        placeholder={target.kind === "message" ? "Send a message…" : "Add a reply…"}
         className="pt-textarea"
       />
       {err && (
@@ -76,18 +78,20 @@ export function PortalReplyForm({ target }: { target: ReplyTarget }) {
           className="pt-cta"
           style={pending || !text.trim() ? { opacity: 0.5 } : undefined}
         >
-          {pending ? "Posting…" : "Post reply"}
+          {pending ? "Posting…" : target.kind === "message" ? "Send" : "Post reply"}
         </button>
-        <button
-          type="button"
-          onClick={signOff}
-          disabled={pending}
-          className="pt-ghost-btn"
-          style={pending ? { opacity: 0.5 } : undefined}
-          title="Post a sign-off on this — the operator sees it flagged"
-        >
-          Approve / sign off
-        </button>
+        {target.kind !== "message" && (
+          <button
+            type="button"
+            onClick={signOff}
+            disabled={pending}
+            className="pt-ghost-btn"
+            style={pending ? { opacity: 0.5 } : undefined}
+            title="Post a sign-off on this — the operator sees it flagged"
+          >
+            Approve / sign off
+          </button>
+        )}
       </div>
     </form>
   );

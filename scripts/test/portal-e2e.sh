@@ -46,6 +46,10 @@ mkproj private   "" ""
 echo "updated: '2026-06-01T00:00:00.000Z'" >> "$FX/projects/shared/project.yml"
 mkdir -p "$FX/.portal-state"
 echo '{"seen_at":"2020-01-01T00:00:00.000Z"}' > "$FX/.portal-state/bob.json"
+# CGB-10: bob's message thread already has an operator turn, written (mtime) after
+# the seeded seen_at above -> the digest should flag a new message.
+mkdir -p "$FX/portal-messages/bob"
+printf -- '--- You · 2026-01-01 ---\n\nWelcome aboard, let me know if you need anything.\n' > "$FX/portal-messages/bob/NOTES.md"
 # CGB-8: on the shared project, one task whose thread is shared with bob and one
 # that isn't. bob sees the first task's detail + a reply box; not the second's.
 cat > "$FX/projects/shared/tasks.yml" <<YAML
@@ -88,6 +92,10 @@ echo "== client (bob) =="
 [ "$(get "$CLIENT" /c)" = 200 ] && ok "GET /c -> 200" || bad "GET /c"
 grep -q '>shared<\|shared' /tmp/portal-body && ok "sees shared project" || bad "sees shared project"
 grep -q 'Since your last visit' /tmp/portal-body && ok "CGB-9: digest shown to a returning client" || bad "digest missing"
+grep -q 'You have a new message' /tmp/portal-body && ok "CGB-10: digest flags the new operator message" || bad "digest missing new-message line"
+[ "$(get "$CLIENT" /c/messages)" = 200 ] && ok "CGB-10: GET /c/messages -> 200" || bad "GET /c/messages"
+grep -q 'Welcome aboard' /tmp/portal-body && ok "CGB-10: client sees the operator's message" || bad "message thread not shown"
+grep -q 'Send a message' /tmp/portal-body && ok "CGB-10: message reply form present" || bad "reply form missing"
 grep -q 'gate1only' /tmp/portal-body && bad "leaked gate1only into the list" || ok "gate1only not listed"
 grep -q '>private<' /tmp/portal-body && bad "leaked private into the list" || ok "private not listed"
 [ "$(get "$CLIENT" /c/projects/shared)" = 200 ] && ok "shared detail -> 200" || bad "shared detail"

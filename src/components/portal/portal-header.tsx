@@ -8,6 +8,7 @@ const NAV = [
   { href: "/c", label: "Projects" },
   { href: "/c/ideas", label: "Ideas" },
   { href: "/c/notes", label: "Notes" },
+  { href: "/c/messages", label: "Messages" },
 ];
 
 // One row, laid out exactly like cgburchell.com's .site-header__inner — wordmark

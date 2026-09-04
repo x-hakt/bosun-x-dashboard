@@ -17,7 +17,7 @@ export default async function PortalHome() {
     getPortalDigest(PORTAL_SLUG, viewer),
   ]);
 
-  const digestCount = digest.projects.length + digest.ideas.length + digest.notes.length;
+  const digestCount = digest.projects.length + digest.ideas.length + digest.notes.length + (digest.newMessage ? 1 : 0);
 
   return (
     <div className="space-y-5">
@@ -36,6 +36,14 @@ export default async function PortalHome() {
             )}
           </div>
           <ul className="space-y-1.5 text-sm">
+            {digest.newMessage && (
+              <li>
+                <Link href="/c/messages" className="hover:underline">
+                  <span style={{ color: "var(--portal-ink-faint)" }}>Message · </span>
+                  You have a new message
+                </Link>
+              </li>
+            )}
             {digest.projects.map((p) => (
               <li key={`p-${p.slug}`}>
                 <Link href={`/c/projects/${p.slug}`} className="hover:underline">
