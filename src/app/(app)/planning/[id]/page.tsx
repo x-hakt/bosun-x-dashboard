@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getPlanningTask, listPlanningTasks } from "@/lib/data/planning";
+import { loadClientRegistry } from "@/lib/data/clients";
+import { SharingControl } from "@/components/portal/sharing-control";
 import { PlanningStatusEditor } from "@/components/planning-status-editor";
 import { PlanningNotesEditor } from "@/components/planning-notes-editor";
 import { GraduatedLinkEditor } from "@/components/graduated-link-editor";
@@ -19,6 +21,7 @@ export default async function PlanningDetailPage(props: { params: Promise<{ id: 
   const all = await listPlanningTasks();
   const children = all.filter((t) => t.meta.parent === id);
   const parent = task.meta.parent ? await getPlanningTask(task.meta.parent) : null;
+  const clientRegistry = await loadClientRegistry();
 
   const grandchildCounts = new Map<string, number>();
   for (const t of all) {
@@ -61,6 +64,23 @@ export default async function PlanningDetailPage(props: { params: Promise<{ id: 
           </CardHeader>
           <CardContent>
             <GraduatedLinkEditor id={task.meta.id} projectSlug={task.meta.graduated_project} />
+          </CardContent>
+        </Card>
+      )}
+
+      {clientRegistry.portals.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Client portal</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SharingControl
+              kind="planning"
+              id={task.meta.id}
+              portals={clientRegistry.portals.map((p) => ({ slug: p.slug, name: p.name }))}
+              clients={clientRegistry.clients.map((c) => ({ slug: c.slug, name: c.name, portal: c.portal }))}
+              current={{ portals: task.meta.portals ?? [], shared_with: task.meta.shared_with ?? [] }}
+            />
           </CardContent>
         </Card>
       )}

@@ -18,6 +18,8 @@ import { ProjectContainers } from "@/components/project-containers";
 import { ProjectBackups } from "@/components/project-backups";
 import { getBackupStatus } from "@/lib/data/backup-status";
 import { loadBackups, loadDestinations } from "@/lib/data/backups";
+import { loadClientRegistry } from "@/lib/data/clients";
+import { SharingControl } from "@/components/portal/sharing-control";
 import { readBackupLog, readRestoreLog, readLiveRestoreReceipt } from "@/lib/data/backup-log";
 import { liveRestorePending } from "@/lib/data/backup-request";
 import { backupRequestPending, restoreTestPending } from "@/lib/data/backup-request";
@@ -44,7 +46,7 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
   const checksAvailable = checkTarget.mode !== "none";
 
   const standards = await loadStandards();
-  const [scored, tasks, { containers: liveContainers, liveMonitored: containersLiveMonitored }, backupStatus, backupPending, restorePending, backupConfig, destinations] = await Promise.all([
+  const [scored, tasks, { containers: liveContainers, liveMonitored: containersLiveMonitored }, backupStatus, backupPending, restorePending, backupConfig, destinations, clientRegistry] = await Promise.all([
     evaluateStandardsForProject(project, standards),
     loadTasks(slug),
     getContainersForProject(meta.host),
@@ -53,6 +55,7 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
     restoreTestPending(slug),
     loadBackups(slug),
     loadDestinations(),
+    loadClientRegistry(),
   ]);
 
   // Per-store run history for the Backups panel (backup + restore-test *.jsonl).
@@ -149,6 +152,23 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
 
         <div className="space-y-4">
           <HandoffStatus state={project.handoffState} />
+
+          {clientRegistry.portals.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Client portal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SharingControl
+                  kind="project"
+                  id={slug}
+                  portals={clientRegistry.portals.map((p) => ({ slug: p.slug, name: p.name }))}
+                  clients={clientRegistry.clients.map((c) => ({ slug: c.slug, name: c.name, portal: c.portal }))}
+                  current={{ portals: meta.portals ?? [], shared_with: meta.shared_with ?? [] }}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {standards.length > 0 && (
             <Card>
