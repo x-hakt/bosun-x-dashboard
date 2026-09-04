@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 import { getPlanningTask } from "@/lib/data/planning";
 import { getProject } from "@/lib/data/projects";
 import { loadTasksFile, saveTasks } from "@/lib/data/tasks";
+import { appendClientThreadTurn } from "@/lib/data/portal-messages";
 import { planningDir } from "@/lib/data/paths";
 import { getClient } from "@/lib/data/clients";
 import { noteTurnHeader } from "@/lib/notes-thread";
@@ -124,6 +125,18 @@ export async function postPortalTaskReply(projectSlug: string, taskId: string, t
 export async function acknowledgePortalTask(projectSlug: string, taskId: string): Promise<void> {
   const { slug } = await requireClient();
   await appendToTask(projectSlug, taskId, slug, SIGNOFF_LABEL, SIGNOFF_BODY);
+}
+
+// ── Direct client<->operator messages (CGB-10) ───────────────────────────────
+// A general, always-on thread per client — not tied to any project/idea/task.
+// No gate to check beyond "is a signed-in client" — every invited client has one.
+
+export async function postPortalMessage(text: string): Promise<void> {
+  const { slug } = await requireClient();
+  const card = await turnCard(slug, "client message", cleanBody(text));
+  await appendClientThreadTurn(slug, card);
+  revalidatePath("/c/messages");
+  revalidatePath("/messages");
 }
 
 // ── "Since your last visit" digest (CGB-9) ───────────────────────────────────

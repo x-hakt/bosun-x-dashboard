@@ -68,10 +68,20 @@ When they do, the operator dashboard flags it: an amber card in the thread, a
 `client_replies_seen` count on the idea's `task.yml` / the task in `tasks.yml`;
 the nudge returns when the next reply lands.
 
+### Direct messages
+
+Separate from any project/idea/task thread, every client also gets one
+always-on conversation with you: **Messages** in the portal nav, and a
+**Messages** page + sidebar entry (with an unread badge) on your side. Stored
+as `<DATA_DIR>/portal-messages/<client-slug>/{NOTES.md,meta.yml}` — real
+content, tracked in git like everything else. No sign-off button there; it's
+just a chat.
+
 ### "Since your last visit"
 
 The portal home shows each returning client a digest of the shared projects,
-ideas and notes whose `updated` stamp moved since their previous visit. Visit
+ideas and notes whose `updated` stamp moved since their previous visit, plus a
+line if a new message (see above) arrived from you. Visit
 timestamps are one small JSON file per client under
 `<DATA_DIR>/.portal-state/` (gitignored; written by the portal, never operator
 content). First visit shows nothing; there's no email — it's an in-portal nudge.

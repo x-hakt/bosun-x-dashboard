@@ -78,6 +78,7 @@ node --input-type=module -e "
 import { parseNoteThread, countClientReplies, noteTurnHeader } from '$tmp2/notes-thread.js';
 const clientDoc = 'brief\n\n' + noteTurnHeader('Bob Client', '2026-01-02', 'client reply') + '\n\nhello';
 const signoffDoc = 'brief\n\n' + noteTurnHeader('Bob Client', '2026-01-02', 'client sign-off') + '\n\nok';
+const messageDoc = 'brief\n\n' + noteTurnHeader('Bob Client', '2026-01-02', 'client message') + '\n\nhey there';
 const agentDoc = 'brief\n\n' + noteTurnHeader('Claude', '2026-01-02', 'shipped') + '\n\ndone';
 let bad = 0;
 const clientTurn = parseNoteThread(clientDoc).find(t => t.role === 'client');
@@ -85,7 +86,9 @@ if (clientTurn && clientTurn.author === 'Bob Client') console.log('  ok   client
 else { console.log('  FAIL client reply not detected: ' + JSON.stringify(clientTurn)); bad = 1; }
 if (parseNoteThread(signoffDoc).some(t => t.role === 'client')) console.log('  ok   client sign-off -> role:client');
 else { console.log('  FAIL client sign-off not detected'); bad = 1; }
-if (countClientReplies(clientDoc) === 1 && countClientReplies(signoffDoc) === 1) console.log('  ok   countClientReplies counts reply + sign-off');
+if (parseNoteThread(messageDoc).some(t => t.role === 'client')) console.log('  ok   client message -> role:client (CGB-10)');
+else { console.log('  FAIL client message not detected'); bad = 1; }
+if (countClientReplies(clientDoc) === 1 && countClientReplies(signoffDoc) === 1 && countClientReplies(messageDoc) === 1) console.log('  ok   countClientReplies counts reply + sign-off + message');
 else { console.log('  FAIL countClientReplies'); bad = 1; }
 if (countClientReplies(agentDoc) === 0) console.log('  ok   an agent turn is not counted');
 else { console.log('  FAIL agent turn counted as a client reply'); bad = 1; }

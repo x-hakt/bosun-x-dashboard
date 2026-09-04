@@ -22,4 +22,8 @@ export const clientsFile = () => path.join(DATA_DIR, "clients.yml");
 // CGB-9 digest). Written by the portal deployment, not operator content — the
 // data repo gitignores it.
 export const portalStateDir = () => path.join(DATA_DIR, ".portal-state");
+// CGB-10: one always-on client<->operator message thread per client, kept
+// alongside portal-messages/<slug>/meta.yml. Real content — tracked in git,
+// unlike .portal-state above.
+export const portalMessagesDir = () => path.join(DATA_DIR, "portal-messages");
 // receiptsDir() moved to lib/data/config.ts (it reads config.yml).
