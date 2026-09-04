@@ -64,6 +64,27 @@ process.exit(bad);
 [ "$fail" = 0 ] && ok "share gates behave"
 rm -rf "$tmp"
 
+echo "== 4. client-reply detection (CGB-6) =="
+# reply.ts stamps a "client reply" labelled turn; the operator UI keys its nudge
+# off parseNoteThread marking that turn role:"client". Lock the contract.
+tmp2=$(mktemp -d)
+npx tsc src/lib/notes-thread.ts --outDir "$tmp2" --module nodenext --moduleResolution nodenext --target es2022 >/dev/null 2>&1
+node --input-type=module -e "
+import { parseNoteThread, countClientReplies, noteTurnHeader } from '$tmp2/notes-thread.js';
+const clientDoc = 'brief\n\n' + noteTurnHeader('Bob Client', '2026-01-02', 'client reply') + '\n\nhello';
+const agentDoc = 'brief\n\n' + noteTurnHeader('Claude', '2026-01-02', 'shipped') + '\n\ndone';
+let bad = 0;
+const clientTurn = parseNoteThread(clientDoc).find(t => t.role === 'client');
+if (clientTurn && clientTurn.author === 'Bob Client') console.log('  ok   client reply -> role:client, author kept');
+else { console.log('  FAIL client reply not detected: ' + JSON.stringify(clientTurn)); bad = 1; }
+if (countClientReplies(clientDoc) === 1) console.log('  ok   countClientReplies = 1');
+else { console.log('  FAIL countClientReplies != 1'); bad = 1; }
+if (countClientReplies(agentDoc) === 0) console.log('  ok   an agent turn is not counted');
+else { console.log('  FAIL agent turn counted as a client reply'); bad = 1; }
+process.exit(bad);
+" || bad "client-reply detection"
+rm -rf "$tmp2"
+
 echo
 [ "$fail" = 0 ] && echo "PORTAL ISOLATION OK" || echo "PORTAL ISOLATION FAILED"
 exit "$fail"
