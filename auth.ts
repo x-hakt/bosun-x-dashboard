@@ -38,7 +38,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ user }) {
       if (!isAuthEnabled) return true;
-      return isAllowedEmail(user.email);
+      if (await isAllowedEmail(user.email)) return true;
+      // In portal mode, an invited client for this portal may also sign in.
+      if (process.env.BOSUN_MODE === "portal" && user.email) {
+        const { clientForEmail } = await import("@/lib/data/clients");
+        return Boolean(await clientForEmail((process.env.BOSUN_PORTAL ?? "").trim(), user.email));
+      }
+      return false;
     },
   },
   pages: { signIn: "/login" },

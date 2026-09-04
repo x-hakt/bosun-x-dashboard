@@ -22,8 +22,9 @@ import { projectsDir } from "@/lib/data/paths";
 import { taskKey, taskPrefix } from "@/lib/data/task-key";
 import type { ProjectStage, PlanningTaskStatus } from "@/lib/types";
 import type { TaskStatus } from "@/lib/data/tasks-schema";
+import { passesGates, type PortalViewer } from "./gates";
 
-export type PortalViewer = { kind: "operator" } | { kind: "client"; slug: string };
+export type { PortalViewer };
 
 export interface PortalProjectSummary {
   slug: string;
@@ -60,19 +61,6 @@ export interface PortalNoteView {
   title: string;
   body?: string;
   updated?: string;
-}
-
-// The single gate check. `portals`/`sharedWith` are the raw fields off a record.
-function passesGates(
-  portals: string[] | undefined,
-  sharedWith: string[] | undefined,
-  viewer: PortalViewer,
-  portalSlug: string,
-): boolean {
-  if (!portalSlug) return false;
-  if (!portals?.includes(portalSlug)) return false; // Gate 1
-  if (viewer.kind === "operator") return true;
-  return Boolean(sharedWith?.includes(viewer.slug)); // Gate 2
 }
 
 // ── Projects ─────────────────────────────────────────────────────────────────

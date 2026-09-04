@@ -18,5 +18,8 @@ entirely by plain Markdown/YAML so an AI agent can read and write it directly.
 ## Not in scope
 
 - Editing containers or deploying from the dashboard — it observes, it doesn't act
-- Multi-tenant / multi-user — one operator per instance
+- Multi-tenant operation of the dashboard itself — one operator per instance. (The
+  client portal is a separate deployment of the same image in `BOSUN_MODE=portal`
+  that renders a strict per-client projection of the shared data store — see
+  `src/lib/portal/`; the operator dashboard stays single-tenant.)
 - Storing anything in a database
