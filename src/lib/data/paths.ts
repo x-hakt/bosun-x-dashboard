@@ -18,4 +18,8 @@ export const destinationsFile = () => path.join(DATA_DIR, "infra", "destinations
 export const backupsFile = (slug: string) => path.join(projectsDir(), slug, "backups.yml");
 export const configFile = () => path.join(DATA_DIR, "config.yml");
 export const clientsFile = () => path.join(DATA_DIR, "clients.yml");
+// Portal-generated runtime state (per-client "last seen" timestamps for the
+// CGB-9 digest). Written by the portal deployment, not operator content — the
+// data repo gitignores it.
+export const portalStateDir = () => path.join(DATA_DIR, ".portal-state");
 // receiptsDir() moved to lib/data/config.ts (it reads config.yml).

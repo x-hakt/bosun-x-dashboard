@@ -41,6 +41,11 @@ mkproj() { # slug portalsline sharedline
 mkproj shared    "portals: [acme]" "shared_with: [bob]"
 mkproj gate1only "portals: [acme]" ""
 mkproj private   "" ""
+# CGB-9: shared project has a recent `updated`; bob's last visit was long ago, so
+# it lands in the "since your last visit" digest.
+echo "updated: '2026-06-01T00:00:00.000Z'" >> "$FX/projects/shared/project.yml"
+mkdir -p "$FX/.portal-state"
+echo '{"seen_at":"2020-01-01T00:00:00.000Z"}' > "$FX/.portal-state/bob.json"
 # CGB-8: on the shared project, one task whose thread is shared with bob and one
 # that isn't. bob sees the first task's detail + a reply box; not the second's.
 cat > "$FX/projects/shared/tasks.yml" <<YAML
@@ -82,6 +87,7 @@ get() { curl -s -o /tmp/portal-body -w '%{http_code}' -H "Cookie: $1" "http://lo
 echo "== client (bob) =="
 [ "$(get "$CLIENT" /c)" = 200 ] && ok "GET /c -> 200" || bad "GET /c"
 grep -q '>shared<\|shared' /tmp/portal-body && ok "sees shared project" || bad "sees shared project"
+grep -q 'Since your last visit' /tmp/portal-body && ok "CGB-9: digest shown to a returning client" || bad "digest missing"
 grep -q 'gate1only' /tmp/portal-body && bad "leaked gate1only into the list" || ok "gate1only not listed"
 grep -q '>private<' /tmp/portal-body && bad "leaked private into the list" || ok "private not listed"
 [ "$(get "$CLIENT" /c/projects/shared)" = 200 ] && ok "shared detail -> 200" || bad "shared detail"
@@ -96,6 +102,7 @@ grep -q 'Approve / sign off' /tmp/portal-body && ok "CGB-8: reply/sign-off box o
 
 echo "== operator (boss) =="
 [ "$(get "$OPERATOR" /c)" = 200 ] && ok "operator GET /c -> 200" || bad "operator /c"
+grep -q 'Since your last visit' /tmp/portal-body && bad "CGB-9: operator got a client digest" || ok "no digest for the operator viewer"
 grep -q 'gate1only' /tmp/portal-body && ok "operator sees gate1only (Gate 2 auto-cleared)" || bad "operator missing gate1only"
 grep -q '>private<' /tmp/portal-body && bad "operator sees non-portal project" || ok "operator does not see private (no Gate 1)"
 
