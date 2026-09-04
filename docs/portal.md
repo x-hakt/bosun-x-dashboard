@@ -56,6 +56,14 @@ carries `shared_with: [bob]` (in `tasks.yml`).
 Client-facing prose: an optional `projects/<slug>/PORTAL.md` renders at the top
 of the portal project page.
 
+### Seeing client replies
+
+When a client replies into a shared idea thread, the operator dashboard flags
+it: an amber card in the thread, a "N new" badge on the Planning list, a "Mark
+reviewed" notice on the idea page, and a **Client replies** tile on the
+overview. "Mark reviewed" pins a `client_replies_seen` count on the task's
+`task.yml`; the nudge returns when the next reply lands.
+
 ### 3. Deploy
 
 Copy `deploy/docker-compose.portal.example.yml`, set `BOSUN_PORTAL`, `AUTH_URL`
