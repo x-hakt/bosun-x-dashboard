@@ -155,7 +155,7 @@ const sshConfigPath = () => loadConfig().sshConfig;
 
 // Polls a remote host over SSH using a DEDICATED, least-privilege discovery key — not
 // your own admin ~/.ssh. Each target host's authorized_keys forces this key to run
-// ONLY /usr/local/bin/control-room-ro.sh (no shell, no pty, no port-forwarding except
+// ONLY /usr/local/bin/bosun-x-ro.sh (no shell, no pty, no port-forwarding except
 // the one narrow exception needed for a jump hop, scoped via permitopen
 // to that single destination) — the client's requested command below is irrelevant,
 // sshd always runs the forced command instead; kept descriptive for anyone reading logs.
@@ -177,7 +177,7 @@ async function fetchRemoteSnapshot(sshAlias: string, timeoutMs: number): Promise
       "-o", "BatchMode=yes",
       "-o", `ConnectTimeout=${Math.ceil(timeoutMs / 1000)}`,
       sshAlias,
-      "control-room-ro",
+      "bosun-x-ro",
     ],
     { timeout: timeoutMs + 4000, maxBuffer: 8 * 1024 * 1024 },
   );
