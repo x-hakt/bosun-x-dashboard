@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PORTAL_MODE } from "@/lib/portal/mode";
 import { currentPortal } from "@/lib/portal/auth";
-import { googleFontsHref } from "@/lib/portal/theme";
+import { googleFontsHref, portalIcons } from "@/lib/portal/theme";
 
 // configuredProviders() reads process.env, which is only correct at request time —
 // a statically prerendered login page bakes in whatever it was at build.
@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const t = (await currentPortal())?.theme ?? {};
   return {
     title: t.brand_name ? `Sign in · ${t.brand_name}` : "Sign in",
-    icons: t.favicon_url ? { icon: t.favicon_url } : undefined,
+    icons: portalIcons(t.favicon_url),
   };
 }
 

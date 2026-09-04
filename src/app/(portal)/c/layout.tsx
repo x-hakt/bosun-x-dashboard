@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PORTAL_MODE } from "@/lib/portal/mode";
 import { getPortalViewer, currentPortal } from "@/lib/portal/auth";
 import { PortalSignOut } from "@/components/portal/portal-sign-out";
-import { googleFontsHref } from "@/lib/portal/theme";
+import { googleFontsHref, portalIcons } from "@/lib/portal/theme";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t.brand_name || portal?.name || "Client portal",
     description: t.brand_name ? `${t.brand_name} — client portal` : "Client portal",
-    icons: t.favicon_url ? { icon: t.favicon_url } : undefined,
+    icons: portalIcons(t.favicon_url),
   };
 }
 

@@ -11,6 +11,18 @@ export function primaryFamily(cssFontFamily?: string): string | null {
   return first;
 }
 
+// A Metadata.icons value for the portal favicon — with an explicit svg type so
+// browsers prefer it over the app's default app/favicon.ico.
+export function portalIcons(faviconUrl?: string): { icon: { url: string; type?: string }[] } | undefined {
+  if (!faviconUrl) return undefined;
+  const type = /\.svg(\?|$)/i.test(faviconUrl)
+    ? "image/svg+xml"
+    : /\.png(\?|$)/i.test(faviconUrl)
+      ? "image/png"
+      : undefined;
+  return { icon: [{ url: faviconUrl, ...(type ? { type } : {}) }] };
+}
+
 // Build a fonts.googleapis.com css2 URL for whichever of the two theme families
 // look like real named fonts. A family Google doesn't have just fails the
 // stylesheet load quietly and the CSS fallback stack takes over.
