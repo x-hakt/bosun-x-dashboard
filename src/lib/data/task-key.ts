@@ -1,7 +1,7 @@
-// Short, speakable identifier for a task: "<PREFIX>-<num>", e.g. CR-7.
+// Short, speakable identifier for a task: "<PREFIX>-<num>", e.g. BXD-7.
 // The prefix comes from the project's explicit `key` in project.yml when set, otherwise
 // it is derived from the slug: initials of each hyphen segment for multi-word slugs
-// (control-room -> CR, sportsball-coach -> SC), or the first three letters for a
+// (bosun-x-dashboard -> BXD, sportsball-coach -> SC), or the first three letters for a
 // single-word slug (jellyfin -> JEL). Prefixes are not required to be globally unique —
 // the number is per-project — but an explicit `key` lets you disambiguate if you want.
 

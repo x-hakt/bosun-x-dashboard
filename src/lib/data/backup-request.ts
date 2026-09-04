@@ -9,7 +9,7 @@ import { DATA_DIR } from "./paths";
 
 const REQUEST_DIR = path.join(DATA_DIR, ".backup-requests");
 
-export async function requestBackup(slug: string, by = "control-room"): Promise<void> {
+export async function requestBackup(slug: string, by = "bosun-x"): Promise<void> {
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug)) throw new Error("bad slug");
   await fs.mkdir(REQUEST_DIR, { recursive: true });
   await fs.writeFile(
@@ -30,7 +30,7 @@ export async function backupRequestPending(slug: string): Promise<boolean> {
 
 // "run a restore test now" — same handshake, a `.restore-request` file the
 // fleet-backup agent's `--requests` pass hands to fleet-restore-test.sh.
-export async function requestRestoreTest(slug: string, by = "control-room"): Promise<void> {
+export async function requestRestoreTest(slug: string, by = "bosun-x"): Promise<void> {
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug)) throw new Error("bad slug");
   await fs.mkdir(REQUEST_DIR, { recursive: true });
   await fs.writeFile(
@@ -56,7 +56,7 @@ export async function requestLiveRestore(
   slug: string,
   store: string,
   archive: string,
-  by = "control-room",
+  by = "bosun-x",
 ): Promise<void> {
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug)) throw new Error("bad slug");
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(store)) throw new Error("bad store");

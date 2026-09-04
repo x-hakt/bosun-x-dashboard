@@ -14,7 +14,8 @@ A self-hosted dashboard: tracked projects (specs/status/ideas), live infra state
 local host + discovery across a few more, a standards registry, and freeform notes. Full
 design context is in `data.example/projects/dashboard/SPEC.md` and `STATUS.md` — read those
 before making structural changes. The public app repo is `x-hakt/bosun-x-dashboard`; the
-operator's own data + deployment live in the private `control-room-data` repo.
+operator's own data + deployment live in a separate private repo (this deploy uses a
+sibling `bosun-x-data`).
 
 ## Data model
 
@@ -38,7 +39,9 @@ operator's own data + deployment live in the private `control-room-data` repo.
 
 The handoff CLI and the MCP server are the [`bosun-x`](https://github.com/x-hakt/bosun-x)
 package (extracted in CR-5). `scripts/handoff.mjs` and `mcp/server.mjs` are thin wrappers
-that just point it at `../control-room-data`; `npm run handoff` / `npm run mcp` are unchanged.
+that resolve the data dir (`$BOSUN_DATA`, else a `.bosun-data-path` file, else a sibling
+`bosun-x-data`/`control-room-data`, else `./data` — see `scripts/lib/data-dir.mjs`) and
+hand off to the package; `npm run handoff` / `npm run mcp` are unchanged.
 The Next app keeps its own board renderer in `src/lib/data/status-board.ts` — it must stay
 byte-for-byte in step with `bosun-x`'s `lib/board.mjs`.
 

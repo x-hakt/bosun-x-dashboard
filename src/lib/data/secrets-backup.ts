@@ -5,7 +5,7 @@ import { DATA_DIR } from "./paths";
 import { receiptsDir } from "./config";
 
 // CR-31 — the fleet secrets bundle (env files, SSH keys, Nebula cert). Config in
-// control-room-data/infra/secrets-backup.yml, written nightly by
+// <data>/infra/secrets-backup.yml, written nightly by
 // scripts/fleet-secrets-backup.sh, receipt at <receipts>/_secrets/bundle.latest.json.
 // Read-only here.
 
