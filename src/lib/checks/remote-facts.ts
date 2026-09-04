@@ -34,7 +34,7 @@ function parseKV(block: string): Record<string, string> {
 }
 
 // Calls the SAME dedicated least-privilege discovery key used for server resource
-// stats (see lib/infra/remote.ts) — its forced command (control-room-ro.sh, on each
+// stats (see lib/infra/remote.ts) — its forced command (bosun-x-ro.sh, on each
 // target host) was extended to a second mode: given one of an exact allowlist of known
 // project paths (via $SSH_ORIGINAL_COMMAND, which sshd sets to whatever's requested
 // below — the client never controls which script runs, only this one fixed argument),

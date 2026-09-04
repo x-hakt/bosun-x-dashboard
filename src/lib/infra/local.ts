@@ -5,7 +5,7 @@ import { parseSnapshot, type RemoteSnapshot } from "./remote";
 
 const execFileAsync = promisify(execFile);
 
-// The DISK line deliberately differs from the remote script (control-room-ro.sh) --
+// The DISK line deliberately differs from the remote script (bosun-x-ro.sh) --
 // this runs INSIDE the container itself, which is Alpine/BusyBox, not the GNU
 // coreutils every remote host actually uses. BusyBox df has no --output= flag at all
 // (it silently prints its own usage help instead of failing loudly), which made every
@@ -13,7 +13,7 @@ const execFileAsync = promisify(execFile);
 // against why the remote hosts worked fine. -P plus an awk reorder gets the same
 // 4-field size/used/avail/pcent shape the shared parseSnapshot() already expects, so
 // no parser change was needed, only this one command.
-// Same fixed read-only command sequence as control-room-ro.sh (the remote hosts'
+// Same fixed read-only command sequence as bosun-x-ro.sh (the remote hosts'
 // forced SSH command) — run directly here since this is the host the dashboard
 // itself lives on, no SSH hop needed. Sharing the exact section-tagged shape with the
 // remote script lets both sides go through the one parseSnapshot() parser.
