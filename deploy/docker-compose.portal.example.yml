@@ -1,0 +1,53 @@
+# Client portal (CGB-2.1). A SECOND deployment of the same image, in portal mode.
+# It renders only the projects / ideas / notes you've shared with a client — see
+# src/lib/portal/ and data.example/clients.yml.
+#
+#   1. define at least one portal + its clients in <data>/clients.yml
+#   2. share something:  portals: [<portal-slug>]  +  shared_with: [<client-slug>]
+#      on a project.yml / planning task.yml / note (the operator dashboard has a
+#      "Client portal" control for this)
+#   3. configure a sign-in provider in .env (a client signs in with the email you
+#      invited) and set AUTH_SECRET + AUTH_URL to the portal's own origin
+#   4. front it with your reverse proxy on the portal domain
+#
+# The portal and the operator dashboard can share ONE data volume (read-mostly —
+# the portal only writes client replies to a thread). Run this alongside your
+# normal docker-compose.example.yml.
+
+services:
+  portal:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    # or: image: ghcr.io/x-hakt/bosun-x-dashboard:latest
+    container_name: bosun-x-portal
+    restart: unless-stopped
+    env_file: .env            # sign-in provider creds (Google/GitHub/OIDC)
+    environment:
+      - NODE_ENV=production
+      - PORT=3010
+      - DATA_DIR=/app/data
+      - HOSTNAME=0.0.0.0
+      - BOSUN_MODE=portal
+      - BOSUN_PORTAL=acme            # a key under clients.yml `portals:`
+      - AUTH_URL=https://portal.example.com
+      # AUTH_SECRET — set in .env, distinct from the operator instance is fine
+    ports:
+      - "127.0.0.1:3011:3010"
+    volumes:
+      # the SAME data dir the operator dashboard uses (or a synced copy)
+      - ./data:/app/data
+      # no docker socket, no host paths — the portal never needs them
+
+    # ── reverse proxy example (Traefik) ────────────────────────────────────
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.portal.rule=Host(`portal.example.com`)
+    #   - traefik.http.routers.portal.entrypoints=websecure
+    #   - traefik.http.routers.portal.tls.certresolver=le
+    #   - traefik.http.services.portal.loadbalancer.server.port=3010
+    # networks: [proxy]
+
+# networks:
+#   proxy:
+#     external: true

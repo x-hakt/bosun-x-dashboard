@@ -5,6 +5,7 @@
 - **[Discovery](discovery.md)** — how running services are found; `setup-remote.sh`; Podman
 - **[Auth](auth.md)** — Google / GitHub / OIDC sign-in and the email allowlist
 - **[Deploying](deploying.md)** — Docker Compose, the GHCR image, updating
+- **[Client portal](portal.md)** — a per-client read-mostly view, run as a second deployment
 - **[Restore](restore.md)** — the generic runbook for anything `fleet-backup.sh` produced
 - **[Security](security.md)** — what the app can reach and how it's constrained
 - **[Troubleshooting](troubleshooting.md)**
