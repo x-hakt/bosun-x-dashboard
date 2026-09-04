@@ -18,9 +18,13 @@ export async function getPortalViewer(): Promise<PortalViewer | null> {
   const session = await auth();
   const email = session?.user?.email;
   if (!email) return null;
-  if (await isAllowedEmail(email)) return { kind: "operator" };
+  // Client match wins — so an operator who invites their own address as a client
+  // sees exactly the client's view. An email that's only an operator gets the
+  // preview (every Gate-1 item, Gate 2 auto-cleared).
   const client = await clientForEmail(PORTAL_SLUG, email);
-  return client ? { kind: "client", slug: client.slug } : null;
+  if (client) return { kind: "client", slug: client.slug };
+  if (await isAllowedEmail(email)) return { kind: "operator" };
+  return null;
 }
 
 export async function currentPortal(): Promise<Portal | undefined> {
