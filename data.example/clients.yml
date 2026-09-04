@@ -12,10 +12,16 @@ portals:
     url: https://portal.northwind.example
     theme:
       brand_name: Northwind Studio
+      tagline: Design & build studio
+      # logo_url: https://northwind.example/logo.svg   # header image; omit for a text wordmark
+      favicon_url: https://northwind.example/favicon.ico
+      site_url: https://northwind.example
       accent: "#5b8def"
       accent_strong: "#3f6fd1"
       paper: "#0f1420"
       ink: "#e6ecf5"
+      # CSS font-family strings. A Google-hosted family (e.g. Poppins, Manrope,
+      # Inter) is loaded automatically; anything else uses the fallback stack.
       heading_font: '"Poppins", system-ui, sans-serif'
       body_font: '"Manrope", system-ui, sans-serif'
 
