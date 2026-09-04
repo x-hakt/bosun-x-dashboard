@@ -85,6 +85,44 @@ process.exit(bad);
 " || bad "client-reply detection"
 rm -rf "$tmp2"
 
+echo "== 5. portal registry edits (CGB-7) =="
+# The Settings → Client portals editor rewrites clients.yml from this pure model.
+# Prove it round-trips and refuses malformed input / unsafe deletes.
+# Compiled under the repo (not /tmp) so the emitted data/schema.js can resolve zod;
+# the @/ path alias is rewritten to a relative import by hand.
+tmp3=scripts/test/.tmp-portal-admin
+rm -rf "$tmp3"
+npx tsc src/lib/portal-admin-edit.ts src/lib/data/schema.ts \
+  --rootDir src/lib --outDir "$tmp3" --module nodenext --moduleResolution nodenext \
+  --target es2022 --skipLibCheck --esModuleInterop >/dev/null 2>&1
+sed -i 's#@/lib/data/schema#./data/schema.js#' "$tmp3/portal-admin-edit.js"
+node --input-type=module -e "
+import * as E from './$tmp3/portal-admin-edit.js';
+let bad = 0;
+const check = (name, fn, wantThrow) => {
+  let threw = false;
+  try { fn(); } catch { threw = true; }
+  if (threw === wantThrow) console.log('  ok   ' + name);
+  else { console.log('  FAIL ' + name); bad = 1; }
+};
+let doc = E.emptyRegistry();
+doc = E.upsertPortal(doc, 'acme', { name: 'Acme', theme: { accent: '#fff', tagline: '' } });
+doc = E.upsertClient(doc, 'bob', { name: 'Bob', portal: 'acme', emails: ['BOB@x.io', 'bob@x.io'] });
+check('valid doc passes schema', () => E.assertValidRegistry(doc), false);
+const ser = E.serialiseRegistry(doc);
+if (ser.portals.acme.theme.accent === '#fff' && !('tagline' in ser.portals.acme.theme)) console.log('  ok   empty theme values dropped');
+else { console.log('  FAIL empty theme values not dropped'); bad = 1; }
+if (ser.clients[0].emails.length === 1 && ser.clients[0].emails[0] === 'bob@x.io') console.log('  ok   emails lower-cased + de-duped');
+else { console.log('  FAIL email normalisation'); bad = 1; }
+check('bad slug rejected', () => E.upsertClient(doc, 'Bad Slug', { name: 'x', portal: 'acme', emails: ['a@b.co'] }), true);
+check('bad email rejected', () => E.upsertClient(doc, 'eve', { name: 'Eve', portal: 'acme', emails: ['not-an-email'] }), true);
+check('unknown portal rejected', () => E.upsertClient(doc, 'eve', { name: 'Eve', portal: 'ghost', emails: ['a@b.co'] }), true);
+check('delete portal with a client rejected', () => E.removePortal(doc, 'acme'), true);
+check('delete portal after client removed ok', () => E.removePortal(E.removeClient(doc, 'bob'), 'acme'), false);
+process.exit(bad);
+" || bad "portal registry edits"
+rm -rf scripts/test/.tmp-portal-admin
+
 echo
 [ "$fail" = 0 ] && echo "PORTAL ISOLATION OK" || echo "PORTAL ISOLATION FAILED"
 exit "$fail"

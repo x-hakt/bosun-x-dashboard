@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { loadConfig, loadRawConfig } from "@/lib/data/config";
 import { loadHosts } from "@/lib/data/hosts";
+import { loadClientRegistry } from "@/lib/data/clients";
 import { configFile } from "@/lib/data/paths";
 import { configuredProviders } from "@/lib/auth-config";
 import { ConfigEditor, type ConfigField } from "@/components/config-editor";
@@ -11,6 +13,7 @@ export default async function SettingsPage() {
   const cfg = loadConfig();
   const raw = loadRawConfig();
   const hosts = await loadHosts();
+  const registry = await loadClientRegistry();
   const set = (key: string) => raw[key] !== undefined && raw[key] !== null;
 
   const noAliasHost = hosts.find((h) => !h.ssh_alias)?.id;
@@ -161,6 +164,35 @@ export default async function SettingsPage() {
             </div>
           ))}
           {hosts.length === 0 && <p className="text-xs text-muted-foreground">No hosts.yml found.</p>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Client portals</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1.5 text-sm">
+          <p className="text-xs text-muted-foreground">
+            Branded read-mostly views where a client signs in and sees only what you&rsquo;ve shared with them.
+          </p>
+          <div className="border-t border-border/50 py-1.5 font-mono text-xs">
+            {registry.portals.length === 0 ? (
+              <span className="text-muted-foreground">none configured</span>
+            ) : (
+              registry.portals.map((p) => (
+                <span key={p.slug} className="mr-3">
+                  {p.slug}{" "}
+                  <span className="text-muted-foreground">
+                    ({registry.clients.filter((c) => c.portal === p.slug).length} client
+                    {registry.clients.filter((c) => c.portal === p.slug).length === 1 ? "" : "s"})
+                  </span>
+                </span>
+              ))
+            )}
+          </div>
+          <Link href="/settings/portals" className="inline-block text-xs text-sky-400 hover:underline">
+            Manage client portals →
+          </Link>
         </CardContent>
       </Card>
     </div>
