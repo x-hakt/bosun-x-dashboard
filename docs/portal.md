@@ -64,4 +64,10 @@ Point it at the same data dir as the operator dashboard. Front it with your
 reverse proxy on the portal domain.
 
 A sign-in provider is **required** in portal mode — `clients.yml` is the
-allowlist, so an email that isn't invited is refused.
+allowlist, so an email that isn't invited is refused. Register the portal's
+`/api/auth/callback/<provider>` URL with that provider.
+
+If the portal domain is behind Cloudflare (or another proxy) and your reverse
+proxy gets its TLS cert via ACME **TLS-ALPN-01**, the challenge can't complete
+through the proxy — issue the cert with the record un-proxied (DNS-only) first,
+or use DNS-01 / a provider origin certificate.
