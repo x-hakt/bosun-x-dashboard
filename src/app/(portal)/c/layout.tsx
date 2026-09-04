@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
 import "../portal.css";
 import { PORTAL_MODE } from "@/lib/portal/mode";
 import { getPortalViewer, currentPortal } from "@/lib/portal/auth";
 import { portalHeadingFont, portalBodyFont } from "@/lib/portal/fonts";
-import { portalThemeVars, googleFontsHref } from "@/lib/portal/theme";
-import { portalIcons } from "@/lib/portal/theme";
+import { portalThemeVars, googleFontsHref, portalIcons } from "@/lib/portal/theme";
 import { PortalSignOut } from "@/components/portal/portal-sign-out";
-import { PortalNav } from "@/components/portal/portal-nav";
+import { PortalHeader } from "@/components/portal/portal-header";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -42,25 +40,12 @@ export default async function PortalLayout({ children }: LayoutProps<"/c">) {
     <>
       {fontsHref && <link rel="stylesheet" href={fontsHref} />}
       <div className={`pt-shell ${portalHeadingFont.variable} ${portalBodyFont.variable}`} style={portalThemeVars(t)}>
-        <header className="pt-header">
-          <div className="pt-container pt-header__inner">
-            <Link href="/c" className="pt-logo">
-              {t.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={t.logo_url} alt={brand} />
-              ) : (
-                brand
-              )}
-            </Link>
-            <div className="flex items-center gap-4">
-              {viewer.kind === "operator" && <span className="pt-preview-badge">operator preview</span>}
-              <PortalSignOut />
-            </div>
-          </div>
-          <div className="pt-container">
-            <PortalNav />
-          </div>
-        </header>
+        <PortalHeader
+          brand={brand}
+          logoUrl={t.logo_url}
+          operatorPreview={viewer.kind === "operator"}
+          signOut={<PortalSignOut />}
+        />
 
         <main className="pt-main">
           <div className="pt-container">{children}</div>

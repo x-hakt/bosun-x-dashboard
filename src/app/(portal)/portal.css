@@ -4,6 +4,14 @@
    variables the layout sets from clients.yml, so another client re-themes by
    changing those; structure and motion stay the house style. */
 
+/* Always reserve the scrollbar gutter (like cgburchell.com) so the centred
+   container doesn't shift a few px between short and tall pages. Scoped to
+   portal pages via :has(.pt-shell). */
+html:has(.pt-shell) {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
 .pt-shell {
   --pt-radius-sm: 10px;
   --pt-radius-xs: 6px;
@@ -42,14 +50,22 @@
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────────── */
+/* Transparent at the top of the page (the gradient shows through, exactly like
+   cgburchell.com); the glass panel fades in once you scroll. */
 .pt-header {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(11, 19, 20, 0.82);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease, border-color 0.3s ease;
+}
+.pt-header[data-scrolled="true"] {
+  background: rgba(11, 19, 20, 0.88);
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  border-bottom: 1px solid var(--portal-line);
+  border-bottom-color: var(--portal-line);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 .pt-header__inner {
   display: flex;
