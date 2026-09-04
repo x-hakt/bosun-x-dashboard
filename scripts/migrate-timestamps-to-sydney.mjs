@@ -2,15 +2,12 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { sydneyIsoTimestamp } from "./sydney-time.mjs";
+import { resolveDataDir } from "./lib/data-dir.mjs";
 
 const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const productionDataDir = path.join(path.dirname(repoRoot), "control-room-data");
-const dataDir = process.env.DATA_DIR || await fs.access(productionDataDir)
-  .then(() => productionDataDir)
-  .catch(() => path.join(repoRoot, "data"));
+const dataDir = resolveDataDir(repoRoot);
 const timestampPattern = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g;
 const allowedExtensions = new Set([".md", ".yml", ".yaml", ".json"]);
 

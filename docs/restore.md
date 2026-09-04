@@ -3,7 +3,7 @@
 This is the generic runbook for anything `scripts/fleet-backup.sh` produced. A
 deployment keeps its own project-specific version (which container, which
 database name, where the app expects its files) — see
-`control-room-data/docs/DISASTER-RECOVERY.md` for the operator's fleet.
+`bosun-x-data/docs/DISASTER-RECOVERY.md` for the operator's fleet.
 
 ## What the agent wrote
 
@@ -48,7 +48,7 @@ jq -r .sha256 <BACKUP_RECEIPTS>/<slug>/<store>.latest.json
 ## 2. Decrypt (only if the name ends `.age`)
 
 The private key is the **restore key** — an `age` identity kept out of the
-backup itself (for the operator: `control-room-data/backup-keys/<slug>.age`,
+backup itself (for the operator: `bosun-x-data/backup-keys/<slug>.age`,
 gitignored, and a copy in a password manager).
 
 ```sh
@@ -111,7 +111,7 @@ dump/AOF on boot.
 
 Bring the app up, hit its health endpoint, log in, load one record that lives in
 the restored data. Note the result (and the archive timestamp you restored from)
-in `control-room-data/docs/restore-drills.md`.
+in `bosun-x-data/docs/restore-drills.md`.
 
 ## The secrets bundle
 

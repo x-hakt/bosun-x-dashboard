@@ -6,7 +6,7 @@
 # the Nebula node cert + key — encrypts it, and writes it next to the fleet's
 # other backups as  <destination>/_secrets/secrets-<date>.tar.zst.age
 #
-# Config:  $CONTROL_ROOM_DATA/infra/secrets-backup.yml
+# Config:  $BOSUN_DATA/infra/secrets-backup.yml
 #   destination:    id into infra/destinations.yml
 #   keep_last:      how many bundles to retain
 #   age_recipient:  public key; the identity is backup-keys/_secrets.age
@@ -18,12 +18,12 @@
 set -uo pipefail
 
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONTROL_ROOM_DATA=${CONTROL_ROOM_DATA:-$(dirname "$_repo_root")/control-room-data}
-[ -d "$CONTROL_ROOM_DATA" ] || CONTROL_ROOM_DATA=${DATA_DIR:-$HOME/control-room-data}
+# shellcheck source=lib/data-dir.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/data-dir.sh"
 RECEIPTS_DIR=${BACKUP_RECEIPTS:-$HOME/backup-receipts}
 LOG=${BACKUP_LOG:-$HOME/.local/state/fleet-backup.log}
-CONFIG="$CONTROL_ROOM_DATA/infra/secrets-backup.yml"
-IDENTITY="$CONTROL_ROOM_DATA/backup-keys/_secrets.age"
+CONFIG="$BOSUN_DATA/infra/secrets-backup.yml"
+IDENTITY="$BOSUN_DATA/backup-keys/_secrets.age"
 
 mkdir -p "$(dirname "$LOG")" "$RECEIPTS_DIR"
 export BACKUP_RECEIPTS="$RECEIPTS_DIR"
@@ -60,7 +60,7 @@ trap '_job_finish' EXIT
 [ -f "$IDENTITY" ] || fail "no restore key at $IDENTITY — run: age-keygen -o $IDENTITY (0600), and save a copy in the password manager"
 
 # --- read the config -------------------------------------------------------
-eval "$(python3 - "$CONFIG" "$CONTROL_ROOM_DATA" <<'PY'
+eval "$(python3 - "$CONFIG" "$BOSUN_DATA" <<'PY'
 import sys, yaml, shlex, os
 cfg = yaml.safe_load(open(sys.argv[1])) or {}
 data_dir = sys.argv[2]

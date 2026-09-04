@@ -18,10 +18,10 @@
 set -uo pipefail
 
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONTROL_ROOM_DATA=${CONTROL_ROOM_DATA:-$(dirname "$_repo_root")/control-room-data}
-[ -d "$CONTROL_ROOM_DATA" ] || CONTROL_ROOM_DATA=${DATA_DIR:-$HOME/control-room-data}
+# shellcheck source=lib/data-dir.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/data-dir.sh"
 RECEIPTS_DIR=${BACKUP_RECEIPTS:-$HOME/backup-receipts}
-KEYS_DIR="$CONTROL_ROOM_DATA/backup-keys"
+KEYS_DIR="$BOSUN_DATA/backup-keys"
 LOG=${BACKUP_LOG:-$HOME/.local/state/fleet-backup.log}
 PG_IMAGE=${RESTORE_TEST_PG_IMAGE:-postgres:17-alpine}
 

@@ -5,15 +5,12 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { load as loadYaml, dump as dumpYaml } from "js-yaml";
+import { resolveDataDir } from "./lib/data-dir.mjs";
 
 const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const productionDataDir = path.join(path.dirname(repoRoot), "control-room-data");
-const dataDir = process.env.DATA_DIR || await fs.access(productionDataDir)
-  .then(() => productionDataDir)
-  .catch(() => path.join(repoRoot, "data"));
+const dataDir = resolveDataDir(repoRoot);
 const projectsDir = path.join(dataDir, "projects");
 
 let changedFiles = 0;

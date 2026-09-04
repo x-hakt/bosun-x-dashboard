@@ -20,10 +20,10 @@
 set -uo pipefail
 
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONTROL_ROOM_DATA=${CONTROL_ROOM_DATA:-$(dirname "$_repo_root")/control-room-data}
-[ -d "$CONTROL_ROOM_DATA" ] || CONTROL_ROOM_DATA=${DATA_DIR:-$HOME/control-room-data}
+# shellcheck source=lib/data-dir.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/data-dir.sh"
 RECEIPTS_DIR=${BACKUP_RECEIPTS:-$HOME/backup-receipts}
-KEYS_DIR="$CONTROL_ROOM_DATA/backup-keys"
+KEYS_DIR="$BOSUN_DATA/backup-keys"
 LOG=${BACKUP_LOG:-$HOME/.local/state/fleet-backup.log}
 
 mkdir -p "$(dirname "$LOG")"
@@ -55,7 +55,7 @@ receipt() { # <ok> <from_archive> <pre_dump> <tables_after> [error]
 abort() { say "ABORT: $*"; receipt false "${ARCHIVE:-}" "${PRE_DUMP:-}" 0 "$*"; exit 1; }
 
 # --- resolve the store from backups.yml + destinations.yml -------------------
-eval "$(python3 - "$CONTROL_ROOM_DATA" "$SLUG" "$STORE" <<'PY'
+eval "$(python3 - "$BOSUN_DATA" "$SLUG" "$STORE" <<'PY'
 import sys, yaml, shlex, os
 dd, slug, store = sys.argv[1], sys.argv[2], sys.argv[3]
 b = yaml.safe_load(open(f"{dd}/projects/{slug}/backups.yml")) or {}

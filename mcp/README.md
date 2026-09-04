@@ -1,12 +1,13 @@
 # bosun-x — MCP server
 
 A stdio [MCP](https://modelcontextprotocol.io) server that exposes the handoff CLI
-and Control Room's project/task data as tools, so any MCP client — Claude Code,
+and a bosun-x instance's project/task data as tools, so any MCP client — Claude Code,
 Claude Desktop, Codex, Cursor, Cline, Zed — can drive the workflow without
 shelling out or hand-editing YAML.
 
 The server itself is the [`bosun-x`](https://github.com/x-hakt/bosun-x) package;
-`mcp/server.mjs` here is a one-line wrapper that points it at `../control-room-data`.
+`mcp/server.mjs` here is a one-line wrapper that resolves the data dir (see
+`scripts/lib/data-dir.mjs`) and starts it.
 It's a thin layer: handoff writes go through the `bosun` CLI (the one lock holder),
 task-status edits reuse `bosun-x`'s `lib/board.mjs` so `tasks.yml` keeps its
 formatting and the `STATUS.md` board stays current, and reads are direct.
@@ -28,11 +29,12 @@ formatting and the `STATUS.md` board stays current, and reads are direct.
 ## Run it
 
 ```
-node /ABS/PATH/TO/control-room/mcp/server.mjs
+node /ABS/PATH/TO/bosun-x-dashboard/mcp/server.mjs
 ```
 
-It reads the data dir the same way the CLI does: `$DATA_DIR`, else
-`../control-room-data`, else `./data`.
+It reads the data dir the same way the CLI does (see `scripts/lib/data-dir.mjs`):
+`$BOSUN_DATA` / `$DATA_DIR`, else a `.bosun-data-path` file, else a sibling
+`bosun-x-data`, else `./data`.
 
 ## Wire it into a client
 
@@ -43,8 +45,8 @@ It reads the data dir the same way the CLI does: `$DATA_DIR`, else
   "mcpServers": {
     "bosun-x": {
       "command": "node",
-      "args": ["/ABS/PATH/TO/control-room/mcp/server.mjs"],
-      "env": { "DATA_DIR": "/ABS/PATH/TO/control-room-data" }
+      "args": ["/ABS/PATH/TO/bosun-x-dashboard/mcp/server.mjs"],
+      "env": { "DATA_DIR": "/ABS/PATH/TO/bosun-x-data" }
     }
   }
 }
@@ -60,7 +62,7 @@ shape in its MCP settings.
 ## Also drop the convention into your repos
 
 ```
-node /ABS/PATH/TO/control-room/scripts/handoff.mjs init
+node /ABS/PATH/TO/bosun-x-dashboard/scripts/handoff.mjs init
 ```
 
 (or `npx bosun init` once it's on npm) adds a managed `<!-- bosun-x -->` block to

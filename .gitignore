@@ -43,5 +43,7 @@ next-env.d.ts
 # real project data — data.example/ is the git-tracked reference copy
 /data
 
-# the operator deployment lives in the private control-room-data repo
+# the operator deployment lives in the private data repo, not here
+deploy/docker-compose.bosun-x.yml
 deploy/docker-compose.control-room.yml
+.bosun-data-path

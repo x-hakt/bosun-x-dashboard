@@ -6,10 +6,10 @@ import { receiptsDir } from "./config";
 import { loadDestinations } from "./backups";
 
 // CR-32 — the off-site copy of the critical set. Config in
-// control-room-data/infra/offsite.yml, pushed by scripts/fleet-offsite-push.sh
-// (rclone), receipts at <receipts>/_offsite/<item>.latest.json. Read-only here.
+// <data>/infra/offsite.yml, pushed by scripts/fleet-offsite-push.sh (rclone),
+// receipts at <receipts>/_offsite/<item>.latest.json. Read-only here.
 
-const ITEMS = ["gp-forms", "secrets", "control-room-data"] as const;
+const ITEMS = ["gp-forms", "secrets", "bosun-x-data"] as const;
 const GRACE_HOURS = 26;
 
 export interface OffsiteItemStatus {

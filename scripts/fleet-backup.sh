@@ -3,8 +3,8 @@
 # fleet-backup.sh  —  IDEA-10 / CR-11, the fleet backup agent
 #
 # Reads the backup config the dashboard owns:
-#   $CONTROL_ROOM_DATA/infra/destinations.yml
-#   $CONTROL_ROOM_DATA/projects/<slug>/backups.yml   (method: agent only)
+#   $BOSUN_DATA/infra/destinations.yml
+#   $BOSUN_DATA/projects/<slug>/backups.yml   (method: agent only)
 # and for every declared store: dumps it, writes the archive to the backup destination,
 # prunes to keep_last, and writes a receipt the dashboard can read.
 #
@@ -19,14 +19,14 @@
 set -uo pipefail
 
 # Override any of these from the cron line / a sourced env file. The data-dir
-# default follows the dashboard's own layout: a `control-room-data` sibling of
+# default follows the dashboard's own layout: a `bosun-x-data` sibling of
 # the app repo (this script lives at <repo>/scripts/fleet-backup.sh).
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONTROL_ROOM_DATA=${CONTROL_ROOM_DATA:-$(dirname "$_repo_root")/control-room-data}
-[ -d "$CONTROL_ROOM_DATA" ] || CONTROL_ROOM_DATA=${DATA_DIR:-$HOME/control-room-data}
+# shellcheck source=lib/data-dir.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/data-dir.sh"
 RECEIPTS_DIR=${BACKUP_RECEIPTS:-$HOME/backup-receipts}
-REQUEST_DIR=${BACKUP_REQUEST_DIR:-$CONTROL_ROOM_DATA/.backup-requests}
-KEYS_DIR="$CONTROL_ROOM_DATA/backup-keys"
+REQUEST_DIR=${BACKUP_REQUEST_DIR:-$BOSUN_DATA/.backup-requests}
+KEYS_DIR="$BOSUN_DATA/backup-keys"
 LOG=${BACKUP_LOG:-$HOME/.local/state/fleet-backup.log}
 SSH_CONFIG=${BACKUP_SSH_CONFIG:-$HOME/.ssh/config}
 
@@ -47,7 +47,7 @@ FAILURES=0
 
 # --- the plan: one JSON line per store the agent should back up -------------
 plan() {
-  python3 - "$CONTROL_ROOM_DATA" "${1:-}" <<'PY'
+  python3 - "$BOSUN_DATA" "${1:-}" <<'PY'
 import sys, os, json, yaml
 data_dir, only = sys.argv[1], (sys.argv[2] or "")
 try:

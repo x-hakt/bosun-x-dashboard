@@ -1,8 +1,8 @@
 ---
 name: bosun
 description: >-
-  Cross-agent handoff and task tracking for a project tracked with bosun-x /
-  Control Room. Use at the start of substantive work, at every verified
+  Cross-agent handoff and task tracking for a project tracked with bosun-x.
+  Use at the start of substantive work, at every verified
   milestone, before a planned stop, and on takeover. Triggers: "pick up work
   on", "resume", "checkpoint", "hand off", "what's the state of", a project
   slug with open tasks, a stale HANDOFF.
