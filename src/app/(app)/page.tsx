@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { listProjects } from "@/lib/data/projects";
 import { listPlanningTasks, clientReplyStatus } from "@/lib/data/planning";
+import { unseenClientRepliesInTasks } from "@/lib/data/tasks";
 import { loadClientRegistry } from "@/lib/data/clients";
 import { StatTile } from "@/components/stat-tile";
 import { HealthStatTiles } from "@/components/health-stat-tiles";
@@ -21,13 +22,14 @@ export default async function OverviewPage() {
   // (several seconds, worst case) never blocks the rest of this page from rendering.
   const projects = await listProjects();
 
-  // CGB-6: only meaningful once a client portal exists. Sum unreviewed portal
-  // replies across every shared idea thread.
+  // CGB-6/CGB-8: only meaningful once a client portal exists. Sum unreviewed
+  // portal replies across every shared idea thread and every project task thread.
   const [planning, clientRegistry] = await Promise.all([listPlanningTasks(), loadClientRegistry()]);
   const unseenClientReplies =
     clientRegistry.portals.length === 0
       ? null
-      : planning.reduce((total, task) => total + clientReplyStatus(task).unseen, 0);
+      : planning.reduce((total, task) => total + clientReplyStatus(task).unseen, 0) +
+        (await unseenClientRepliesInTasks(projects.map((p) => p.meta.slug)));
 
   const byStage = STAGE_ORDER.map((stage) => ({
     stage,

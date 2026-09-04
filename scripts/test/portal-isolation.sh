@@ -41,7 +41,7 @@ echo "== 3. share-gate truth table =="
 tmp=$(mktemp -d)
 npx tsc src/lib/portal/gates.ts --outDir "$tmp" --module nodenext --moduleResolution nodenext --target es2022 >/dev/null 2>&1
 node --input-type=module -e "
-import { passesGates } from '$tmp/gates.js';
+import { passesGates, canSeeSharedTask } from '$tmp/gates.js';
 const op = { kind: 'operator' };
 const bob = { kind: 'client', slug: 'bob' };
 const eve = { kind: 'client', slug: 'eve' };
@@ -53,6 +53,11 @@ const cases = [
   ['both gates, right client',    passesGates(['acme'], ['bob'], bob, 'acme'),         true],
   ['both gates, wrong client',    passesGates(['acme'], ['bob'], eve, 'acme'),         false],
   ['empty portalSlug -> closed',  passesGates(['acme'], ['bob'], op, ''),              false],
+  // canSeeSharedTask (CGB-8): project must pass both gates AND the task's own shared_with must list the client
+  ['task: project not shared with client -> closed', canSeeSharedTask(['acme'], ['eve'], ['bob'], bob, 'acme'), false],
+  ['task: project shared, task not -> closed',       canSeeSharedTask(['acme'], ['bob'], undefined, bob, 'acme'), false],
+  ['task: project + task shared -> open',            canSeeSharedTask(['acme'], ['bob'], ['bob'], bob, 'acme'), true],
+  ['task: operator sees every task in the portal',   canSeeSharedTask(['acme'], undefined, undefined, op, 'acme'), true],
 ];
 let bad = 0;
 for (const [name, got, want] of cases) {
@@ -72,13 +77,16 @@ npx tsc src/lib/notes-thread.ts --outDir "$tmp2" --module nodenext --moduleResol
 node --input-type=module -e "
 import { parseNoteThread, countClientReplies, noteTurnHeader } from '$tmp2/notes-thread.js';
 const clientDoc = 'brief\n\n' + noteTurnHeader('Bob Client', '2026-01-02', 'client reply') + '\n\nhello';
+const signoffDoc = 'brief\n\n' + noteTurnHeader('Bob Client', '2026-01-02', 'client sign-off') + '\n\nok';
 const agentDoc = 'brief\n\n' + noteTurnHeader('Claude', '2026-01-02', 'shipped') + '\n\ndone';
 let bad = 0;
 const clientTurn = parseNoteThread(clientDoc).find(t => t.role === 'client');
 if (clientTurn && clientTurn.author === 'Bob Client') console.log('  ok   client reply -> role:client, author kept');
 else { console.log('  FAIL client reply not detected: ' + JSON.stringify(clientTurn)); bad = 1; }
-if (countClientReplies(clientDoc) === 1) console.log('  ok   countClientReplies = 1');
-else { console.log('  FAIL countClientReplies != 1'); bad = 1; }
+if (parseNoteThread(signoffDoc).some(t => t.role === 'client')) console.log('  ok   client sign-off -> role:client');
+else { console.log('  FAIL client sign-off not detected'); bad = 1; }
+if (countClientReplies(clientDoc) === 1 && countClientReplies(signoffDoc) === 1) console.log('  ok   countClientReplies counts reply + sign-off');
+else { console.log('  FAIL countClientReplies'); bad = 1; }
 if (countClientReplies(agentDoc) === 0) console.log('  ok   an agent turn is not counted');
 else { console.log('  FAIL agent turn counted as a client reply'); bad = 1; }
 process.exit(bad);

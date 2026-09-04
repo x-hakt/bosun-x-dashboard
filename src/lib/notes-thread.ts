@@ -152,10 +152,11 @@ export function parseNoteThread(content: string): NoteTurn[] {
     const body = bodyLines.join("\n").replace(/^\n+|\n+$/g, "").trimEnd();
     const meta = boundary?.meta ?? {};
     if (!body.trim() && !meta.label && !meta.author) return;
-    // A "client reply" label is only ever written by src/lib/portal/reply.ts —
-    // the one audited client write path — so it's a reliable signal that this
-    // turn came from a portal client rather than the operator or an agent.
-    const role: TurnRole = /client reply/i.test(meta.label ?? "") ? "client" : roleFor(meta.author);
+    // A "client reply" / "client sign-off" label is only ever written by
+    // src/lib/portal/reply.ts — the one audited client write path — so it's a
+    // reliable signal that this turn came from a portal client rather than the
+    // operator or an agent.
+    const role: TurnRole = /client (reply|sign-off)/i.test(meta.label ?? "") ? "client" : roleFor(meta.author);
     turns.push({ ...meta, role, body });
   };
 

@@ -139,6 +139,28 @@ html:has(.pt-shell) {
 }
 .pt-cta--block { width: 100%; justify-content: center; padding-block: 0.65rem; }
 
+/* Secondary action next to a .pt-cta — outline, no fill. */
+.pt-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--portal-body-font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--portal-ink-soft);
+  background: transparent;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--portal-line-strong);
+  border-radius: var(--pt-radius-sm);
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  white-space: nowrap;
+}
+.pt-ghost-btn:hover {
+  color: var(--portal-ink);
+  border-color: var(--portal-accent);
+  background: rgba(45, 212, 191, 0.06);
+}
+
 /* ── Content ────────────────────────────────────────────────────────────────── */
 .pt-main { flex: 1; padding-block: 3rem; }
 

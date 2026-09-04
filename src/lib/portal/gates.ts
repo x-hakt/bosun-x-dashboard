@@ -19,3 +19,20 @@ export function passesGates(
   if (viewer.kind === "operator") return true;
   return Boolean(sharedWith?.includes(viewer.slug)); // Gate 2
 }
+
+// Whether a viewer may see (and, for a client, reply into) one task's own
+// thread. The project must pass both gates first; then the task itself must be
+// shared with this client (an operator sees every task in a portal project).
+// Used by both the projection (to expose `detail`) and reply.ts (to accept a
+// task reply) so the two can't drift.
+export function canSeeSharedTask(
+  projectPortals: string[] | undefined,
+  projectSharedWith: string[] | undefined,
+  taskSharedWith: string[] | undefined,
+  viewer: PortalViewer,
+  portalSlug: string,
+): boolean {
+  if (!passesGates(projectPortals, projectSharedWith, viewer, portalSlug)) return false;
+  if (viewer.kind === "operator") return true;
+  return Boolean(taskSharedWith?.includes(viewer.slug));
+}

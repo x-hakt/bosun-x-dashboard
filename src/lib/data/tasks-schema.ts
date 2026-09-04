@@ -16,6 +16,10 @@ export const TaskSchema = z.object({
   // portal its project is exposed to. Absent = the client sees the task's title +
   // status (from the shared project) but not its description/thread.
   shared_with: z.array(z.string()).nullish(),
+  // CGB-6/CGB-8: count of portal-client replies the operator has marked reviewed
+  // on this task's thread. The UI nudges when the thread's client-reply count
+  // exceeds it.
+  client_replies_seen: z.number().int().nonnegative().nullish(),
   depends_on: z.array(z.string()).optional().default([]),
   created: z.string(),
   updated: z.string(),
