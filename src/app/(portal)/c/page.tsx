@@ -15,27 +15,29 @@ export default async function PortalHome() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-semibold tracking-tight font-[var(--portal-heading-font)]">Your projects</h1>
+      <h1 className="text-2xl">Your projects</h1>
       {projects.length === 0 ? (
-        <p className="text-[var(--portal-ink)]/60 text-sm">Nothing shared with you yet.</p>
+        <p className="text-sm" style={{ color: "var(--portal-ink-soft)" }}>
+          Nothing shared with you yet.
+        </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2.5">
           {projects.map((p) => (
             <li key={p.slug}>
-              <Link
-                href={`/c/projects/${p.slug}`}
-                className="block rounded-lg border border-white/10 hover:border-[var(--portal-accent)] px-4 py-3 transition-colors"
-              >
+              <Link href={`/c/projects/${p.slug}`} className="pt-card pt-card--row block">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-medium">{p.name}</span>
                   {p.status && (
-                    <span className="text-[11px] font-mono uppercase tracking-wide text-[var(--portal-ink)]/50">
+                    <span
+                      className="text-[11px] font-medium uppercase tracking-wide"
+                      style={{ color: "var(--portal-ink-faint)" }}
+                    >
                       {p.status}
                     </span>
                   )}
                 </div>
                 {p.updated && (
-                  <span className="text-[11px] text-[var(--portal-ink)]/40">
+                  <span className="text-[11px]" style={{ color: "var(--portal-ink-faint)" }}>
                     updated {new Date(p.updated).toISOString().slice(0, 10)}
                   </span>
                 )}

@@ -15,16 +15,18 @@ export default async function PortalNotes() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-semibold tracking-tight font-[var(--portal-heading-font)]">Notes</h1>
+      <h1 className="text-2xl">Notes</h1>
       {notes.length === 0 ? (
-        <p className="text-[var(--portal-ink)]/60 text-sm">No notes shared with you.</p>
+        <p className="text-sm" style={{ color: "var(--portal-ink-soft)" }}>
+          No notes shared with you.
+        </p>
       ) : (
         <ul className="space-y-3">
           {notes.map((n, i) => (
-            <li key={i} className="rounded-lg border border-white/10 p-4">
+            <li key={i} className="pt-card">
               <h2 className="font-medium">{n.title}</h2>
               {n.body && (
-                <div className="prose prose-invert prose-sm max-w-none mt-2">
+                <div className="pt-prose mt-2" style={{ fontSize: "0.95rem" }}>
                   <MarkdownRenderer content={n.body} />
                 </div>
               )}

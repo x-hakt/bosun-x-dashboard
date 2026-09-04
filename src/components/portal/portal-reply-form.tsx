@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Send } from "lucide-react";
 import { postPortalIdeaReply } from "@/lib/portal/reply";
 
 export function PortalReplyForm({ ideaId }: { ideaId: string }) {
@@ -33,16 +32,11 @@ export function PortalReplyForm({ ideaId }: { ideaId: string }) {
         onChange={(e) => setText(e.target.value)}
         rows={4}
         placeholder="Add a reply…"
-        className="w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-ink)]/40"
+        className="pt-textarea"
       />
-      {err && <p className="text-xs text-red-400">{err}</p>}
-      <button
-        type="submit"
-        disabled={pending || !text.trim()}
-        className="inline-flex items-center gap-1.5 rounded-md bg-[var(--portal-accent)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
-      >
-        {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-        Post reply
+      {err && <p className="text-xs" style={{ color: "#f87171" }}>{err}</p>}
+      <button type="submit" disabled={pending || !text.trim()} className="pt-cta" style={pending || !text.trim() ? { opacity: 0.5 } : undefined}>
+        {pending ? "Posting…" : "Post reply"}
       </button>
     </form>
   );

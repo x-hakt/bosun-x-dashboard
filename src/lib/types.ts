@@ -262,7 +262,11 @@ export interface PortalTheme {
   accent?: string;
   accent_strong?: string;
   paper?: string;
+  surface?: string;
+  footer_bg?: string;
   ink?: string;
+  ink_soft?: string;
+  ink_faint?: string;
   heading_font?: string;
   body_font?: string;
 }

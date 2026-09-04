@@ -20,23 +20,30 @@ export default async function PortalIdeaPage({ params }: PageProps<"/c/ideas/[id
   return (
     <div className="space-y-5">
       <div>
-        <Link href="/c/ideas" className="text-[13px] text-[var(--portal-ink)]/50 hover:text-[var(--portal-ink)]">
+        <Link href="/c/ideas" className="text-[13px]" style={{ color: "var(--portal-ink-soft)" }}>
           ← Ideas
         </Link>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight font-[var(--portal-heading-font)]">{idea.title}</h1>
-        <span className="text-[11px] font-mono uppercase tracking-wide text-[var(--portal-ink)]/50">{idea.status}</span>
+        <h1 className="mt-1 text-2xl">{idea.title}</h1>
+        <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: "var(--portal-ink-faint)" }}>
+          {idea.status}
+        </span>
       </div>
+
       {idea.thread ? (
-        <div className="prose prose-invert prose-sm max-w-none rounded-lg border border-white/10 p-4">
+        <div className="pt-prose">
           <MarkdownRenderer content={idea.thread} />
         </div>
       ) : (
-        <p className="text-sm text-[var(--portal-ink)]/50">No notes on this idea yet.</p>
+        <p className="text-sm" style={{ color: "var(--portal-ink-soft)" }}>
+          No notes on this idea yet.
+        </p>
       )}
 
       {viewer.kind === "client" && (
-        <div className="rounded-lg border border-white/10 p-4">
-          <h2 className="mb-2 text-sm font-mono uppercase tracking-wide text-[var(--portal-ink)]/50">Reply</h2>
+        <div className="pt-card">
+          <h2 className="mb-2 text-[13px] font-medium uppercase tracking-wide" style={{ color: "var(--portal-ink-soft)" }}>
+            Reply
+          </h2>
           <PortalReplyForm ideaId={idea.id} />
         </div>
       )}

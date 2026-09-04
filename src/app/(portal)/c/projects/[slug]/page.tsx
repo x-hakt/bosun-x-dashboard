@@ -29,41 +29,51 @@ export default async function PortalProjectPage({ params }: PageProps<"/c/projec
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/c" className="text-[13px] text-[var(--portal-ink)]/50 hover:text-[var(--portal-ink)]">
+        <Link href="/c" className="text-[13px]" style={{ color: "var(--portal-ink-soft)" }}>
           ← Projects
         </Link>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight font-[var(--portal-heading-font)]">{project.name}</h1>
+        <h1 className="mt-1 text-2xl">{project.name}</h1>
         {project.status && (
-          <span className="text-[11px] font-mono uppercase tracking-wide text-[var(--portal-ink)]/50">
+          <span
+            className="text-[11px] font-medium uppercase tracking-wide"
+            style={{ color: "var(--portal-ink-faint)" }}
+          >
             {project.status}
           </span>
         )}
       </div>
 
       {project.summary && (
-        <div className="prose prose-invert prose-sm max-w-none rounded-lg border border-white/10 p-4">
+        <div className="pt-prose">
           <MarkdownRenderer content={project.summary} />
         </div>
       )}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-mono uppercase tracking-wide text-[var(--portal-ink)]/50">Work</h2>
+        <h2 className="text-[13px] font-medium uppercase tracking-wide" style={{ color: "var(--portal-ink-soft)" }}>
+          Work
+        </h2>
         {project.tasks.length === 0 ? (
-          <p className="text-sm text-[var(--portal-ink)]/50">No tasks to show.</p>
+          <p className="text-sm" style={{ color: "var(--portal-ink-soft)" }}>
+            No tasks to show.
+          </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {[...open, ...done].map((t, i) => (
-              <li key={t.key ?? i} className="rounded-lg border border-white/10 p-3">
+              <li key={t.key ?? i} className="pt-card">
                 <div className="flex items-start justify-between gap-3">
-                  <span className={t.status === "done" ? "line-through text-[var(--portal-ink)]/50" : ""}>
+                  <span style={t.status === "done" ? { color: "var(--portal-ink-faint)", textDecoration: "line-through" } : undefined}>
                     {t.title}
                   </span>
-                  <span className="shrink-0 text-[11px] font-mono uppercase tracking-wide text-[var(--portal-ink)]/40">
+                  <span
+                    className="shrink-0 text-[11px] font-medium uppercase tracking-wide"
+                    style={{ color: "var(--portal-ink-faint)" }}
+                  >
                     {STATUS_LABEL[t.status] ?? t.status}
                   </span>
                 </div>
                 {t.detail && (
-                  <div className="prose prose-invert prose-sm max-w-none mt-2 border-t border-white/10 pt-2">
+                  <div className="pt-prose mt-2 border-t pt-2" style={{ borderColor: "var(--portal-line)", fontSize: "0.9rem" }}>
                     <MarkdownRenderer content={t.detail} />
                   </div>
                 )}

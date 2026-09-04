@@ -39,7 +39,11 @@ export async function loadClientRegistry(): Promise<ClientRegistry> {
           accent: def.theme.accent ?? undefined,
           accent_strong: def.theme.accent_strong ?? undefined,
           paper: def.theme.paper ?? undefined,
+          surface: def.theme.surface ?? undefined,
+          footer_bg: def.theme.footer_bg ?? undefined,
           ink: def.theme.ink ?? undefined,
+          ink_soft: def.theme.ink_soft ?? undefined,
+          ink_faint: def.theme.ink_faint ?? undefined,
           heading_font: def.theme.heading_font ?? undefined,
           body_font: def.theme.body_font ?? undefined,
         }

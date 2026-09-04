@@ -1,6 +1,6 @@
 import { signOut } from "@/auth";
 
-// Server component + inline server action — no client JS, no SessionProvider.
+// Server component + inline server action — styled as the portal CTA button.
 export function PortalSignOut() {
   return (
     <form
@@ -9,7 +9,7 @@ export function PortalSignOut() {
         await signOut({ redirectTo: "/login" });
       }}
     >
-      <button type="submit" className="text-[var(--portal-ink)]/70 hover:text-[var(--portal-ink)]">
+      <button type="submit" className="pt-cta">
         Sign out
       </button>
     </form>
