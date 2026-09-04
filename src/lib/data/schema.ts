@@ -185,14 +185,19 @@ export const PlanningTaskYmlSchema = z.object({
 // Every gate defaults closed: no clients.yml, or a project with no `portals`,
 // means nothing is exposed.
 export const PortalThemeSchema = z.object({
-  // A handful of CSS custom-property values the portal layout injects at :root.
-  // Enough to make the portal read as the business's site without vendoring it.
+  // A handful of values the portal layout uses to read as the business's site
+  // without vendoring it — CSS colours injected at :root, plus a few strings.
   brand_name: z.string().nullish(),
-  logo_url: z.string().nullish(),
+  tagline: z.string().nullish(), // shown in the footer under the wordmark
+  logo_url: z.string().nullish(), // header wordmark image; falls back to brand_name text
+  favicon_url: z.string().nullish(), // tab icon for the portal + its login page
+  site_url: z.string().nullish(), // "back to <site>" link in the footer
   accent: z.string().nullish(),
   accent_strong: z.string().nullish(),
   paper: z.string().nullish(),
   ink: z.string().nullish(),
+  // CSS font-family strings. If they name a Google-hosted family, the portal
+  // loads it (see the <link> in the portal layout / login page).
   heading_font: z.string().nullish(),
   body_font: z.string().nullish(),
 });

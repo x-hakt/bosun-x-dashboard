@@ -32,7 +32,10 @@ export async function loadClientRegistry(): Promise<ClientRegistry> {
     theme: def.theme
       ? {
           brand_name: def.theme.brand_name ?? undefined,
+          tagline: def.theme.tagline ?? undefined,
           logo_url: def.theme.logo_url ?? undefined,
+          favicon_url: def.theme.favicon_url ?? undefined,
+          site_url: def.theme.site_url ?? undefined,
           accent: def.theme.accent ?? undefined,
           accent_strong: def.theme.accent_strong ?? undefined,
           paper: def.theme.paper ?? undefined,

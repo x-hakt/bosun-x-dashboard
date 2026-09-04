@@ -255,7 +255,10 @@ export interface PlanningTask {
 // ── Client portal (CGB-2.1) ──────────────────────────────────────────────────
 export interface PortalTheme {
   brand_name?: string;
+  tagline?: string;
   logo_url?: string;
+  favicon_url?: string;
+  site_url?: string;
   accent?: string;
   accent_strong?: string;
   paper?: string;
