@@ -58,6 +58,9 @@ html:has(.pt-shell) {
   z-index: 100;
   background: transparent;
   transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
+  /* match cgburchell.com's reset — Tailwind preflight would otherwise inflate the
+     nav row and the sign-out button by a few px vs the real site header. */
+  line-height: normal;
 }
 .pt-header[data-scrolled="true"] {
   background: rgba(11, 19, 20, 0.88);
@@ -186,6 +189,10 @@ html:has(.pt-shell) {
   border-top: 1px solid var(--portal-line);
   color: rgba(255, 255, 255, 0.45);
   padding-block: 3rem 2.5rem;
+  /* cgburchell.com's reset leaves footer text at line-height:normal; the portal
+     runs Tailwind's preflight (line-height:1.5), which made every line ~3px
+     taller. Reset it here so the strip matches pixel-for-pixel. */
+  line-height: normal;
 }
 .pt-footer__inner { display: grid; grid-template-columns: 1fr auto; gap: 2rem; align-items: end; }
 .pt-footer__brand { font-family: var(--portal-heading-font); font-size: 1.05rem; color: rgba(255, 255, 255, 0.9); margin-bottom: 0.35rem; }
