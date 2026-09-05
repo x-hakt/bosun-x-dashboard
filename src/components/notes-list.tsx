@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Pin, Plus, Save, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pin, Plus, Save, Share2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesThread } from "@/components/notes-thread";
@@ -75,6 +75,15 @@ function NoteRow({ note, portals, clients }: { note: Note; portals: PortalOpt[];
             {tag}
           </span>
         ))}
+
+        {(note.portals?.length ?? 0) > 0 && (
+          <span
+            className="shrink-0 text-emerald-400"
+            title={`Shared in the client portal (${note.portals!.join(", ")})`}
+          >
+            <Share2 className="size-3.5" />
+          </span>
+        )}
 
         <button
           type="button"

@@ -6,6 +6,7 @@ import { displayName } from "@/lib/data/project-display";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectStatusBadge } from "@/components/project-status-badge";
 import { AlertTriangle, WifiOff } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -25,18 +26,25 @@ async function ProjectsOverview({ status }: { status?: string }) {
   ];
   const needsReview = projects.filter((project) => project.meta.needs_review);
 
-  const filtered = status
-    ? projects
-        .filter((project) => (project.meta.status ?? "Other") === status)
-        .slice()
-        .sort((a, b) => displayName(a.meta).localeCompare(displayName(b.meta)))
-    : [];
+  // No status filter -> every project (unfiltered), still sorted by name. Clicking
+  // a chip above narrows to just that status; there's always a full list shown by
+  // default, same as the chips themselves imply.
+  const filtered = (status ? projects.filter((project) => (project.meta.status ?? "Other") === status) : projects)
+    .slice()
+    .sort((a, b) => displayName(a.meta).localeCompare(displayName(b.meta)));
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-muted-foreground">
+        <Link href="/projects" className={cn("hover:text-foreground", !status && "text-foreground")}>
+          All <span className="text-muted-foreground/60">{projects.length}</span>
+        </Link>
         {orderedKeys.map((key) => (
-          <Link key={key} href={`/projects?status=${encodeURIComponent(key)}`} className="hover:text-foreground">
+          <Link
+            key={key}
+            href={`/projects?status=${encodeURIComponent(key)}`}
+            className={cn("hover:text-foreground", status === key && "text-foreground")}
+          >
             {key} <span className="text-muted-foreground/60">{counts.get(key)}</span>
           </Link>
         ))}
@@ -54,29 +62,27 @@ async function ProjectsOverview({ status }: { status?: string }) {
         </div>
       )}
 
-      {status && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{status}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {filtered.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No projects with this status.</p>
-            ) : (
-              filtered.map((project) => (
-                <Link
-                  key={project.meta.slug}
-                  href={`/projects/${project.meta.slug}`}
-                  className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2.5 py-1.5 hover:bg-accent/40"
-                >
-                  <span className="font-mono text-sm truncate">{displayName(project.meta)}</span>
-                  <ProjectStatusBadge status={project.meta.status} className="h-4 px-1.5 py-0 text-[10px] leading-none" />
-                </Link>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{status ?? "All projects"}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          {filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No projects with this status.</p>
+          ) : (
+            filtered.map((project) => (
+              <Link
+                key={project.meta.slug}
+                href={`/projects/${project.meta.slug}`}
+                className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2.5 py-1.5 hover:bg-accent/40"
+              >
+                <span className="font-mono text-sm truncate">{displayName(project.meta)}</span>
+                <ProjectStatusBadge status={project.meta.status} className="h-4 px-1.5 py-0 text-[10px] leading-none" />
+              </Link>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -49,8 +49,8 @@ export function SharingControl({
 
   const summary =
     current.portals.length === 0
-      ? "not shared"
-      : `${current.portals.join(", ")}${current.shared_with.length ? ` · ${current.shared_with.length} client${current.shared_with.length === 1 ? "" : "s"}` : " · operator only"}`;
+      ? "Client portal: not shared"
+      : `Client portal: ${current.portals.join(", ")}${current.shared_with.length ? ` · ${current.shared_with.length} client${current.shared_with.length === 1 ? "" : "s"}` : " · operator only"}`;
 
   const togglePortal = (slug: string) => {
     setSaved(false);
@@ -89,15 +89,22 @@ export function SharingControl({
       router.refresh();
     });
 
+  const isShared = current.portals.length > 0;
+
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground"
+        className={cn(
+          "inline-flex w-full items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-mono transition-colors",
+          isShared
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15"
+            : "border-border/60 bg-card hover:bg-accent/50 hover:text-foreground",
+        )}
       >
-        <Share2 className="size-3.5" />
-        client portal: {summary}
+        <Share2 className="size-3.5 shrink-0" />
+        {summary}
       </button>
     );
   }
