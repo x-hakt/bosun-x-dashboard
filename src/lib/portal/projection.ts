@@ -41,11 +41,10 @@ export interface PortalTaskView {
   key?: string;
   title: string;
   status: TaskStatus;
-  /** The task description/thread — only present when the task itself is shared. */
+  /** The task's thread, if it has one. */
   detail?: string;
-  /** Opaque reply handle — only present when the task thread is shared with this
-   * client, i.e. exactly when `detail` is. The portal posts task replies against it. */
-  id?: string;
+  /** Opaque reply handle the portal posts task replies against. */
+  id: string;
 }
 
 export interface PortalProjectDetail extends PortalProjectSummary {
@@ -97,24 +96,24 @@ export async function getPortalProject(
   if (!project) return null;
   if (!passesGates(project.meta.portals, project.meta.shared_with, viewer, portalSlug)) return null;
 
+  // A task's TITLE is gated the same as its detail, not just its thread — a
+  // shared project does not imply every task on it is fit for a client to see
+  // (bug/fault tasks especially). Only tasks the operator explicitly listed in
+  // this task's own `shared_with` show up at all (an operator viewer sees
+  // every task, same as everywhere else — canSeeSharedTask always passes them).
   const prefix = taskPrefix(project.meta);
   const allTasks = await loadTasks(slug);
-  const tasks: PortalTaskView[] = allTasks.map((t) => {
-    const taskShared = canSeeSharedTask(
-      project.meta.portals,
-      project.meta.shared_with,
-      t.shared_with ?? undefined,
-      viewer,
-      portalSlug,
-    );
-    return {
+  const tasks: PortalTaskView[] = allTasks
+    .filter((t) =>
+      canSeeSharedTask(project.meta.portals, project.meta.shared_with, t.shared_with ?? undefined, viewer, portalSlug),
+    )
+    .map((t) => ({
       key: taskKey(prefix, t.num),
       title: t.title,
       status: t.status,
-      detail: taskShared ? t.description ?? undefined : undefined,
-      id: taskShared ? t.id : undefined,
-    };
-  });
+      detail: t.description ?? undefined,
+      id: t.id,
+    }));
 
   const summary = await readMarkdownIfExists(path.join(projectsDir(), slug, "PORTAL.md"));
 
