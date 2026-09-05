@@ -24,3 +24,10 @@ export async function updateProjectStatus(slug: string, status: string): Promise
 export async function saveProjectOverview(slug: string, content: string): Promise<void> {
   await fs.writeFile(path.join(projectsDir(), slug, "STATUS.md"), content, "utf-8");
 }
+
+// CGB-17: the client-facing summary (PORTAL.md) shown at the top of a shared
+// project's portal page — separate from STATUS.md above, which is
+// operator-only prose. Previously hand-edit-only.
+export async function savePortalBlurb(slug: string, content: string): Promise<void> {
+  await fs.writeFile(path.join(projectsDir(), slug, "PORTAL.md"), content, "utf-8");
+}

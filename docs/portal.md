@@ -71,7 +71,8 @@ least one portal is ticked) controls what an *unlisted* task does:
   with the client.
 
 Client-facing prose: an optional `projects/<slug>/PORTAL.md` renders at the top
-of the portal project page.
+of the portal project page — edit it from the "Client-facing summary" box in
+the project's Client portal card (or by hand).
 
 Links and tech tags: `tags` on a shared project always show (low-sensitivity
 tech-stack labels). `links` need their own opt-in — each link has a `portal:
