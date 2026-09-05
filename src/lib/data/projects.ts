@@ -62,11 +62,12 @@ async function loadProjectDir(slug: string): Promise<Project | null> {
 
   const parsed = ProjectYmlSchema.safeParse(loadYaml(raw));
 
-  const [spec, status, ideas, handoff, handoffStateRaw] = await Promise.all([
+  const [spec, status, ideas, handoff, portal, handoffStateRaw] = await Promise.all([
     readMarkdownIfExists(path.join(dir, "SPEC.md")),
     readMarkdownIfExists(path.join(dir, "STATUS.md")),
     readMarkdownIfExists(path.join(dir, "IDEAS.md")),
     readMarkdownIfExists(path.join(dir, "HANDOFF.md")),
+    readMarkdownIfExists(path.join(dir, "PORTAL.md")),
     fs.readFile(path.join(dir, "HANDOFF.yml"), "utf-8").catch(() => ""),
   ]);
   const handoffState = handoffStateRaw ? (loadYaml(handoffStateRaw) as HandoffState) : undefined;
@@ -83,13 +84,13 @@ async function loadProjectDir(slug: string): Promise<Project | null> {
     // Planning's job now); the `invalid` message is what actually surfaces the problem.
     return {
       meta: { name: slug, slug, stage: "active" },
-      docs: { spec, status, ideas, handoff },
+      docs: { spec, status, ideas, handoff, portal },
       handoffState,
       invalid: parsed.error.issues.map((i) => i.message).join("; "),
     };
   }
 
-  return { meta: normalizeMeta(parsed.data), docs: { spec, status, ideas, handoff }, handoffState };
+  return { meta: normalizeMeta(parsed.data), docs: { spec, status, ideas, handoff, portal }, handoffState };
 }
 
 export async function listProjects(): Promise<Project[]> {

@@ -169,6 +169,8 @@ export interface ProjectDocs {
   status?: string;
   ideas?: string;
   handoff?: string;
+  /** The client-facing summary rendered at the top of the portal project page. */
+  portal?: string;
 }
 
 export interface HandoffState {

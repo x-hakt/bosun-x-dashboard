@@ -26,6 +26,7 @@ import { liveRestorePending } from "@/lib/data/backup-request";
 import { backupRequestPending, restoreTestPending } from "@/lib/data/backup-request";
 import { TaskList } from "@/components/task-list";
 import { ProjectLinksEditor } from "@/components/project-links-editor";
+import { PortalBlurbEditor } from "@/components/portal-blurb-editor";
 import { HandoffLog } from "@/components/handoff-log";
 import { HandoffStatus } from "@/components/handoff-status";
 import { NeedsReviewIndicator } from "@/components/needs-review-indicator";
@@ -180,6 +181,12 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
                     onSave: setTaskSharingDefault.bind(null, slug),
                   }}
                 />
+                <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Client-facing summary
+                  </p>
+                  <PortalBlurbEditor slug={slug} initialContent={docs.portal ?? ""} />
+                </div>
               </CardContent>
             </Card>
           )}
