@@ -13,8 +13,12 @@ containers:
   - compose_service: recipes-api-postgres
 tags: [nodejs, postgres, public]
 links:
+  # CGB-13: `portal: true` is the only per-link opt-in into the client portal —
+  # everything else here (an admin panel, a monitoring URL) would stay
+  # operator-only by default even for a shared project.
   - label: Live
     url: https://recipes.example.com
+    portal: true
 # Client-portal share gates (CGB-2.1): built "as" Northwind Studio, visible to Acme Foods.
 portals: [northwind]
 shared_with: [acme-foods]

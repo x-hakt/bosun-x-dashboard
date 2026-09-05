@@ -50,6 +50,11 @@ export interface PortalTaskView {
 export interface PortalProjectDetail extends PortalProjectSummary {
   /** Operator-authored, client-facing prose: projects/<slug>/PORTAL.md. Optional. */
   summary?: string;
+  /** Tech stack tags — low sensitivity, shown for any Gate-1/2 shared project. */
+  tags: string[];
+  /** CGB-13: only the links the operator flagged `portal: true` — the project's
+   * other links (an admin panel, an internal monitoring URL) stay out. */
+  links: { label: string; url: string }[];
   tasks: PortalTaskView[];
 }
 
@@ -124,6 +129,8 @@ export async function getPortalProject(
     stage: project.meta.stage,
     updated: project.meta.updated,
     summary: summary ?? undefined,
+    tags: project.meta.tags ?? [],
+    links: (project.meta.links ?? []).filter((l) => l.portal).map((l) => ({ label: l.label, url: l.url })),
     tasks,
   };
 }

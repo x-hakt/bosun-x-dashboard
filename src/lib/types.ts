@@ -3,6 +3,8 @@ export type ProjectStage = "active" | "paused" | "archived";
 export interface ProjectLink {
   label: string;
   url: string;
+  /** CGB-13: per-link opt-in into the client portal. Absent/false = operator-only. */
+  portal?: boolean;
 }
 
 export interface ProjectContainer {

@@ -30,7 +30,7 @@ function normalizeMeta(raw: z.infer<typeof ProjectYmlSchema>): ProjectMeta {
     container: raw.container ? normalizeContainerRef(raw.container) : undefined,
     containers: raw.containers ? raw.containers.map(normalizeContainerRef) : undefined,
     tags: raw.tags ?? undefined,
-    links: raw.links ?? undefined,
+    links: raw.links?.map((l) => ({ label: l.label, url: l.url, portal: l.portal ?? undefined })) ?? undefined,
     error_tracking_url: raw.error_tracking_url ?? undefined,
     created: raw.created ?? undefined,
     updated: raw.updated ?? undefined,

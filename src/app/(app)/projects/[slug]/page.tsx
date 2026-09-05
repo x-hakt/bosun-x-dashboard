@@ -24,6 +24,7 @@ import { readBackupLog, readRestoreLog, readLiveRestoreReceipt } from "@/lib/dat
 import { liveRestorePending } from "@/lib/data/backup-request";
 import { backupRequestPending, restoreTestPending } from "@/lib/data/backup-request";
 import { TaskList } from "@/components/task-list";
+import { ProjectLinksEditor } from "@/components/project-links-editor";
 import { HandoffLog } from "@/components/handoff-log";
 import { HandoffStatus } from "@/components/handoff-status";
 import { NeedsReviewIndicator } from "@/components/needs-review-indicator";
@@ -236,25 +237,18 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
             </CardContent>
           </Card>
 
-          {((meta.links && meta.links.length > 0) || meta.error_tracking_url) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Links</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1.5 text-sm">
-                {meta.links?.map((l) => (
-                  <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" className="block text-sky-400 hover:underline">
-                    {l.label}
-                  </a>
-                ))}
-                {meta.error_tracking_url && (
-                  <a href={meta.error_tracking_url} target="_blank" rel="noopener noreferrer" className="block text-sky-400 hover:underline">
-                    Error tracker ↗
-                  </a>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Links</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProjectLinksEditor
+                slug={slug}
+                initialLinks={(meta.links ?? []).map((l) => ({ label: l.label, url: l.url, portal: Boolean(l.portal) }))}
+                errorTrackingUrl={meta.error_tracking_url}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
 

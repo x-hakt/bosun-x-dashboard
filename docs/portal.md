@@ -50,11 +50,20 @@ On the operator dashboard, open a project (or a planning idea, or a note) → th
 **Client portal** control → tick the portal, then tick the clients. Or edit the
 YAML: `portals: [acme]` + `shared_with: [bob]`.
 
-Task-level detail: a task's thread only shows in the portal if the task itself
-carries `shared_with: [bob]` (in `tasks.yml`).
+Task-level detail: a task doesn't appear in the portal **at all** — not even
+its title — unless the task itself also carries `shared_with: [bob]` (in
+`tasks.yml`). Sharing a project never implies sharing its tasks; day-to-day
+bug/fault tasks stay invisible by default, and only the ones you deliberately
+flag for a client show up, the same way idea threads and notes do.
 
 Client-facing prose: an optional `projects/<slug>/PORTAL.md` renders at the top
 of the portal project page.
+
+Links and tech tags: `tags` on a shared project always show (low-sensitivity
+tech-stack labels). `links` need their own opt-in — each link has a `portal:
+true/false` flag (edit from the project's Links card, or by hand); only
+flagged links reach the portal, so an admin panel or a monitoring URL on the
+same project stays operator-only by default.
 
 ### Client interaction
 
