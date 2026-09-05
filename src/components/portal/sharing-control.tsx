@@ -3,7 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Share2, Loader2, Check } from "lucide-react";
+import { Share2, Loader2, Check, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { setProjectSharing, setPlanningSharing, setNoteSharing } from "@/lib/actions/portal-sharing";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +47,6 @@ export function SharingControl({
   const [sel, setSel] = useState(new Set(current.portals));
   const [selClients, setSelClients] = useState(new Set(current.shared_with));
   const [saved, setSaved] = useState(false);
-  const [taskMode, setTaskMode] = useState(taskDefault?.value ?? "none");
   const [taskSaving, startTaskSaving] = useTransition();
 
   if (portals.length === 0) {
@@ -54,10 +57,8 @@ export function SharingControl({
     );
   }
 
-  const summary =
-    current.portals.length === 0
-      ? "Client portal: not shared"
-      : `Client portal: ${current.portals.join(", ")}${current.shared_with.length ? ` · ${current.shared_with.length} client${current.shared_with.length === 1 ? "" : "s"}` : " · operator only"}`;
+  const selectedClientNames = clients.filter((c) => current.shared_with.includes(c.slug)).map((c) => c.name);
+  const isShared = current.portals.length > 0;
 
   const togglePortal = (slug: string) => {
     setSaved(false);
@@ -96,120 +97,135 @@ export function SharingControl({
       router.refresh();
     });
 
-  const isShared = current.portals.length > 0;
-
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "inline-flex w-full items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-mono transition-colors",
+          "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors",
           isShared
-            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15"
-            : "border-border/60 bg-card hover:bg-accent/50 hover:text-foreground",
+            ? "border-emerald-500/30 bg-emerald-500/[0.07] hover:bg-emerald-500/[0.12]"
+            : "border-border/60 bg-card hover:bg-accent/50",
         )}
       >
-        <Share2 className="size-3.5 shrink-0" />
-        {summary}
+        <Share2 className={cn("size-3.5 shrink-0", isShared ? "text-emerald-400" : "text-muted-foreground")} />
+        <span className={cn("font-medium", isShared ? "text-emerald-300" : "text-muted-foreground")}>
+          Client portal
+        </span>
+        <span className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
+          {!isShared && <span className="text-muted-foreground/70">not shared</span>}
+          {isShared &&
+            current.portals.map((slug) => (
+              <Badge key={slug} variant="outline" className="border-emerald-500/30 text-emerald-300">
+                {portals.find((p) => p.slug === slug)?.name ?? slug}
+              </Badge>
+            ))}
+          {isShared &&
+            (selectedClientNames.length > 0 ? (
+              selectedClientNames.map((name) => (
+                <Badge key={name} variant="secondary">
+                  {name}
+                </Badge>
+              ))
+            ) : (
+              <span className="text-muted-foreground/70">operator only</span>
+            ))}
+        </span>
       </button>
     );
   }
 
   return (
-    <div className="rounded-md border border-border/60 bg-card/50 p-3 space-y-2 text-sm">
+    <div className="space-y-3 rounded-lg border border-border/60 bg-card p-3.5 text-sm">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-mono uppercase tracking-wide text-muted-foreground inline-flex items-center gap-1.5">
-          <Share2 className="size-3.5" /> client portal
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-foreground">
+          <Share2 className="size-3.5 text-emerald-400" /> Client portal
         </span>
-        <button type="button" onClick={() => setOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">
-          close
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          aria-label="Close"
+        >
+          <X className="size-3.5" />
         </button>
       </div>
 
-      <ul className="space-y-1.5">
+      <div className="space-y-2.5">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Portals</p>
         {portals.map((p) => {
           const on = sel.has(p.slug);
           const portalClients = clients.filter((c) => c.portal === p.slug);
           return (
-            <li key={p.slug}>
-              <label className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={on} onChange={() => togglePortal(p.slug)} />
+            <div key={p.slug} className={cn("rounded-md border px-2.5 py-2", on ? "border-emerald-500/25 bg-emerald-500/[0.04]" : "border-border/50")}>
+              <label className="flex cursor-pointer items-center gap-2 text-xs">
+                <Checkbox checked={on} onCheckedChange={() => togglePortal(p.slug)} />
                 <span className="font-medium">{p.name}</span>
-                <span className="font-mono text-muted-foreground/50">{p.slug}</span>
+                <span className="font-mono text-[10px] text-muted-foreground/60">{p.slug}</span>
               </label>
               {on && (
-                <div className="ml-5 mt-1 space-y-1">
+                <div className="mt-2 ml-6 space-y-1.5 border-l border-border/50 pl-3">
                   {portalClients.length === 0 ? (
-                    <span className="text-[11px] text-muted-foreground/60">
-                      no clients in this portal yet —{" "}
+                    <p className="text-[11px] text-muted-foreground/70">
+                      No clients in this portal yet —{" "}
                       <Link href="/settings/portals" className="text-sky-400 hover:underline">
                         invite one
                       </Link>
-                    </span>
+                      .
+                    </p>
                   ) : (
                     portalClients.map((c) => (
-                      <label key={c.slug} className="flex items-center gap-2 text-[11px]">
-                        <input
-                          type="checkbox"
-                          checked={selClients.has(c.slug)}
-                          onChange={() => toggleClient(c.slug)}
-                        />
-                        {c.name} <span className="font-mono text-muted-foreground/50">{c.slug}</span>
+                      <label key={c.slug} className="flex cursor-pointer items-center gap-2 text-[11px]">
+                        <Checkbox checked={selClients.has(c.slug)} onCheckedChange={() => toggleClient(c.slug)} />
+                        {c.name}
+                        <span className="font-mono text-[10px] text-muted-foreground/50">{c.slug}</span>
                       </label>
                     ))
                   )}
-                  <p className="text-[11px] text-muted-foreground/50">
-                    with no client ticked, only the operator sees it in the portal
+                  <p className="text-[10.5px] text-muted-foreground/50">
+                    With no client ticked, only the operator sees this in the portal.
                   </p>
                 </div>
               )}
-            </li>
+            </div>
           );
         })}
-      </ul>
+      </div>
 
       {taskDefault && sel.size > 0 && (
-        <div className="space-y-1 border-t border-border/50 pt-2">
-          <label htmlFor="task-sharing-default" className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            New / unlisted tasks
-          </label>
-          <select
-            id="task-sharing-default"
-            value={taskMode}
+        <div className="space-y-1.5 border-t border-border/50 pt-3">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">New / unlisted tasks</p>
+          <Select
+            value={taskDefault.value}
             disabled={taskSaving}
-            onChange={(e) => {
-              const mode = e.target.value as "all" | "none";
-              setTaskMode(mode);
+            onValueChange={(mode) =>
               startTaskSaving(async () => {
-                await taskDefault.onSave(mode);
+                await taskDefault.onSave(mode as "all" | "none");
                 router.refresh();
-              });
-            }}
-            className="h-7 w-full rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:border-ring dark:bg-input/30"
+              })
+            }
           >
-            <option value="none">Hidden by default — share tasks one at a time</option>
-            <option value="all">Shown by default — hide specific tasks instead</option>
-          </select>
+            <SelectTrigger size="sm" className="w-full text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Hidden by default — share tasks one at a time</SelectItem>
+              <SelectItem value="all">Shown by default — hide specific tasks instead</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={save}
-        disabled={saving}
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card px-2.5 py-1 text-xs font-mono",
-          "hover:text-foreground disabled:opacity-50",
-        )}
-      >
-        {saving ? <Loader2 className="size-3.5 animate-spin" /> : saved ? <Check className="size-3.5" /> : null}
-        {saved ? "saved" : "save sharing"}
-      </button>
-
-      <Link href="/settings/portals" className="block text-[11px] text-muted-foreground/60 hover:text-sky-400">
-        + invite a new client / manage portals →
-      </Link>
+      <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+        <Button size="sm" className="h-7 gap-1.5 px-2.5 text-xs" disabled={saving} onClick={save}>
+          {saving ? <Loader2 className="size-3.5 animate-spin" /> : saved ? <Check className="size-3.5" /> : null}
+          {saved ? "Saved" : "Save sharing"}
+        </Button>
+        <Link href="/settings/portals" className="text-[11px] text-muted-foreground/70 hover:text-sky-400">
+          + invite a client / manage portals →
+        </Link>
+      </div>
     </div>
   );
 }
