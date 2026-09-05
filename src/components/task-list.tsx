@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, CornerDownRight, Link2, Plus, Save, Share2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   createTask,
   deleteTask,
@@ -115,13 +117,16 @@ function TaskRow({
   // null (explicit YAML `null`) and undefined (key absent) both mean "no
   // override, follow the project default" — only a real array (including [])
   // is an override. Matches gates.ts canSeeSharedTask's ?? undefined coercion.
+  // Derived straight from props (no local state to go stale): the effective
+  // client list right now, whether that's an explicit override or the
+  // project's default resolved out.
   const sharedWithOverride = task.shared_with ?? undefined;
-  const [shareMode, setShareMode] = useState<"default" | "custom">(sharedWithOverride === undefined ? "default" : "custom");
-  const [shareSel, setShareSel] = useState<Set<string>>(new Set(sharedWithOverride ?? []));
+  const effectiveClients =
+    sharedWithOverride ?? (taskSharingDefault === "all" ? portalClients.map((c) => c.slug) : []);
   const childTasks = childrenByParent.get(task.id) ?? [];
   const rowKey = taskId(prefix, task.num);
   const unseenReplies = Math.max(0, countClientReplies(task.description ?? "") - (task.client_replies_seen ?? 0));
-  const taskShown = sharedWithOverride !== undefined ? sharedWithOverride.length > 0 : taskSharingDefault === "all";
+  const taskShown = effectiveClients.length > 0;
   const blockedBy = (task.depends_on ?? []).map((id) => allTasks.find((candidate) => candidate.id === id)).filter(Boolean) as Task[];
   const unavailableDependencies = descendantIds(task.id, childrenByParent);
   unavailableDependencies.add(task.id);
@@ -183,17 +188,21 @@ function TaskRow({
             </span>
           )}
           {portalClients.length > 0 && (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setExpanded(true);
-              }}
-              className={cn("shrink-0 rounded p-1", taskShown ? "text-emerald-400" : "text-muted-foreground/25 hover:text-muted-foreground")}
-              title={taskShown ? "Shown in the client portal — click to change" : "Hidden from the client portal — click to change"}
+            <span
+              className="flex shrink-0 items-center gap-1"
+              onClick={(event) => event.stopPropagation()}
+              title={taskShown ? "Shown in the client portal — click to hide" : "Hidden from the client portal — click to share"}
             >
-              <Share2 className="size-3.5" />
-            </button>
+              <Share2 className={cn("size-3.5", taskShown ? "text-emerald-400" : "text-muted-foreground/40")} />
+              <Switch
+                checked={taskShown}
+                disabled={isPending}
+                onCheckedChange={(checked) =>
+                  run(() => setTaskSharing(slug, task.id, checked ? portalClients.map((c) => c.slug) : []))
+                }
+                aria-label={taskShown ? "Hide this task from the client portal" : "Share this task in the client portal"}
+              />
+            </span>
           )}
           {childTasks.length > 0 && <span className="text-[11px] text-muted-foreground">{childTasks.length}</span>}
           <select
@@ -231,60 +240,56 @@ function TaskRow({
             )}
 
             {portalClients.length > 0 && (
-              <div className="space-y-1.5 rounded-md border border-border/60 bg-background p-2.5 text-xs">
-                <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
-                  <Share2 className="size-3.5" /> Client portal
+              <div className="space-y-2 rounded-md border border-border/60 bg-background p-2.5 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                    <Share2 className="size-3.5" /> Client portal
+                  </span>
+                  <label className="flex items-center gap-2">
+                    <span className={taskShown ? "text-emerald-400" : "text-muted-foreground"}>
+                      {taskShown ? "Shown" : "Hidden"}
+                    </span>
+                    <Switch
+                      checked={taskShown}
+                      disabled={isPending}
+                      onCheckedChange={(checked) =>
+                        run(() => setTaskSharing(slug, task.id, checked ? portalClients.map((c) => c.slug) : []))
+                      }
+                    />
+                  </label>
                 </div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`share-mode-${task.id}`}
-                    checked={shareMode === "default"}
-                    onChange={() => setShareMode("default")}
-                  />
-                  Use project default ({taskSharingDefault === "all" ? "shown to everyone shared on" : "hidden"})
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`share-mode-${task.id}`}
-                    checked={shareMode === "custom"}
-                    onChange={() => setShareMode("custom")}
-                  />
-                  Custom
-                </label>
-                {shareMode === "custom" && (
-                  <div className="ml-5 space-y-1">
+
+                {portalClients.length > 1 && (
+                  <div className="space-y-1 border-t border-border/50 pt-2">
+                    <p className="text-[11px] text-muted-foreground">Share with specific clients</p>
                     {portalClients.map((c) => (
                       <label key={c.slug} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={shareSel.has(c.slug)}
-                          onChange={() =>
-                            setShareSel((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(c.slug)) next.delete(c.slug);
-                              else next.add(c.slug);
-                              return next;
-                            })
-                          }
+                        <Checkbox
+                          checked={effectiveClients.includes(c.slug)}
+                          disabled={isPending}
+                          onCheckedChange={(checked) => {
+                            const next = new Set(effectiveClients);
+                            if (checked) next.add(c.slug);
+                            else next.delete(c.slug);
+                            run(() => setTaskSharing(slug, task.id, [...next]));
+                          }}
                         />
                         {c.name}
                       </label>
                     ))}
-                    {shareSel.size === 0 && (
-                      <p className="text-muted-foreground/60">hidden from everyone (override)</p>
-                    )}
                   </div>
                 )}
-                <Button
-                  size="sm"
-                  className="h-7 gap-1 px-2 text-xs"
-                  disabled={isPending}
-                  onClick={() => run(() => setTaskSharing(slug, task.id, shareMode === "default" ? null : [...shareSel]))}
-                >
-                  Save
-                </Button>
+
+                {sharedWithOverride !== undefined && (
+                  <button
+                    type="button"
+                    className="text-[11px] text-sky-400 hover:underline"
+                    disabled={isPending}
+                    onClick={() => run(() => setTaskSharing(slug, task.id, null))}
+                  >
+                    Reset to project default ({taskSharingDefault === "all" ? "shown" : "hidden"})
+                  </button>
+                )}
               </div>
             )}
 
