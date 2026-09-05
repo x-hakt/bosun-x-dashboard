@@ -41,6 +41,15 @@ mkproj() { # slug portalsline sharedline
 mkproj shared    "portals: [acme]" "shared_with: [bob]"
 mkproj gate1only "portals: [acme]" ""
 mkproj private   "" ""
+mkproj shareall  "portals: [acme]" "shared_with: [bob]"
+# CGB-14: shareall opts every task in by default; one task overrides back to hidden.
+echo "task_sharing_default: all" >> "$FX/projects/shareall/project.yml"
+cat > "$FX/projects/shareall/tasks.yml" <<YAML
+seq: 2
+tasks:
+  - { id: task-inherits, num: 1, title: "INHERITED-shown-by-default", status: todo, depends_on: [], created: "2026-01-01", updated: "2026-01-01" }
+  - { id: task-excluded, num: 2, title: "EXCLUDED-explicit-override", status: todo, shared_with: [], depends_on: [], created: "2026-01-01", updated: "2026-01-01" }
+YAML
 # CGB-9: shared project has a recent `updated`; bob's last visit was long ago, so
 # it lands in the "since your last visit" digest.
 echo "updated: '2026-06-01T00:00:00.000Z'" >> "$FX/projects/shared/project.yml"
@@ -115,6 +124,9 @@ grep -q 'nextjs' /tmp/portal-body && ok "CGB-13: tech tags shown" || bad "tags m
 grep -q 'Live site' /tmp/portal-body && ok "CGB-13: portal-flagged link shown" || bad "portal-flagged link missing"
 grep -q 'secret-admin\|Admin panel' /tmp/portal-body && bad "CGB-13: non-portal link LEAKED" || ok "non-portal link withheld"
 grep -q 'Approve / sign off' /tmp/portal-body && ok "CGB-8: reply/sign-off box on shared task" || bad "no reply box on shared task"
+[ "$(get "$CLIENT" /c/projects/shareall)" = 200 ] && ok "CGB-14: shareall detail -> 200" || bad "shareall detail"
+grep -q 'INHERITED-shown-by-default' /tmp/portal-body && ok "CGB-14: task_sharing_default all -> unlisted task shown" || bad "default-all task missing"
+grep -q 'EXCLUDED-explicit-override' /tmp/portal-body && bad "CGB-14: shared_with:[] override did NOT hide the task under default all" || ok "CGB-14: explicit [] override hides a task even under default all"
 [ "$(get "$CLIENT" /c/projects/gate1only)" = 404 ] && ok "gate1only detail -> 404" || bad "gate1only detail not 404"
 [ "$(get "$CLIENT" /c/projects/private)" = 404 ] && ok "private detail -> 404" || bad "private detail not 404"
 [ "$(get "$CLIENT" /c/ideas/IDEA-1)" = 200 ] && ok "shared idea -> 200" || bad "shared idea"

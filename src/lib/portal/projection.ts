@@ -103,14 +103,23 @@ export async function getPortalProject(
 
   // A task's TITLE is gated the same as its detail, not just its thread — a
   // shared project does not imply every task on it is fit for a client to see
-  // (bug/fault tasks especially). Only tasks the operator explicitly listed in
-  // this task's own `shared_with` show up at all (an operator viewer sees
-  // every task, same as everywhere else — canSeeSharedTask always passes them).
+  // (bug/fault tasks especially). Only tasks that resolve visible — via their
+  // own `shared_with` override or the project's task_sharing_default (CGB-14,
+  // "none" unless the project opted into "all") — show up at all (an operator
+  // viewer sees every task, same as everywhere else).
   const prefix = taskPrefix(project.meta);
+  const taskDefault = project.meta.task_sharing_default ?? "none";
   const allTasks = await loadTasks(slug);
   const tasks: PortalTaskView[] = allTasks
     .filter((t) =>
-      canSeeSharedTask(project.meta.portals, project.meta.shared_with, t.shared_with ?? undefined, viewer, portalSlug),
+      canSeeSharedTask(
+        project.meta.portals,
+        project.meta.shared_with,
+        t.shared_with ?? undefined,
+        viewer,
+        portalSlug,
+        taskDefault,
+      ),
     )
     .map((t) => ({
       key: taskKey(prefix, t.num),

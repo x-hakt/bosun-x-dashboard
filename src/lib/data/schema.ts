@@ -75,6 +75,11 @@ export const ProjectYmlSchema = z.object({
   // Gate 2: client slugs (see clients.yml `clients:`) allowed to see this project
   // in a portal it's exposed to. Absent/empty = only the operator sees it in-portal.
   shared_with: z.array(z.string()).nullish(),
+  // CGB-14: what a task on this project defaults to when it has no `shared_with`
+  // of its own — "none" (hidden, the original CGB-8 behaviour) or "all" (shown
+  // to every client the project is shared with). A task's own `shared_with`,
+  // including an explicit `[]`, always overrides this either way.
+  task_sharing_default: z.enum(["all", "none"]).nullish(),
 });
 
 export const StandardCheckDefSchema = z.object({

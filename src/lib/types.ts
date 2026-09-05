@@ -55,6 +55,8 @@ export interface ProjectMeta {
   /** Client portal Gate 2 (CGB-2.1): client slugs allowed to see this project in a portal
    * it's exposed to. Empty/absent = operator-only within the portal. */
   shared_with?: string[];
+  /** CGB-14: what a task defaults to when it has no `shared_with` of its own. */
+  task_sharing_default?: "all" | "none";
 }
 
 export interface ProjectDeployment {

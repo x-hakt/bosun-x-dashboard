@@ -20,9 +20,18 @@ export function passesGates(
   return Boolean(sharedWith?.includes(viewer.slug)); // Gate 2
 }
 
+export type TaskSharingDefault = "all" | "none";
+
 // Whether a viewer may see (and, for a client, reply into) one task's own
-// thread. The project must pass both gates first; then the task itself must be
-// shared with this client (an operator sees every task in a portal project).
+// thread. The project must pass both gates first; then:
+//   - taskSharedWith is a real array (including []) -> that's an explicit,
+//     per-task override and wins outright (CGB-14): [] means "hidden even
+//     under an 'all' default", a non-empty list means "shown to just these
+//     clients even under a 'none' default".
+//   - taskSharedWith is undefined -> no override, fall back to the project's
+//     task_sharing_default ("none", the CGB-8 behaviour, unless the project
+//     opted into "all").
+// An operator viewer always sees every task in a portal project.
 // Used by both the projection (to expose `detail`) and reply.ts (to accept a
 // task reply) so the two can't drift.
 export function canSeeSharedTask(
@@ -31,8 +40,10 @@ export function canSeeSharedTask(
   taskSharedWith: string[] | undefined,
   viewer: PortalViewer,
   portalSlug: string,
+  taskDefault: TaskSharingDefault = "none",
 ): boolean {
   if (!passesGates(projectPortals, projectSharedWith, viewer, portalSlug)) return false;
   if (viewer.kind === "operator") return true;
-  return Boolean(taskSharedWith?.includes(viewer.slug));
+  if (taskSharedWith !== undefined) return taskSharedWith.includes(viewer.slug);
+  return taskDefault === "all";
 }

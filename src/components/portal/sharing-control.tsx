@@ -26,12 +26,16 @@ export function SharingControl({
   portals,
   clients,
   current,
+  taskDefault,
 }: {
   kind: "project" | "planning" | "note";
   id: string;
   portals: PortalOpt[];
   clients: ClientOpt[];
   current: { portals: string[]; shared_with: string[] };
+  /** Project-only (CGB-14): the "new/unlisted tasks default to…" control, shown
+   * inside this same panel so task-sharing settings live in one place. */
+  taskDefault?: { value: "all" | "none"; onSave: (mode: "all" | "none") => Promise<void> };
 }) {
   const router = useRouter();
   const [saving, start] = useTransition();
@@ -39,6 +43,8 @@ export function SharingControl({
   const [sel, setSel] = useState(new Set(current.portals));
   const [selClients, setSelClients] = useState(new Set(current.shared_with));
   const [saved, setSaved] = useState(false);
+  const [taskMode, setTaskMode] = useState(taskDefault?.value ?? "none");
+  const [taskSaving, startTaskSaving] = useTransition();
 
   if (portals.length === 0) {
     return (
@@ -162,6 +168,31 @@ export function SharingControl({
           );
         })}
       </ul>
+
+      {taskDefault && sel.size > 0 && (
+        <div className="space-y-1 border-t border-border/50 pt-2">
+          <label htmlFor="task-sharing-default" className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            New / unlisted tasks
+          </label>
+          <select
+            id="task-sharing-default"
+            value={taskMode}
+            disabled={taskSaving}
+            onChange={(e) => {
+              const mode = e.target.value as "all" | "none";
+              setTaskMode(mode);
+              startTaskSaving(async () => {
+                await taskDefault.onSave(mode);
+                router.refresh();
+              });
+            }}
+            className="h-7 w-full rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:border-ring dark:bg-input/30"
+          >
+            <option value="none">Hidden by default — share tasks one at a time</option>
+            <option value="all">Shown by default — hide specific tasks instead</option>
+          </select>
+        </div>
+      )}
 
       <button
         type="button"
