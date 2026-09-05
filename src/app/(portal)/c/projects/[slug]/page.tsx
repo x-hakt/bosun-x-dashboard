@@ -78,7 +78,7 @@ export default async function PortalProjectPage({ params }: PageProps<"/c/projec
                     <MarkdownRenderer content={t.detail} />
                   </div>
                 )}
-                {viewer.kind === "client" && t.id && (
+                {viewer.kind === "client" && (
                   <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--portal-line)" }}>
                     <PortalReplyForm target={{ kind: "task", project: project.slug, taskId: t.id }} />
                   </div>

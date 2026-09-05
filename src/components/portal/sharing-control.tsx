@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Share2, Loader2, Check } from "lucide-react";
 import { setProjectSharing, setPlanningSharing, setNoteSharing } from "@/lib/actions/portal-sharing";
 import { cn } from "@/lib/utils";
@@ -134,7 +135,12 @@ export function SharingControl({
               {on && (
                 <div className="ml-5 mt-1 space-y-1">
                   {portalClients.length === 0 ? (
-                    <span className="text-[11px] text-muted-foreground/60">no clients in this portal yet</span>
+                    <span className="text-[11px] text-muted-foreground/60">
+                      no clients in this portal yet —{" "}
+                      <Link href="/settings/portals" className="text-sky-400 hover:underline">
+                        invite one
+                      </Link>
+                    </span>
                   ) : (
                     portalClients.map((c) => (
                       <label key={c.slug} className="flex items-center gap-2 text-[11px]">
@@ -169,6 +175,10 @@ export function SharingControl({
         {saving ? <Loader2 className="size-3.5 animate-spin" /> : saved ? <Check className="size-3.5" /> : null}
         {saved ? "saved" : "save sharing"}
       </button>
+
+      <Link href="/settings/portals" className="block text-[11px] text-muted-foreground/60 hover:text-sky-400">
+        + invite a new client / manage portals →
+      </Link>
     </div>
   );
 }
