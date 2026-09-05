@@ -58,6 +58,12 @@ const cases = [
   ['task: project shared, task not -> closed',       canSeeSharedTask(['acme'], ['bob'], undefined, bob, 'acme'), false],
   ['task: project + task shared -> open',            canSeeSharedTask(['acme'], ['bob'], ['bob'], bob, 'acme'), true],
   ['task: operator sees every task in the portal',   canSeeSharedTask(['acme'], undefined, undefined, op, 'acme'), true],
+  // CGB-14: a project-level task_sharing_default of "all" — no per-task override
+  ['task: no override, default all -> open',     canSeeSharedTask(['acme'], ['bob'], undefined, bob, 'acme', 'all'), true],
+  ['task: no override, default none -> closed',  canSeeSharedTask(['acme'], ['bob'], undefined, bob, 'acme', 'none'), false],
+  ['task: [] override beats default all -> closed', canSeeSharedTask(['acme'], ['bob'], [], bob, 'acme', 'all'), false],
+  ['task: list override beats default none -> open', canSeeSharedTask(['acme'], ['bob'], ['bob'], bob, 'acme', 'none'), true],
+  ['task: default all still needs project Gate 2', canSeeSharedTask(['acme'], ['bob'], undefined, eve, 'acme', 'all'), false],
 ];
 let bad = 0;
 for (const [name, got, want] of cases) {

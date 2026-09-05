@@ -1,7 +1,9 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { loadTasksFile, saveTasks } from "@/lib/data/tasks";
+import { getProject } from "@/lib/data/projects";
 import type { Task, TaskStatus } from "@/lib/data/tasks-schema";
 import { isoTimestamp } from "@/lib/time/stamp";
 import { syncStatusBoardForProject } from "@/lib/data/status-board";
@@ -73,6 +75,28 @@ export async function updateTaskDescription(slug: string, taskId: string, descri
   );
   await saveTasks(slug, next, seq);
   await syncStatusBoardForProject(slug);
+}
+
+// CGB-14: per-task portal override — null clears it (the task then follows the
+// project's task_sharing_default); an array (including []) is an explicit
+// override that always wins regardless of that default. Slugs are trimmed to
+// the project's OWN shared_with — a task can't grant a client access the
+// project itself hasn't already granted them.
+export async function setTaskSharing(slug: string, taskId: string, sharedWith: string[] | null): Promise<void> {
+  const { seq, tasks } = await loadTasksFile(slug);
+  if (!tasks.some((t) => t.id === taskId)) throw new Error("Task not found");
+
+  let clean: string[] | undefined;
+  if (sharedWith !== null) {
+    const project = await getProject(slug);
+    const allowed = new Set(project?.meta.shared_with ?? []);
+    clean = [...new Set(sharedWith)].filter((s) => allowed.has(s));
+  }
+
+  const now = isoTimestamp();
+  const next = tasks.map((t) => (t.id === taskId ? { ...t, shared_with: clean, updated: now } : t));
+  await saveTasks(slug, next, seq);
+  revalidatePath(`/projects/${slug}`);
 }
 
 // CGB-8: operator acknowledges the portal-client replies on a task thread — pins

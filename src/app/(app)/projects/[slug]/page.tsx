@@ -20,6 +20,7 @@ import { getBackupStatus } from "@/lib/data/backup-status";
 import { loadBackups, loadDestinations } from "@/lib/data/backups";
 import { loadClientRegistry } from "@/lib/data/clients";
 import { SharingControl } from "@/components/portal/sharing-control";
+import { setTaskSharingDefault } from "@/lib/actions/portal-sharing";
 import { readBackupLog, readRestoreLog, readLiveRestoreReceipt } from "@/lib/data/backup-log";
 import { liveRestorePending } from "@/lib/data/backup-request";
 import { backupRequestPending, restoreTestPending } from "@/lib/data/backup-request";
@@ -124,7 +125,15 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
               <h2 className="text-sm font-mono uppercase tracking-wide text-muted-foreground">Tasks</h2>
               <span className="text-xs font-mono text-muted-foreground/70">{prefix}-</span>
             </div>
-            <TaskList slug={slug} prefix={prefix} tasks={tasks} />
+            <TaskList
+              slug={slug}
+              prefix={prefix}
+              tasks={tasks}
+              portalClients={clientRegistry.clients
+                .filter((c) => (meta.shared_with ?? []).includes(c.slug))
+                .map((c) => ({ slug: c.slug, name: c.name }))}
+              taskSharingDefault={meta.task_sharing_default ?? "none"}
+            />
           </section>
 
           <Tabs defaultValue={docsAvailable[0].key}>
@@ -166,6 +175,10 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
                   portals={clientRegistry.portals.map((p) => ({ slug: p.slug, name: p.name }))}
                   clients={clientRegistry.clients.map((c) => ({ slug: c.slug, name: c.name, portal: c.portal }))}
                   current={{ portals: meta.portals ?? [], shared_with: meta.shared_with ?? [] }}
+                  taskDefault={{
+                    value: meta.task_sharing_default ?? "none",
+                    onSave: setTaskSharingDefault.bind(null, slug),
+                  }}
                 />
               </CardContent>
             </Card>

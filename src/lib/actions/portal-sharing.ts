@@ -47,3 +47,12 @@ export async function setNoteSharing(id: string, input: SharingInput): Promise<v
   await updateNote(id, { portals: portals ?? [], shared_with: shared_with ?? [] });
   revalidatePath("/notes");
 }
+
+// CGB-14: what an individual task on this project defaults to when it carries
+// no `shared_with` of its own. "none" (hidden) is the original CGB-8
+// behaviour; "all" shows every task to every client the project is shared
+// with unless a task explicitly overrides it (see setTaskSharing).
+export async function setTaskSharingDefault(slug: string, mode: "all" | "none"): Promise<void> {
+  await patchProjectYaml(slug, { task_sharing_default: mode === "none" ? null : mode });
+  revalidatePath(`/projects/${slug}`);
+}

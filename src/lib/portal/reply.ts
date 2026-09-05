@@ -104,6 +104,7 @@ async function appendToTask(
       task.shared_with ?? undefined,
       viewer,
       PORTAL_SLUG,
+      project.meta.task_sharing_default ?? "none",
     )
   ) {
     throw new Error("This thread isn't shared with you.");

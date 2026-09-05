@@ -50,11 +50,25 @@ On the operator dashboard, open a project (or a planning idea, or a note) → th
 **Client portal** control → tick the portal, then tick the clients. Or edit the
 YAML: `portals: [acme]` + `shared_with: [bob]`.
 
-Task-level detail: a task doesn't appear in the portal **at all** — not even
-its title — unless the task itself also carries `shared_with: [bob]` (in
-`tasks.yml`). Sharing a project never implies sharing its tasks; day-to-day
-bug/fault tasks stay invisible by default, and only the ones you deliberately
-flag for a client show up, the same way idea threads and notes do.
+Task-level detail: by default a task doesn't appear in the portal **at all** —
+not even its title — unless the task itself also carries `shared_with: [bob]`
+(in `tasks.yml`, or the Client portal control on the task's row). Sharing a
+project never implies sharing its tasks; day-to-day bug/fault tasks stay
+invisible by default, and only the ones you deliberately flag for a client
+show up, the same way idea threads and notes do.
+
+Two ways to set a task's own sharing, from its row on the project page:
+- **Use project default** — follows `task_sharing_default` (see below).
+- **Custom** — pick specific clients, or none (an explicit `shared_with: []`,
+  which always wins even if the project default is "all").
+
+`task_sharing_default` (set from the project's Client portal card once at
+least one portal is ticked) controls what an *unlisted* task does:
+- `none` (the default) — hidden until explicitly shared. Good for ordinary
+  dev work where bug/fault tasks shouldn't reach the client.
+- `all` — shown to every client the project is shared with unless a task
+  explicitly overrides it to `[]`. Good for a project run as a shared backlog
+  with the client.
 
 Client-facing prose: an optional `projects/<slug>/PORTAL.md` renders at the top
 of the portal project page.

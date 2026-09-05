@@ -43,6 +43,7 @@ function normalizeMeta(raw: z.infer<typeof ProjectYmlSchema>): ProjectMeta {
       : undefined,
     portals: raw.portals ?? undefined,
     shared_with: raw.shared_with ?? undefined,
+    task_sharing_default: raw.task_sharing_default ?? undefined,
   };
 }
 

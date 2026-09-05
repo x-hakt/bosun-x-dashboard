@@ -2,13 +2,14 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, CornerDownRight, Link2, Plus, Save, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, CornerDownRight, Link2, Plus, Save, Share2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   createTask,
   deleteTask,
   markTaskClientRepliesReviewed,
+  setTaskSharing,
   updateTask,
   updateTaskDescription,
   updateTaskStatus,
@@ -90,6 +91,8 @@ function TaskRow({
   depth,
   allTasks,
   childrenByParent,
+  portalClients,
+  taskSharingDefault,
 }: {
   slug: string;
   prefix: string;
@@ -97,6 +100,10 @@ function TaskRow({
   depth: number;
   allTasks: Task[];
   childrenByParent: Map<string, Task[]>;
+  /** Clients the PROJECT is already shared with — a task can only be shared with
+   * a subset of these (CGB-14). Empty = the project itself isn't shared yet. */
+  portalClients: { slug: string; name: string }[];
+  taskSharingDefault: "all" | "none";
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -105,9 +112,16 @@ function TaskRow({
   const [dependencies, setDependencies] = useState<string[]>(task.depends_on ?? []);
   const [subtaskTitle, setSubtaskTitle] = useState("");
   const [error, setError] = useState<string>();
+  // null (explicit YAML `null`) and undefined (key absent) both mean "no
+  // override, follow the project default" — only a real array (including [])
+  // is an override. Matches gates.ts canSeeSharedTask's ?? undefined coercion.
+  const sharedWithOverride = task.shared_with ?? undefined;
+  const [shareMode, setShareMode] = useState<"default" | "custom">(sharedWithOverride === undefined ? "default" : "custom");
+  const [shareSel, setShareSel] = useState<Set<string>>(new Set(sharedWithOverride ?? []));
   const childTasks = childrenByParent.get(task.id) ?? [];
   const rowKey = taskId(prefix, task.num);
   const unseenReplies = Math.max(0, countClientReplies(task.description ?? "") - (task.client_replies_seen ?? 0));
+  const taskShown = sharedWithOverride !== undefined ? sharedWithOverride.length > 0 : taskSharingDefault === "all";
   const blockedBy = (task.depends_on ?? []).map((id) => allTasks.find((candidate) => candidate.id === id)).filter(Boolean) as Task[];
   const unavailableDependencies = descendantIds(task.id, childrenByParent);
   unavailableDependencies.add(task.id);
@@ -168,6 +182,19 @@ function TaskRow({
               {unseenReplies} new
             </span>
           )}
+          {portalClients.length > 0 && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setExpanded(true);
+              }}
+              className={cn("shrink-0 rounded p-1", taskShown ? "text-emerald-400" : "text-muted-foreground/25 hover:text-muted-foreground")}
+              title={taskShown ? "Shown in the client portal — click to change" : "Hidden from the client portal — click to change"}
+            >
+              <Share2 className="size-3.5" />
+            </button>
+          )}
           {childTasks.length > 0 && <span className="text-[11px] text-muted-foreground">{childTasks.length}</span>}
           <select
             value={task.status}
@@ -199,6 +226,64 @@ function TaskRow({
                   onClick={() => run(() => markTaskClientRepliesReviewed(slug, task.id))}
                 >
                   Mark reviewed
+                </Button>
+              </div>
+            )}
+
+            {portalClients.length > 0 && (
+              <div className="space-y-1.5 rounded-md border border-border/60 bg-background p-2.5 text-xs">
+                <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                  <Share2 className="size-3.5" /> Client portal
+                </div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`share-mode-${task.id}`}
+                    checked={shareMode === "default"}
+                    onChange={() => setShareMode("default")}
+                  />
+                  Use project default ({taskSharingDefault === "all" ? "shown to everyone shared on" : "hidden"})
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`share-mode-${task.id}`}
+                    checked={shareMode === "custom"}
+                    onChange={() => setShareMode("custom")}
+                  />
+                  Custom
+                </label>
+                {shareMode === "custom" && (
+                  <div className="ml-5 space-y-1">
+                    {portalClients.map((c) => (
+                      <label key={c.slug} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={shareSel.has(c.slug)}
+                          onChange={() =>
+                            setShareSel((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(c.slug)) next.delete(c.slug);
+                              else next.add(c.slug);
+                              return next;
+                            })
+                          }
+                        />
+                        {c.name}
+                      </label>
+                    ))}
+                    {shareSel.size === 0 && (
+                      <p className="text-muted-foreground/60">hidden from everyone (override)</p>
+                    )}
+                  </div>
+                )}
+                <Button
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-xs"
+                  disabled={isPending}
+                  onClick={() => run(() => setTaskSharing(slug, task.id, shareMode === "default" ? null : [...shareSel]))}
+                >
+                  Save
                 </Button>
               </div>
             )}
@@ -273,13 +358,37 @@ function TaskRow({
       </div>
 
       {childTasks.map((child) => (
-        <TaskRow key={child.id} slug={slug} prefix={prefix} task={child} depth={depth + 1} allTasks={allTasks} childrenByParent={childrenByParent} />
+        <TaskRow
+          key={child.id}
+          slug={slug}
+          prefix={prefix}
+          task={child}
+          depth={depth + 1}
+          allTasks={allTasks}
+          childrenByParent={childrenByParent}
+          portalClients={portalClients}
+          taskSharingDefault={taskSharingDefault}
+        />
       ))}
     </div>
   );
 }
 
-export function TaskList({ slug, prefix, tasks }: { slug: string; prefix: string; tasks: Task[] }) {
+export function TaskList({
+  slug,
+  prefix,
+  tasks,
+  portalClients = [],
+  taskSharingDefault = "none",
+}: {
+  slug: string;
+  prefix: string;
+  tasks: Task[];
+  /** Clients the project is shared with (CGB-14) — empty if the project isn't
+   * shared, in which case no per-task sharing UI renders at all. */
+  portalClients?: { slug: string; name: string }[];
+  taskSharingDefault?: "all" | "none";
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [newTitle, setNewTitle] = useState("");
@@ -326,7 +435,19 @@ export function TaskList({ slug, prefix, tasks }: { slug: string; prefix: string
         <p className="py-8 text-center text-sm text-muted-foreground">No tasks yet.</p>
       ) : (
         <div className="overflow-hidden rounded-md border border-border/60 bg-card px-3">
-          {roots.map((task) => <TaskRow key={task.id} slug={slug} prefix={prefix} task={task} depth={0} allTasks={tasks} childrenByParent={children} />)}
+          {roots.map((task) => (
+            <TaskRow
+              key={task.id}
+              slug={slug}
+              prefix={prefix}
+              task={task}
+              depth={0}
+              allTasks={tasks}
+              childrenByParent={children}
+              portalClients={portalClients}
+              taskSharingDefault={taskSharingDefault}
+            />
+          ))}
         </div>
       )}
     </div>
