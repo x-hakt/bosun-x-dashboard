@@ -44,6 +44,40 @@ export default async function PortalProjectPage({ params }: PageProps<"/c/projec
         )}
       </div>
 
+      {(project.tags.length > 0 || project.links.length > 0) && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          {project.tags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {project.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded px-1.5 py-0.5 text-[11px] font-medium"
+                  style={{ background: "var(--portal-line)", color: "var(--portal-ink-soft)" }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          {project.links.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              {project.links.map((l) => (
+                <a
+                  key={l.url}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[13px] hover:underline"
+                  style={{ color: "var(--portal-accent)" }}
+                >
+                  {l.label} ↗
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {project.summary && (
         <div className="pt-prose">
           <MarkdownRenderer content={project.summary} />
@@ -56,7 +90,7 @@ export default async function PortalProjectPage({ params }: PageProps<"/c/projec
         </h2>
         {project.tasks.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--portal-ink-soft)" }}>
-            No tasks to show.
+            Nothing shared here yet.
           </p>
         ) : (
           <ul className="space-y-2.5">

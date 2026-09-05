@@ -44,6 +44,14 @@ mkproj private   "" ""
 # CGB-9: shared project has a recent `updated`; bob's last visit was long ago, so
 # it lands in the "since your last visit" digest.
 echo "updated: '2026-06-01T00:00:00.000Z'" >> "$FX/projects/shared/project.yml"
+# CGB-13: a portal-flagged link shows; a non-flagged one (an "admin panel") stays
+# operator-only. Tags always show once a project is shared.
+cat >> "$FX/projects/shared/project.yml" <<YAML
+tags: [nextjs, postgres]
+links:
+  - { label: Live site, url: "https://example.com", portal: true }
+  - { label: Admin panel, url: "https://example.com/secret-admin", portal: false }
+YAML
 mkdir -p "$FX/.portal-state"
 echo '{"seen_at":"2020-01-01T00:00:00.000Z"}' > "$FX/.portal-state/bob.json"
 # CGB-10: bob's message thread already has an operator turn, written (mtime) after
@@ -103,6 +111,9 @@ grep -qE 'secret-shared|caspar|/opt/' /tmp/portal-body && bad "host/path LEAKED 
 grep -q 'secret-task-thread-shared' /tmp/portal-body && ok "CGB-8: shared task thread visible" || bad "shared task thread missing"
 grep -q 'secret-task-thread-private' /tmp/portal-body && bad "CGB-8: unshared task thread LEAKED" || ok "unshared task thread withheld"
 grep -q 'CONFIDENTIAL-bug-task-title' /tmp/portal-body && bad "an unshared task's TITLE leaked (not just its thread)" || ok "unshared task row doesn't appear at all"
+grep -q 'nextjs' /tmp/portal-body && ok "CGB-13: tech tags shown" || bad "tags missing"
+grep -q 'Live site' /tmp/portal-body && ok "CGB-13: portal-flagged link shown" || bad "portal-flagged link missing"
+grep -q 'secret-admin\|Admin panel' /tmp/portal-body && bad "CGB-13: non-portal link LEAKED" || ok "non-portal link withheld"
 grep -q 'Approve / sign off' /tmp/portal-body && ok "CGB-8: reply/sign-off box on shared task" || bad "no reply box on shared task"
 [ "$(get "$CLIENT" /c/projects/gate1only)" = 404 ] && ok "gate1only detail -> 404" || bad "gate1only detail not 404"
 [ "$(get "$CLIENT" /c/projects/private)" = 404 ] && ok "private detail -> 404" || bad "private detail not 404"

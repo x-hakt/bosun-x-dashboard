@@ -35,7 +35,18 @@ export const ProjectYmlSchema = z.object({
   container: ContainerRefSchema.nullish(),
   containers: z.array(ContainerRefSchema).nullish(),
   tags: z.array(z.string()).nullish(),
-  links: z.array(z.object({ label: z.string(), url: z.string() })).nullish(),
+  links: z
+    .array(
+      z.object({
+        label: z.string(),
+        url: z.string(),
+        // CGB-13: per-link opt-in — only links flagged `portal: true` reach the
+        // client portal (a project's other links, e.g. an admin panel or an
+        // internal monitoring URL, stay operator-only by default).
+        portal: z.boolean().nullish(),
+      }),
+    )
+    .nullish(),
   // Optional link to this project's error tracker (GlitchTip/Sentry/…). bosun-x
   // doesn't run error tracking — this just puts the dashboard one click away.
   error_tracking_url: z.string().nullish(),
