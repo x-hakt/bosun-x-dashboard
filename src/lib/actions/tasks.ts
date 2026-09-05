@@ -29,6 +29,21 @@ export async function createTask(slug: string, title: string, description: strin
   await syncStatusBoardForProject(slug);
 }
 
+// True if any of candidateDeps, followed transitively through the OTHER tasks'
+// existing depends_on, leads back to taskId — i.e. adding candidateDeps as
+// taskId's dependencies would create a cycle. Shared by updateTask (bundled
+// title+deps save) and setTaskDependencies (the add/remove-one-at-a-time UI).
+function wouldCreateCycle(tasks: Task[], taskId: string, candidateDeps: string[]): boolean {
+  const dependencyMap = new Map(tasks.map((t) => [t.id, t.id === taskId ? candidateDeps : t.depends_on ?? []]));
+  function reaches(start: string, target: string, seen = new Set<string>()): boolean {
+    if (start === target) return true;
+    if (seen.has(start)) return false;
+    seen.add(start);
+    return (dependencyMap.get(start) ?? []).some((next) => reaches(next, target, seen));
+  }
+  return candidateDeps.some((dependency) => reaches(dependency, taskId));
+}
+
 export async function updateTask(
   slug: string,
   taskId: string,
@@ -40,17 +55,7 @@ export async function updateTask(
 
   const validIds = new Set(tasks.map((item) => item.id));
   const dependencies = [...new Set(input.dependsOn)].filter((id) => id !== taskId && validIds.has(id));
-  const dependencyMap = new Map(tasks.map((item) => [item.id, item.id === taskId ? dependencies : item.depends_on ?? []]));
-
-  function reaches(start: string, target: string, seen = new Set<string>()): boolean {
-    if (start === target) return true;
-    if (seen.has(start)) return false;
-    seen.add(start);
-    return (dependencyMap.get(start) ?? []).some((next) => reaches(next, target, seen));
-  }
-  if (dependencies.some((dependency) => reaches(dependency, taskId))) {
-    throw new Error("That dependency would create a cycle");
-  }
+  if (wouldCreateCycle(tasks, taskId, dependencies)) throw new Error("That dependency would create a cycle");
 
   const now = isoTimestamp();
   const next = tasks.map((item) => item.id === taskId ? {
@@ -60,6 +65,22 @@ export async function updateTask(
     depends_on: dependencies,
     updated: now,
   } : item);
+  await saveTasks(slug, next, seq);
+  await syncStatusBoardForProject(slug);
+}
+
+// CGB-16: the add/remove-one-at-a-time dependency picker saves immediately,
+// independent of the title/description form.
+export async function setTaskDependencies(slug: string, taskId: string, dependsOn: string[]): Promise<void> {
+  const { seq, tasks } = await loadTasksFile(slug);
+  if (!tasks.some((t) => t.id === taskId)) throw new Error("Task not found");
+
+  const validIds = new Set(tasks.map((t) => t.id));
+  const dependencies = [...new Set(dependsOn)].filter((id) => id !== taskId && validIds.has(id));
+  if (wouldCreateCycle(tasks, taskId, dependencies)) throw new Error("That dependency would create a cycle");
+
+  const now = isoTimestamp();
+  const next = tasks.map((t) => (t.id === taskId ? { ...t, depends_on: dependencies, updated: now } : t));
   await saveTasks(slug, next, seq);
   await syncStatusBoardForProject(slug);
 }
