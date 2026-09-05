@@ -2,15 +2,17 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, CornerDownRight, Link2, Plus, Save, Share2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, CornerDownRight, Link2, Plus, Save, Share2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   createTask,
   deleteTask,
   markTaskClientRepliesReviewed,
+  setTaskDependencies,
   setTaskSharing,
   updateTask,
   updateTaskDescription,
@@ -111,7 +113,6 @@ function TaskRow({
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
   const [title, setTitle] = useState(task.title);
-  const [dependencies, setDependencies] = useState<string[]>(task.depends_on ?? []);
   const [subtaskTitle, setSubtaskTitle] = useState("");
   const [error, setError] = useState<string>();
   // null (explicit YAML `null`) and undefined (key absent) both mean "no
@@ -305,33 +306,75 @@ function TaskRow({
 
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Link2 className="size-3.5" /> Depends on</div>
-              <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 bg-background p-2">
-                {allTasks.filter((candidate) => !unavailableDependencies.has(candidate.id)).length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No other tasks available.</p>
-                ) : allTasks.filter((candidate) => !unavailableDependencies.has(candidate.id)).map((candidate) => (
-                  <label key={candidate.id} className="flex cursor-pointer items-start gap-2 rounded px-1.5 py-1 text-xs hover:bg-accent/50">
-                    <input
-                      type="checkbox"
-                      checked={dependencies.includes(candidate.id)}
-                      onChange={(event) => setDependencies((current) => event.target.checked
-                        ? [...current, candidate.id]
-                        : current.filter((id) => id !== candidate.id))}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      {taskId(prefix, candidate.num) && (
-                        <span className="mr-1.5 font-mono text-[10px] text-muted-foreground">{taskId(prefix, candidate.num)}</span>
+              {blockedBy.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No dependencies.</p>
+              ) : (
+                <ul className="flex flex-wrap gap-1.5">
+                  {blockedBy.map((dep) => (
+                    <li
+                      key={dep.id}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 py-1 pr-1.5 pl-2 text-xs"
+                    >
+                      {taskId(prefix, dep.num) && (
+                        <span className="font-mono text-[10px] text-muted-foreground">{taskId(prefix, dep.num)}</span>
                       )}
-                      {candidate.title}
-                    </span>
-                  </label>
-                ))}
-              </div>
+                      <span className="max-w-48 truncate">{dep.title}</span>
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-destructive"
+                        onClick={() =>
+                          run(() =>
+                            setTaskDependencies(slug, task.id, (task.depends_on ?? []).filter((id) => id !== dep.id)),
+                          )
+                        }
+                        aria-label={`Remove dependency on ${dep.title}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(() => {
+                const addable = allTasks.filter(
+                  (candidate) => !unavailableDependencies.has(candidate.id) && !(task.depends_on ?? []).includes(candidate.id),
+                );
+                if (addable.length === 0) return null;
+                return (
+                  <Select<string>
+                    value={null}
+                    disabled={isPending}
+                    onValueChange={(depId) => {
+                      if (!depId) return;
+                      run(() => setTaskDependencies(slug, task.id, [...(task.depends_on ?? []), depId]));
+                    }}
+                  >
+                    <SelectTrigger size="sm" className="w-full max-w-xs text-xs">
+                      <SelectValue placeholder="+ Add dependency…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {addable.map((candidate) => (
+                        <SelectItem key={candidate.id} value={candidate.id}>
+                          {taskId(prefix, candidate.num) && (
+                            <span className="mr-1.5 font-mono text-[10px] text-muted-foreground">{taskId(prefix, candidate.num)}</span>
+                          )}
+                          {candidate.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                );
+              })()}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" disabled={isPending || !title.trim()} onClick={() => run(() => updateTask(slug, task.id, { title, description: task.description ?? "", dependsOn: dependencies }))}>
-                <Save className="size-3.5" /> Save title &amp; links
+              <Button
+                size="sm"
+                disabled={isPending || !title.trim()}
+                onClick={() => run(() => updateTask(slug, task.id, { title, description: task.description ?? "", dependsOn: task.depends_on ?? [] }))}
+              >
+                <Save className="size-3.5" /> Save title
               </Button>
               <Button
                 size="sm"

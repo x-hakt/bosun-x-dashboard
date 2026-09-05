@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { saveProjectLinks, type ProjectLinkInput } from "@/lib/actions/project-links";
 
-// CGB-13: links were previously read-only (hand-edit project.yml only). Now
-// editable, with a per-link "portal" checkbox — only checked links reach the
-// client portal (an admin panel or a monitoring URL stays operator-only by
-// default). Rows with an empty label or url are dropped on save.
+// CGB-13/16: links were previously read-only (hand-edit project.yml only). Now
+// editable; label/url edits batch behind "Save links", but the "portal"
+// switch — like the task-sharing toggle it's meant to match — saves the
+// instant you flip it. Rows with an empty label or url are dropped on save.
 export function ProjectLinksEditor({
   slug,
   initialLinks,
@@ -24,6 +25,7 @@ export function ProjectLinksEditor({
   const [rows, setRows] = useState<ProjectLinkInput[]>(initialLinks);
   const [saving, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
+  const [toggling, startToggle] = useTransition();
 
   const update = (index: number, patch: Partial<ProjectLinkInput>) => {
     setSaved(false);
@@ -36,6 +38,17 @@ export function ProjectLinksEditor({
   const add = () => {
     setSaved(false);
     setRows((prev) => [...prev, { label: "", url: "", portal: false }]);
+  };
+
+  const togglePortal = (index: number, portal: boolean) => {
+    setRows((prev) => {
+      const next = prev.map((row, i) => (i === index ? { ...row, portal } : row));
+      startToggle(async () => {
+        await saveProjectLinks(slug, next);
+        router.refresh();
+      });
+      return next;
+    });
   };
 
   const save = () =>
@@ -63,10 +76,10 @@ export function ProjectLinksEditor({
             className="min-w-0 flex-1 text-xs"
           />
           <label
-            className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground"
+            className="flex shrink-0 items-center gap-1.5 text-[10px] text-muted-foreground"
             title="Show this link in the client portal"
           >
-            <input type="checkbox" checked={row.portal} onChange={(e) => update(i, { portal: e.target.checked })} />
+            <Switch checked={row.portal} disabled={toggling} onCheckedChange={(checked) => togglePortal(i, checked)} />
             portal
           </label>
           <Button size="sm" variant="ghost" className="h-7 w-7 shrink-0 p-0" onClick={() => remove(i)}>
