@@ -13,6 +13,9 @@ entirely by plain Markdown/YAML so an AI agent can read and write it directly.
   projects that aren't tracked yet
 - Cross-host discovery over a least-privilege SSH key
 - A planning view for ideas that aren't real projects yet
+- Backup-job monitoring: freshness, missed-run alerts, restore runbooks
+- An optional client portal — a second `BOSUN_MODE=portal` deployment rendering a
+  strict per-client projection of only the shared projects and planning threads
 - Sign-in via OAuth/OIDC, open by default until a provider is configured
 
 ## Not in scope

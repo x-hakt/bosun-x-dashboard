@@ -30,7 +30,19 @@ this app uses it and shares its data model.
 - **Handoff** — an append-only `HANDOFF.md` + a bounded `HANDOFF.yml` snapshot per
   project, so the next session (agent or human) resumes without re-deriving state.
   Driven by the `bosun-x` CLI.
-- **Planning** — ideas that aren't real projects yet.
+- **Planning** — ideas that aren't real projects yet, each with its own comment
+  thread; they graduate to a project in place.
+- **Backups** — reads what `fleet-backup.sh` writes: per-job freshness, a loud
+  flag when a scheduled run never happened, restore runbooks. Configured from
+  `backups.yml` or the pane.
+- **Notes & messages** — freeform operator notes, and a direct message thread
+  with each client portal (see below).
+- **Client portal** — an optional second deployment (`BOSUN_MODE=portal`) that
+  gives each client a themed, per-client view of only the work you've shared with
+  them: projects, planning threads they can reply into, one-click sign-off, a
+  "since your last visit" digest, and a direct line to you. Two default-closed
+  gates (`portals[]`, `shared_with[]`), one projection function, a lint fence so
+  nothing else can read the store. See [`docs/portal.md`](docs/portal.md).
 
 ## Quick start (self-host)
 
@@ -52,7 +64,8 @@ where your projects live, remote hosts) are on the **Settings** page or in
 `<data>/config.yml`; a first-run `bosun setup` wizard scaffolds it.
 
 Full docs: **[docs/](docs/)** — configuration, the data model, discovery +
-`setup-remote.sh`, deploying (source or the GHCR image), the security model.
+`setup-remote.sh`, deploying (source or the GHCR image), the client portal, the
+security model, restore runbooks.
 
 ## Local development
 
