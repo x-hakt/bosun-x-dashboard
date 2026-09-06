@@ -26,6 +26,13 @@ replace the `build:` block with:
 
 then `docker compose pull && docker compose up -d`.
 
+## The client portal
+
+The portal is a **second deployment of the same image** with `BOSUN_MODE=portal`,
+pointed at the same data directory and fronted on its own domain. Copy
+`deploy/docker-compose.portal.example.yml` and see [the client portal](portal.md)
+for `BOSUN_PORTAL`, the required sign-in provider, and the `clients.yml` allowlist.
+
 ## Updating
 
 - **Source:** `git pull && docker compose up -d --build`

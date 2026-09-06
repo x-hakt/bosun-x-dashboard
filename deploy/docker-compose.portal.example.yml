@@ -1,10 +1,10 @@
 # Client portal (CGB-2.1). A SECOND deployment of the same image, in portal mode.
-# It renders only the projects / ideas / notes you've shared with a client — see
-# src/lib/portal/ and data.example/clients.yml.
+# It renders only the projects / planning ideas you've shared with a client, plus
+# a direct message thread — see src/lib/portal/ and data.example/clients.yml.
 #
 #   1. define at least one portal + its clients in <data>/clients.yml
 #   2. share something:  portals: [<portal-slug>]  +  shared_with: [<client-slug>]
-#      on a project.yml / planning task.yml / note (the operator dashboard has a
+#      on a project.yml / planning task.yml (the operator dashboard has a
 #      "Client portal" control for this)
 #   3. configure a sign-in provider in .env (a client signs in with the email you
 #      invited) and set AUTH_SECRET + AUTH_URL to the portal's own origin
