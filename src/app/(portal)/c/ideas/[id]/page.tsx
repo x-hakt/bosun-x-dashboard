@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PORTAL_SLUG } from "@/lib/portal/mode";
 import { getPortalViewer } from "@/lib/portal/auth";
 import { getPortalIdea } from "@/lib/portal/projection";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { PortalThread } from "@/components/portal/portal-thread";
 import { PortalReplyForm } from "@/components/portal/portal-reply-form";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +30,7 @@ export default async function PortalIdeaPage({ params }: PageProps<"/c/ideas/[id
       </div>
 
       {idea.thread ? (
-        <div className="pt-prose">
-          <MarkdownRenderer content={idea.thread} />
-        </div>
+        <PortalThread content={idea.thread} />
       ) : (
         <p className="text-sm" style={{ color: "var(--portal-ink-soft)" }}>
           No notes on this idea yet.

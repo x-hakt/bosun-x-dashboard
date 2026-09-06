@@ -1,0 +1,11 @@
+id: IDEA-2
+title: Meal-plan builder on top of the recipes API
+status: idea
+type: idea
+parent: null
+graduated_project: null
+# Shared into the Northwind portal so Acme Foods can weigh in before it's scoped.
+portals: [northwind]
+shared_with: [acme-foods]
+created: "2026-01-10"
+updated: "2026-01-14"
