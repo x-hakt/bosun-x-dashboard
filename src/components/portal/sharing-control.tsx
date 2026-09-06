@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { setProjectSharing, setPlanningSharing, setNoteSharing } from "@/lib/actions/portal-sharing";
+import { setProjectSharing, setPlanningSharing } from "@/lib/actions/portal-sharing";
 import { cn } from "@/lib/utils";
 
 interface PortalOpt {
@@ -21,7 +21,7 @@ interface ClientOpt {
   portal: string;
 }
 
-// Operator control: which client portal(s) this project / idea / note is exposed
+// Operator control: which client portal(s) this project / idea is exposed
 // to (Gate 1) and which clients within them may see it (Gate 2). Writes the two
 // array fields via a server action that validates against clients.yml.
 export function SharingControl({
@@ -32,7 +32,7 @@ export function SharingControl({
   current,
   taskDefault,
 }: {
-  kind: "project" | "planning" | "note";
+  kind: "project" | "planning";
   id: string;
   portals: PortalOpt[];
   clients: ClientOpt[];
@@ -91,8 +91,7 @@ export function SharingControl({
     start(async () => {
       const input = { portals: [...sel], shared_with: [...selClients] };
       if (kind === "project") await setProjectSharing(id, input);
-      else if (kind === "planning") await setPlanningSharing(id, input);
-      else await setNoteSharing(id, input);
+      else await setPlanningSharing(id, input);
       setSaved(true);
       router.refresh();
     });

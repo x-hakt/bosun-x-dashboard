@@ -17,7 +17,7 @@ export default async function PortalHome() {
     getPortalDigest(PORTAL_SLUG, viewer),
   ]);
 
-  const digestCount = digest.projects.length + digest.ideas.length + digest.notes.length + (digest.newMessage ? 1 : 0);
+  const digestCount = digest.projects.length + digest.ideas.length + (digest.newMessage ? 1 : 0);
 
   return (
     <div className="space-y-5">
@@ -58,12 +58,6 @@ export default async function PortalHome() {
                   <span style={{ color: "var(--portal-ink-faint)" }}>Idea · </span>
                   {i.title}
                 </Link>
-              </li>
-            ))}
-            {digest.notes.map((n, index) => (
-              <li key={`n-${index}`} style={{ color: "var(--portal-ink-soft)" }}>
-                <span style={{ color: "var(--portal-ink-faint)" }}>Note · </span>
-                {n.title}
               </li>
             ))}
           </ul>

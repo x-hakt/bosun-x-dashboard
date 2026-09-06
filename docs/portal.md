@@ -1,9 +1,10 @@
 # Client portal
 
 A read-mostly, per-client view of your bosun-x data. A client signs in and sees
-only the projects, idea threads and notes you've shared with them, and can reply
-into shared idea threads. The operator dashboard stays single-tenant — the portal
-is a **separate deployment of the same image** in `BOSUN_MODE=portal`.
+only the projects and idea threads you've shared with them, plus a direct
+message thread with you, and can reply into shared idea and task threads. The
+operator dashboard stays single-tenant — the portal is a **separate deployment
+of the same image** in `BOSUN_MODE=portal`.
 
 ## How isolation works
 
@@ -46,7 +47,7 @@ clients:
 
 ### 2. Share something
 
-On the operator dashboard, open a project (or a planning idea, or a note) → the
+On the operator dashboard, open a project (or a planning idea) → the
 **Client portal** control → tick the portal, then tick the clients. Or edit the
 YAML: `portals: [acme]` + `shared_with: [bob]`.
 
@@ -55,7 +56,7 @@ not even its title — unless the task itself also carries `shared_with: [bob]`
 (in `tasks.yml`, or the Client portal control on the task's row). Sharing a
 project never implies sharing its tasks; day-to-day bug/fault tasks stay
 invisible by default, and only the ones you deliberately flag for a client
-show up, the same way idea threads and notes do.
+show up, the same way idea threads do.
 
 Two ways to set a task's own sharing, from its row on the project page:
 - **Use project default** — follows `task_sharing_default` (see below).
@@ -103,8 +104,8 @@ just a chat.
 
 ### "Since your last visit"
 
-The portal home shows each returning client a digest of the shared projects,
-ideas and notes whose `updated` stamp moved since their previous visit, plus a
+The portal home shows each returning client a digest of the shared projects
+and ideas whose `updated` stamp moved since their previous visit, plus a
 line if a new message (see above) arrived from you. Visit
 timestamps are one small JSON file per client under
 `<DATA_DIR>/.portal-state/` (gitignored; written by the portal, never operator

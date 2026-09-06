@@ -127,7 +127,7 @@ projection of the shared data store. Isolation rules:
   boundary files. An eslint `no-restricted-imports` fence enforces this; the
   three are the only entries in its `ignores`.
 - `projection.ts` builds every returned shape field-by-field from a whitelist —
-  never spread a full `Project`/`PlanningTask`/`Note`, or host/path/repo/handoff
+  never spread a full `Project`/`PlanningTask`, or host/path/repo/handoff
   leaks.
 - Both gates (`portals[]`, `shared_with[]`) are checked via `gates.passesGates`
   on every read. Default closed.

@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getClient, getPortal } from "@/lib/data/clients";
-import {
-  listPortalProjects,
-  listPortalIdeas,
-  listPortalNotes,
-  type PortalViewer,
-} from "@/lib/portal/projection";
+import { listPortalProjects, listPortalIdeas, type PortalViewer } from "@/lib/portal/projection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
@@ -25,20 +20,17 @@ export default async function PortalPreviewPage({ params }: { params: Promise<{ 
   const asClient: PortalViewer = { kind: "client", slug: client.slug };
   const asOperator: PortalViewer = { kind: "operator" };
 
-  const [projects, ideas, notes, allProjects, allIdeas, allNotes] = await Promise.all([
+  const [projects, ideas, allProjects, allIdeas] = await Promise.all([
     listPortalProjects(client.portal, asClient),
     listPortalIdeas(client.portal, asClient),
-    listPortalNotes(client.portal, asClient),
     listPortalProjects(client.portal, asOperator),
     listPortalIdeas(client.portal, asOperator),
-    listPortalNotes(client.portal, asOperator),
   ]);
 
   const sharedProjectSlugs = new Set(projects.map((p) => p.slug));
   const withheldProjects = allProjects.filter((p) => !sharedProjectSlugs.has(p.slug));
   const sharedIdeaIds = new Set(ideas.map((i) => i.id));
   const withheldIdeas = allIdeas.filter((i) => !sharedIdeaIds.has(i.id));
-  const withheldNotes = allNotes.length - notes.length;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -99,26 +91,6 @@ export default async function PortalPreviewPage({ params }: { params: Promise<{ 
           {withheldIdeas.length > 0 && (
             <p className="border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
               In this portal but not shared with {client.slug}: {withheldIdeas.map((i) => i.title).join(", ")}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Notes ({notes.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1.5 text-sm">
-          {notes.length === 0 && <p className="text-xs text-muted-foreground">Nothing shared.</p>}
-          {notes.map((n, index) => (
-            <div key={index} className="border-t border-border/50 py-1.5">
-              {n.title}
-            </div>
-          ))}
-          {withheldNotes > 0 && (
-            <p className="border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
-              {withheldNotes} more note{withheldNotes === 1 ? "" : "s"} in this portal not shared with{" "}
-              {client.slug}.
             </p>
           )}
         </CardContent>

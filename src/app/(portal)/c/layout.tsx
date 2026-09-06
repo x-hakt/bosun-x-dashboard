@@ -61,7 +61,6 @@ export default async function PortalLayout({ children }: LayoutProps<"/c">) {
             <div className="pt-footer__links">
               <Link className="pt-footer__link" href="/c">Projects</Link>
               <Link className="pt-footer__link" href="/c/ideas">Ideas</Link>
-              <Link className="pt-footer__link" href="/c/notes">Notes</Link>
               <Link className="pt-footer__link" href="/c/messages">Messages</Link>
               {t.site_url && (
                 <a className="pt-footer__link" href={t.site_url}>

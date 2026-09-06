@@ -2,24 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Pin, Plus, Save, Share2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pin, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotesThread } from "@/components/notes-thread";
-import { SharingControl } from "@/components/portal/sharing-control";
 import { createNote, deleteNote, toggleNotePin, updateNote } from "@/lib/actions/notes";
 import type { Note } from "@/lib/data/notes-schema";
 import { cn } from "@/lib/utils";
-
-interface PortalOpt {
-  slug: string;
-  name: string;
-}
-interface ClientOpt {
-  slug: string;
-  name: string;
-  portal: string;
-}
 
 function excerpt(value?: string | null): string | undefined {
   if (!value?.trim()) return undefined;
@@ -31,7 +20,7 @@ function excerpt(value?: string | null): string | undefined {
   return clean.length > 120 ? `${clean.slice(0, 117)}…` : clean;
 }
 
-function NoteRow({ note, portals, clients }: { note: Note; portals: PortalOpt[]; clients: ClientOpt[] }) {
+function NoteRow({ note }: { note: Note }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
@@ -76,15 +65,6 @@ function NoteRow({ note, portals, clients }: { note: Note; portals: PortalOpt[];
           </span>
         ))}
 
-        {(note.portals?.length ?? 0) > 0 && (
-          <span
-            className="shrink-0 text-emerald-400"
-            title={`Shared in the client portal (${note.portals!.join(", ")})`}
-          >
-            <Share2 className="size-3.5" />
-          </span>
-        )}
-
         <button
           type="button"
           disabled={isPending}
@@ -127,19 +107,6 @@ function NoteRow({ note, portals, clients }: { note: Note; portals: PortalOpt[];
             />
           </div>
 
-          {portals.length > 0 && (
-            <div className="space-y-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Client portal</span>
-              <SharingControl
-                kind="note"
-                id={note.id}
-                portals={portals}
-                clients={clients}
-                current={{ portals: note.portals ?? [], shared_with: note.shared_with ?? [] }}
-              />
-            </div>
-          )}
-
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
@@ -167,15 +134,7 @@ function NoteRow({ note, portals, clients }: { note: Note; portals: PortalOpt[];
   );
 }
 
-export function NotesList({
-  notes,
-  portals = [],
-  clients = [],
-}: {
-  notes: Note[];
-  portals?: PortalOpt[];
-  clients?: ClientOpt[];
-}) {
+export function NotesList({ notes }: { notes: Note[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [newTitle, setNewTitle] = useState("");
@@ -219,7 +178,7 @@ export function NotesList({
       ) : (
         <div className="overflow-hidden rounded-md border border-border/60 bg-card px-3">
           {ordered.map((note) => (
-            <NoteRow key={note.id} note={note} portals={portals} clients={clients} />
+            <NoteRow key={note.id} note={note} />
           ))}
         </div>
       )}
