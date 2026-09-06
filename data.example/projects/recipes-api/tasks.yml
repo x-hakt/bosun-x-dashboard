@@ -1,4 +1,7 @@
 seq: 3
+# task_sharing_default is unset, so tasks stay invisible to the client until one
+# carries its own `shared_with`. demo-rcp-1 (an internal backup chore) is never
+# shared; demo-rcp-2 and demo-rcp-3 are.
 tasks:
   - id: demo-rcp-1
     num: 1
@@ -10,16 +13,30 @@ tasks:
     updated: '2026-01-07T20:00:00.000+00:00'
   - id: demo-rcp-2
     num: 2
-    title: Add full-text search over recipe titles + ingredients
-    description: Postgres tsvector column + a GIN index; expose ?q= on the list endpoint.
+    title: Full-text search over recipe titles + ingredients
+    description: |-
+      Postgres tsvector column + a GIN index; expose `?q=` on the list endpoint.
+
+      --- Jordan · 2026-01-13 · client reply ---
+
+      Can this also match on ingredient, not just the title? A lot of people
+      search "what can I make with X".
+
+      --- Sam · 2026-01-14 ---
+
+      Yep — the index covers title and the ingredient list in one vector, so
+      "chorizo" will find every recipe that uses it. Wiring `?q=` now.
     status: in_progress
+    shared_with: [acme-foods]
     depends_on: []
     created: '2026-01-12T09:00:00.000+00:00'
     updated: '2026-01-14T15:30:00.000+00:00'
   - id: demo-rcp-3
     num: 3
     title: Rate-limit the public read endpoints
+    description: Token bucket per IP on the unauthenticated GET routes, before we send more traffic at it.
     status: todo
-    depends_on: []
+    shared_with: [acme-foods]
+    depends_on: [demo-rcp-2]
     created: '2026-01-12T09:00:00.000+00:00'
     updated: '2026-01-12T09:00:00.000+00:00'

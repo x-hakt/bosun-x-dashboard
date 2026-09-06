@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getPortalViewer } from "@/lib/portal/auth";
 import { getPortalMessages } from "@/lib/portal/projection";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { PortalThread } from "@/components/portal/portal-thread";
 import { PortalReplyForm } from "@/components/portal/portal-reply-form";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +30,7 @@ export default async function PortalMessagesPage() {
       <h1 className="text-2xl">Messages</h1>
 
       {thread ? (
-        <div className="pt-prose">
-          <MarkdownRenderer content={thread} />
-        </div>
+        <PortalThread content={thread} />
       ) : (
         <p className="text-sm" style={{ color: "var(--portal-ink-soft)" }}>
           No messages yet — say hello.
