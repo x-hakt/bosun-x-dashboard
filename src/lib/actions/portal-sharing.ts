@@ -3,11 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { patchProjectYaml } from "@/lib/data/projects";
 import { writePlanningTaskYaml } from "@/lib/data/planning";
-import { updateNote } from "@/lib/actions/notes";
 import { loadClientRegistry } from "@/lib/data/clients";
 
 // Operator-side "share with…" writes. Sets the two gate fields (portals[],
-// shared_with[]) on a project / planning idea / note. Both are validated against
+// shared_with[]) on a project or a planning idea. Both are validated against
 // clients.yml — an unknown portal or a client whose portal isn't selected is
 // dropped — so the portal projection can trust what it reads.
 
@@ -40,12 +39,6 @@ export async function setPlanningSharing(id: string, input: SharingInput): Promi
   await writePlanningTaskYaml(id, await normalize(input));
   revalidatePath(`/planning/${id}`);
   revalidatePath("/planning");
-}
-
-export async function setNoteSharing(id: string, input: SharingInput): Promise<void> {
-  const { portals, shared_with } = await normalize(input);
-  await updateNote(id, { portals: portals ?? [], shared_with: shared_with ?? [] });
-  revalidatePath("/notes");
 }
 
 // CGB-14: what an individual task on this project defaults to when it carries

@@ -16,7 +16,6 @@ import path from "node:path";
 import { listProjects, getProject } from "@/lib/data/projects";
 import { loadTasks } from "@/lib/data/tasks";
 import { listPlanningTasks } from "@/lib/data/planning";
-import { loadNotes } from "@/lib/data/notes";
 import { readMarkdownIfExists } from "@/lib/data/markdown";
 import { projectsDir } from "@/lib/data/paths";
 import { taskKey, taskPrefix } from "@/lib/data/task-key";
@@ -65,12 +64,6 @@ export interface PortalIdeaView {
   updated?: string;
   /** NOTES.md, shared verbatim in cut 1 (read-only). */
   thread?: string;
-}
-
-export interface PortalNoteView {
-  title: string;
-  body?: string;
-  updated?: string;
 }
 
 // ── Projects ─────────────────────────────────────────────────────────────────
@@ -169,16 +162,6 @@ export async function getPortalIdea(
   return ideas.find((i) => i.id === id) ?? null;
 }
 
-// ── Notes ────────────────────────────────────────────────────────────────────
-
-export async function listPortalNotes(portalSlug: string, viewer: PortalViewer): Promise<PortalNoteView[]> {
-  const notes = await loadNotes();
-  return notes
-    .filter((n) => passesGates(n.portals ?? undefined, n.shared_with ?? undefined, viewer, portalSlug))
-    .map((n) => ({ title: n.title, body: n.body ?? undefined, updated: n.updated }))
-    .sort((a, b) => (b.updated ?? "").localeCompare(a.updated ?? ""));
-}
-
 // ── Direct client<->operator messages (CGB-10) ───────────────────────────────
 
 export interface PortalMessageThread {
@@ -202,7 +185,6 @@ export interface PortalDigest {
   firstVisit: boolean;
   projects: { slug: string; name: string; updated?: string }[];
   ideas: { id: string; title: string; updated?: string }[];
-  notes: { title: string; updated?: string }[];
   /** A new operator message landed on the client's message thread (CGB-10). */
   newMessage: boolean;
 }
@@ -211,7 +193,7 @@ export interface PortalDigest {
 // Uses each item's `updated` stamp (idea threads bump it on every reply, projects
 // on any edit). Operators get an empty digest — the nudge is a client feature.
 export async function getPortalDigest(portalSlug: string, viewer: PortalViewer): Promise<PortalDigest> {
-  const empty = { firstVisit: false, projects: [], ideas: [], notes: [], newMessage: false };
+  const empty = { firstVisit: false, projects: [], ideas: [], newMessage: false };
   if (viewer.kind !== "client") return empty;
 
   const since = await readPortalSeenAt(viewer.slug);
@@ -224,10 +206,9 @@ export async function getPortalDigest(portalSlug: string, viewer: PortalViewer):
     return Number.isFinite(ms) && ms > sinceMs;
   };
 
-  const [projects, ideas, notes, messages] = await Promise.all([
+  const [projects, ideas, messages] = await Promise.all([
     listPortalProjects(portalSlug, viewer),
     listPortalIdeas(portalSlug, viewer),
-    listPortalNotes(portalSlug, viewer),
     readClientThread(viewer.slug),
   ]);
 
@@ -242,7 +223,6 @@ export async function getPortalDigest(portalSlug: string, viewer: PortalViewer):
     firstVisit: false,
     projects: projects.filter((p) => isNewer(p.updated)).map((p) => ({ slug: p.slug, name: p.name, updated: p.updated })),
     ideas: ideas.filter((i) => isNewer(i.updated)).map((i) => ({ id: i.id, title: i.title, updated: i.updated })),
-    notes: notes.filter((n) => isNewer(n.updated)).map((n) => ({ title: n.title, updated: n.updated })),
     newMessage,
   };
 }

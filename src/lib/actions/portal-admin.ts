@@ -25,7 +25,7 @@ import {
 const HEADER =
   "# Client portal registry (CGB-2.1). Edited from the dashboard → Settings → Client portals.\n" +
   "# portals: the branded client-facing surfaces. clients: the people invited into one.\n" +
-  "# A project/idea/note reaches a portal only with BOTH `portals: [slug]` and `shared_with: [client]`.\n";
+  "# A project or idea reaches a portal only with BOTH `portals: [slug]` and `shared_with: [client]`.\n";
 
 async function readRegistry(): Promise<RegistryDoc> {
   try {
