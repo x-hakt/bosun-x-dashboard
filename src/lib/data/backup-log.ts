@@ -62,6 +62,39 @@ export async function readBackupLog(slug: string, limit = 10): Promise<BackupLog
     .slice(0, limit);
 }
 
+// BXD-41 — the point-in-time index fleet-backup.sh / fleet-restore.sh write
+// next to the receipts (<slug>/<store>.archives.json). The dashboard can't
+// reach the destination, so this is the only view of what's restorable.
+export interface ArchiveEntry {
+  name: string;
+  takenAt?: string;
+  bytes?: number;
+  sha256?: string;
+  kind: "backup" | "encrypted" | "pre-restore" | string;
+}
+
+export async function readArchives(slug: string, store: string): Promise<ArchiveEntry[]> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(path.join(receiptsDir(), slug, `${store}.archives.json`), "utf-8");
+  } catch {
+    return [];
+  }
+  try {
+    const rows = JSON.parse(raw) as Record<string, unknown>[];
+    if (!Array.isArray(rows)) return [];
+    return rows.map((r) => ({
+      name: String(r.name ?? ""),
+      takenAt: (r.taken_at as string | undefined) || undefined,
+      bytes: typeof r.bytes === "number" ? r.bytes : undefined,
+      sha256: (r.sha256 as string | undefined) || undefined,
+      kind: String(r.kind ?? "backup"),
+    })).filter((a) => a.name);
+  } catch {
+    return [];
+  }
+}
+
 export interface LiveRestoreReceipt {
   store: string;
   restoredAt?: string;

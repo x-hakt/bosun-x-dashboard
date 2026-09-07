@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X, Minus, Clock, Lock, RefreshCw, ShieldCheck, ShieldAlert, ChevronDown } from "lucide-react";
 import type { BackupStatus, BackupRestoreStatus, BackupsConfig } from "@/lib/types";
-import type { BackupLogEntry, RestoreLogEntry, LiveRestoreReceipt } from "@/lib/data/backup-log";
+import type { BackupLogEntry, RestoreLogEntry, LiveRestoreReceipt, ArchiveEntry } from "@/lib/data/backup-log";
 import { triggerBackup, triggerRestoreTest } from "@/lib/actions/backups";
 import { BackupConfigEditor } from "@/components/backup-config-editor";
 import { LiveRestorePanel } from "@/components/live-restore-panel";
@@ -138,6 +138,32 @@ function StoreHistory({ backups, restores }: { backups: BackupLogEntry[]; restor
   );
 }
 
+// BXD-41 — read-only view of the point-in-time index the agent writes to the
+// receipts dir. No download (the destination isn't reachable from here), just
+// "what could I restore to".
+function ArchiveList({ archives }: { archives: ArchiveEntry[] }) {
+  if (archives.length === 0) return null;
+  return (
+    <details className="mt-1 group">
+      <summary className="cursor-pointer list-none text-[11px] font-mono text-muted-foreground/60 hover:text-foreground inline-flex items-center gap-1">
+        <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
+        {archives.length} archive{archives.length === 1 ? "" : "s"} on the destination
+      </summary>
+      <ul className="mt-1.5 space-y-0.5 border-l border-border/40 pl-2.5">
+        {archives.map((a) => (
+          <li key={a.name} className="text-[11px] font-mono flex flex-wrap items-baseline gap-x-2 text-muted-foreground">
+            <span className="text-muted-foreground/50">{fmtWhen(a.takenAt)}</span>
+            <span className="break-all">{a.name}</span>
+            {a.bytes ? <span className="text-muted-foreground/50">{fmtBytes(a.bytes)}</span> : null}
+            {a.kind === "pre-restore" && <span className="text-amber-400/70">pre-restore</span>}
+            {a.kind === "encrypted" && <Lock className="inline size-2.5" />}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export function ProjectBackups({
   status,
   pending,
@@ -146,6 +172,7 @@ export function ProjectBackups({
   destinations = [],
   backupLog = [],
   restoreLog = {},
+  archives = {},
   liveRestorePending = false,
   liveRestoreReceipts = {},
 }: {
@@ -156,6 +183,7 @@ export function ProjectBackups({
   destinations?: { id: string; kind: string }[];
   backupLog?: BackupLogEntry[];
   restoreLog?: Record<string, RestoreLogEntry[]>;
+  archives?: Record<string, ArchiveEntry[]>;
   liveRestorePending?: boolean;
   liveRestoreReceipts?: Record<string, LiveRestoreReceipt | null>;
 }) {
@@ -205,6 +233,7 @@ export function ProjectBackups({
                   backups={backupLog.filter((b) => b.store === s.name)}
                   restores={restoreLog[s.name] ?? []}
                 />
+                <ArchiveList archives={archives[s.name] ?? []} />
               </span>
               <span className="shrink-0 text-[10px] font-mono uppercase tracking-wide text-muted-foreground/50">{s.kind}</span>
             </li>
@@ -273,6 +302,7 @@ export function ProjectBackups({
             config={config}
             pending={liveRestorePending}
             receipts={liveRestoreReceipts}
+            archives={archives}
           />
         </div>
       )}
