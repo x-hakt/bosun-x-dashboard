@@ -19,6 +19,7 @@ import {
   updateTaskStatus,
 } from "@/lib/actions/tasks";
 import type { Task, TaskStatus } from "@/lib/data/tasks-schema";
+import { taskDisplayKey } from "@/lib/data/task-key";
 import { countClientReplies } from "@/lib/notes-thread";
 import { NotesThread } from "@/components/notes-thread";
 import { cn } from "@/lib/utils";
@@ -43,11 +44,8 @@ function excerpt(value?: string | null): string | undefined {
   return clean.length > 100 ? `${clean.slice(0, 97)}…` : clean;
 }
 
-function taskId(prefix: string, num?: number | null): string | undefined {
-  return num ? `${prefix}-${num}` : undefined;
-}
-
-// Monospace chip carrying the speakable task id (e.g. CR-7). Clicking copies it, so
+// Monospace chip carrying the speakable task id (e.g. CR-7, or CR-2.1 for a
+// sub-task — see taskDisplayKey). Clicking copies it, so
 // "let's work on CR-7" is one action away; the row also anchors on `id` for deep links.
 function TaskKey({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -125,7 +123,7 @@ function TaskRow({
   const effectiveClients =
     sharedWithOverride ?? (taskSharingDefault === "all" ? portalClients.map((c) => c.slug) : []);
   const childTasks = childrenByParent.get(task.id) ?? [];
-  const rowKey = taskId(prefix, task.num);
+  const rowKey = taskDisplayKey(task, allTasks, prefix);
   const unseenReplies = Math.max(0, countClientReplies(task.description ?? "") - (task.client_replies_seen ?? 0));
   const taskShown = effectiveClients.length > 0;
   const blockedBy = (task.depends_on ?? []).map((id) => allTasks.find((candidate) => candidate.id === id)).filter(Boolean) as Task[];
@@ -315,8 +313,8 @@ function TaskRow({
                       key={dep.id}
                       className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 py-1 pr-1.5 pl-2 text-xs"
                     >
-                      {taskId(prefix, dep.num) && (
-                        <span className="font-mono text-[10px] text-muted-foreground">{taskId(prefix, dep.num)}</span>
+                      {taskDisplayKey(dep, allTasks, prefix) && (
+                        <span className="font-mono text-[10px] text-muted-foreground">{taskDisplayKey(dep, allTasks, prefix)}</span>
                       )}
                       <span className="max-w-48 truncate">{dep.title}</span>
                       <button
@@ -356,8 +354,8 @@ function TaskRow({
                     <SelectContent>
                       {addable.map((candidate) => (
                         <SelectItem key={candidate.id} value={candidate.id}>
-                          {taskId(prefix, candidate.num) && (
-                            <span className="mr-1.5 font-mono text-[10px] text-muted-foreground">{taskId(prefix, candidate.num)}</span>
+                          {taskDisplayKey(candidate, allTasks, prefix) && (
+                            <span className="mr-1.5 font-mono text-[10px] text-muted-foreground">{taskDisplayKey(candidate, allTasks, prefix)}</span>
                           )}
                           {candidate.title}
                         </SelectItem>

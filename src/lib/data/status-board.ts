@@ -3,7 +3,7 @@ import path from "node:path";
 import { load as loadYaml } from "js-yaml";
 import { projectsDir } from "./paths";
 import { loadTasks } from "./tasks";
-import { deriveTaskPrefix } from "./task-key";
+import { deriveTaskPrefix, taskDisplayKey } from "./task-key";
 import type { Task } from "./tasks-schema";
 
 // Keeps the "Task board" block in projects/<slug>/STATUS.md in step with tasks.yml, so
@@ -26,8 +26,10 @@ export function renderBoardBody(tasks: Task[], prefix: string, stamp: string): s
   const desc = (a: Task, b: Task) => (b.num ?? 0) - (a.num ?? 0);
   // Queues read oldest-first (do-next order); shipped reads newest-first.
   const of = (status: string) => tasks.filter((task) => task.status === status).sort(status === "done" ? desc : asc);
-  const line = (task: Task) => `- ${prefix}-${task.num} — ${clipTitle(task.title)}`;
-  const keys = (list: Task[]) => list.map((task) => `${prefix}-${task.num}`).join(", ");
+  // BXD-46: sub-tasks render dotted (CR-2.1); flat tasks are unchanged.
+  const key = (task: Task) => taskDisplayKey(task, tasks, prefix) ?? `${prefix}-${task.num}`;
+  const line = (task: Task) => `- ${key(task)} — ${clipTitle(task.title)}`;
+  const keys = (list: Task[]) => list.map(key).join(", ");
 
   const inProgress = of("in_progress");
   const upNext = of("todo");
