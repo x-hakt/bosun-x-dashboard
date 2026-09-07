@@ -69,6 +69,7 @@ export async function loadBackups(slug: string): Promise<BackupsConfig | null> {
     method: d.method ?? "agent",
     destination: d.destination ?? undefined,
     owner: d.owner ?? undefined,
+    restore_drill: d.restore_drill ?? undefined,
     stores: (d.stores ?? []).map(normalizeStore),
     notes: d.notes ?? undefined,
   };

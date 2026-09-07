@@ -175,6 +175,9 @@ export const BackupsYmlSchema = z.object({
   destination: z.string().nullish(),
   // git method only (BXD-34): the working tree the nightly stages/commits/pushes.
   repo_path: z.string().nullish(),
+  // BXD-44: this project needs the manual "blank box → serving" drill logged in
+  // docs/restore-drills.md; bosun-x nags when the newest one goes stale.
+  restore_drill: z.boolean().nullish(),
   owner: z.string().nullish(),
   stores: z.array(BackupStoreSchema).nullish(),
   notes: z.string().nullish(),

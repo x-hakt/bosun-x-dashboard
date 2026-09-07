@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check, X, Minus, Clock, GitBranch, Lock, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, HelpCircle } from "lucide-react";
 import { getAllBackupStatuses } from "@/lib/data/backup-status";
 import { getJobStatuses, type JobState } from "@/lib/data/jobs";
+import { getAllRestoreDrillStatuses, DRILL_STALE_DAYS } from "@/lib/data/restore-drills";
 import { getSecretsBackupStatus } from "@/lib/data/secrets-backup";
 import { getOffsiteStatus } from "@/lib/data/offsite";
 import { loadDestinations } from "@/lib/data/backups";
@@ -49,12 +50,13 @@ const JOB_STATE: Record<JobState, { label: string; Icon: typeof Check; c: string
 };
 
 export default async function BackupsPage() {
-  const [statuses, destinations, jobInfo, secrets, offsite] = await Promise.all([
+  const [statuses, destinations, jobInfo, secrets, offsite, drills] = await Promise.all([
     getAllBackupStatuses(),
     loadDestinations(),
     getJobStatuses(),
     getSecretsBackupStatus(),
     getOffsiteStatus(),
+    getAllRestoreDrillStatuses(),
   ]);
   const pending = Object.fromEntries(
     await Promise.all(
@@ -241,6 +243,36 @@ export default async function BackupsPage() {
           )}
         </CardContent>
       </Card>
+
+      {drills.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Restore drills</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-xs text-muted-foreground">
+              The full manual <span className="font-mono">blank box &rarr; serving</span> drill the weekly
+              restore-test can&rsquo;t do — logged in <span className="font-mono">docs/restore-drills.md</span>,
+              expected roughly quarterly (overdue past {DRILL_STALE_DAYS} days).
+            </p>
+            <ul className="divide-y divide-border/50">
+              {drills.map((d) => (
+                <li key={d.slug} className="flex items-center gap-2 py-1.5">
+                  {d.stale ? (
+                    <ShieldAlert className={cn("size-4 shrink-0", STATUS_TEXT_CLASS.attention)} />
+                  ) : (
+                    <ShieldCheck className={cn("size-4 shrink-0", STATUS_TEXT_CLASS.up)} />
+                  )}
+                  <Link href={`/projects/${d.slug}`} className="font-medium hover:underline">{d.slug}</Link>
+                  <span className={cn("text-xs", d.stale ? STATUS_TEXT_CLASS.attention : "text-muted-foreground")}>
+                    {d.lastDrillAt
+                      ? `last drill ${d.lastDrillAt} · ${d.ageDays}d ago${d.stale ? " · overdue" : ""}`
+                      : "no drill logged yet"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {secrets.configured && (
         <Card>
