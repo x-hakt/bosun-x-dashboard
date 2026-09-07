@@ -18,7 +18,7 @@ import { loadTasks } from "@/lib/data/tasks";
 import { listPlanningTasks } from "@/lib/data/planning";
 import { readMarkdownIfExists } from "@/lib/data/markdown";
 import { projectsDir } from "@/lib/data/paths";
-import { taskKey, taskPrefix } from "@/lib/data/task-key";
+import { taskDisplayKey, taskPrefix } from "@/lib/data/task-key";
 import type { ProjectStage, PlanningTaskStatus } from "@/lib/types";
 import type { TaskStatus } from "@/lib/data/tasks-schema";
 import { passesGates, canSeeSharedTask, type PortalViewer } from "./gates";
@@ -115,7 +115,7 @@ export async function getPortalProject(
       ),
     )
     .map((t) => ({
-      key: taskKey(prefix, t.num),
+      key: taskDisplayKey(t, allTasks, prefix),
       title: t.title,
       status: t.status,
       detail: t.description ?? undefined,
