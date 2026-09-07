@@ -46,6 +46,7 @@ function normalizeStore(s: z.infer<typeof BackupStoreSchema>): BackupStore {
     database: s.database ?? undefined,
     path: s.path ?? undefined,
     volume: s.volume ?? undefined,
+    restore_restart: s.restore_restart ?? undefined,
     schedule: s.schedule ?? undefined,
     retention: s.retention ?? undefined,
     encrypt: s.encrypt ?? undefined,

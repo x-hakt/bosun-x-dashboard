@@ -157,6 +157,9 @@ export const BackupStoreSchema = z.object({
   database: z.string().nullish(),
   path: z.string().nullish(),
   volume: z.string().nullish(),
+  // BXD-40: containers to `docker restart` after a files/redis restore of this
+  // store so they re-read the restored data. A path store usually needs none.
+  restore_restart: z.array(z.string()).nullish(),
   schedule: z.string().nullish(),
   retention: z.object({ keep_last: z.number().int().positive() }).nullish(),
   // Optional client-side encryption: the age recipient (public key) is non-secret

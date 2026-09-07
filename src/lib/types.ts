@@ -106,6 +106,7 @@ export interface BackupStore {
   database?: string;
   path?: string;
   volume?: string;
+  restore_restart?: string[];
   schedule?: string;
   retention?: { keep_last: number };
   encrypt?: { age_recipient: string };
