@@ -12,6 +12,10 @@
 #     `docker volume rm`, `docker compose down`, or `pg_restore`/`psql` against
 #     anything but a throwaway. A script that thinks it needs one has to add it
 #     by hand and get it reviewed.
+#   * `restart_named` (BXD-40) is the one narrow exception: `docker restart` on a
+#     single exact-name container, re-checked via `docker inspect`, for a
+#     volume/files restore that has to bounce its consumer. Still never
+#     stop/kill/rm.
 #   * `guard_path` / `prune_glob` are the only sanctioned ways to delete files.
 
 # Unique to this process. pid + epoch + a random word — cannot collide, cannot be
@@ -56,6 +60,24 @@ throwaway_rm_all() {
   for id in $(docker ps -aq --filter "label=$BOSUN_THROWAWAY_LABEL=$BOSUN_RUN_ID" 2>/dev/null || true); do
     _bosun_is_ours "$id" && docker rm -f "$id" >/dev/null 2>&1 || true
   done
+}
+
+# restart_named <container-name> — `docker restart` ONE container by its exact
+# name, after re-confirming it exists via docker inspect. Added for BXD-40: a
+# volume/files restore has to bounce the consuming container so it re-reads the
+# restored data. The name comes from backups.yml `restore_restart:` — operator
+# data, the same trust level as a postgres store's `container:`. This is
+# `docker restart` only: never stop/kill/rm, never a --filter or a pattern.
+restart_named() {
+  local name=${1:-}
+  [ -n "$name" ] || { echo "docker-safe: restart_named needs a container name" >&2; return 1; }
+  case "$name" in
+    *[!a-zA-Z0-9_.-]* ) echo "docker-safe: bad container name '$name'" >&2; return 1 ;;
+  esac
+  local id
+  id=$(docker inspect -f '{{.Id}}' "$name" 2>/dev/null || true)
+  [ -n "$id" ] || { echo "docker-safe: no container named '$name' — not restarting" >&2; return 1; }
+  docker restart "$id" >/dev/null
 }
 
 # guard_path <path> <required-prefix> — exit 1 unless <path> is non-empty,

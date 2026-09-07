@@ -43,23 +43,33 @@ export function LiveRestorePanel({
   receipts: Record<string, LiveRestoreReceipt | null>;
   archives?: Record<string, ArchiveEntry[]>;
 }) {
-  // BXD-39: a remote (ssh_alias) postgres store is restorable now too — via the
-  // host's backup-restore forced command. Only a postgres store with neither a
-  // container nor an ssh_alias is still manual.
-  const eligible = config.stores.filter((s) => s.kind === "postgres" && (s.container || s.ssh_alias));
-  const manual = config.stores.filter((s) => s.kind === "postgres" && !s.container && !s.ssh_alias);
+  // BXD-39: remote (ssh_alias) postgres stores restore via the host's
+  // backup-restore forced command. BXD-40: files stores (bind-mount path or
+  // docker volume) restore via rsync / a throwaway container. redis stays
+  // manual — it rewrites its persistence on shutdown, so a live swap can't work.
+  const eligible = config.stores.filter(
+    (s) =>
+      (s.kind === "postgres" && (s.container || s.ssh_alias)) ||
+      (s.kind === "files" && (s.path || s.volume)),
+  );
+  const manual = config.stores.filter(
+    (s) =>
+      s.kind === "redis" ||
+      (s.kind === "postgres" && !s.container && !s.ssh_alias) ||
+      (s.kind === "files" && !s.path && !s.volume),
+  );
   if (eligible.length === 0 && manual.length === 0) return null;
 
   return (
     <details className="rounded-md border border-red-500/30 bg-red-500/[0.03] mt-1 group">
       <summary className="cursor-pointer list-none px-3 py-2 text-xs font-mono text-red-300/80 hover:text-red-200 inline-flex items-center gap-1.5">
         <AlertTriangle className="size-3.5" />
-        restore into the live database
+        restore into the live store
       </summary>
       <div className="px-3 pb-3 space-y-3">
         <p className="text-[11px] text-muted-foreground">
-          Overwrites the live database with a backup. The agent takes a fresh <span className="font-mono">pre-restore</span>{" "}
-          dump first — that dump is the undo. Nothing else is affected.
+          Overwrites the live data with a backup. The agent takes a fresh <span className="font-mono">pre-restore</span>{" "}
+          snapshot first — that snapshot is the undo. Nothing else is affected.
         </p>
         {eligible.map((s) => (
           <StoreRestore
@@ -73,7 +83,10 @@ export function LiveRestorePanel({
         ))}
         {manual.map((s) => (
           <p key={s.name} className="text-[11px] text-muted-foreground/70 font-mono">
-            {s.name}: remote store — restore is manual, see <span className="font-mono">docs/restore.md</span>
+            {s.name}:{" "}
+            {s.kind === "redis"
+              ? "restore is manual — stop the container, replace the AOF/RDB in its volume, start it (a live swap would be clobbered on shutdown)."
+              : "restore is manual — see docs/DISASTER-RECOVERY.md."}
           </p>
         ))}
       </div>
