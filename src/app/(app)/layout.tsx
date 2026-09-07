@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
+import { BackupAlertBanner } from "@/components/backup-alert-banner";
 import { listProjects } from "@/lib/data/projects";
 import { loadHosts } from "@/lib/data/hosts";
 import { loadClientRegistry } from "@/lib/data/clients";
@@ -24,7 +26,12 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <Sidebar projects={projects} hosts={hosts} unreadMessages={unreadMessages} />
       <div className="flex-1 flex flex-col min-w-0 h-full">
         <TopBar />
-        <main className="flex-1 min-w-0 overflow-y-auto px-8 py-6">{children}</main>
+        <main className="flex-1 min-w-0 overflow-y-auto px-8 py-6">
+          <Suspense fallback={null}>
+            <BackupAlertBanner />
+          </Suspense>
+          {children}
+        </main>
       </div>
     </div>
   );
