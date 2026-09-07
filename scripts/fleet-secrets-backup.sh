@@ -33,7 +33,9 @@ export BACKUP_RECEIPTS="$RECEIPTS_DIR"
 . "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
 
 now() { date -u +%FT%TZ; }
-say() { echo "[$(now)] secrets-backup: $*" | tee -a "$LOG"; }
+# BXD-43: stderr only — the cron redirect (`>> fleet-backup.log 2>&1`) already
+# captures it into $LOG; a tee to the same file doubled every line.
+say() { echo "[$(now)] secrets-backup: $*" >&2; }
 DATE=$(date -u +%Y%m%d)
 
 receipt() { # <ok> <bytes> <sha> <archive> <files> [error]

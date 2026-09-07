@@ -40,7 +40,10 @@ export BACKUP_RECEIPTS="$RECEIPTS_DIR"
 ts() { date -u +%Y%m%dT%H%M%SZ; }
 now() { date -u +%FT%TZ; }
 log() { echo "[$(now)] $*" >>"$LOG"; }
-say() { echo "[$(now)] $*" | tee -a "$LOG"; }
+# BXD-43: stderr only. The cron line redirects both streams into $LOG
+# (`>> fleet-backup.log 2>&1`), and $LOG is that same file — a `tee -a "$LOG"`
+# here wrote every line twice. Manual runs still see say() on the terminal.
+say() { echo "[$(now)] $*" >&2; }
 
 RUN_TS=$(ts)
 FAILURES=0
