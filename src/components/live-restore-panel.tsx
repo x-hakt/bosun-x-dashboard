@@ -43,8 +43,11 @@ export function LiveRestorePanel({
   receipts: Record<string, LiveRestoreReceipt | null>;
   archives?: Record<string, ArchiveEntry[]>;
 }) {
-  const eligible = config.stores.filter((s) => s.kind === "postgres" && s.container);
-  const manual = config.stores.filter((s) => s.kind === "postgres" && !s.container);
+  // BXD-39: a remote (ssh_alias) postgres store is restorable now too — via the
+  // host's backup-restore forced command. Only a postgres store with neither a
+  // container nor an ssh_alias is still manual.
+  const eligible = config.stores.filter((s) => s.kind === "postgres" && (s.container || s.ssh_alias));
+  const manual = config.stores.filter((s) => s.kind === "postgres" && !s.container && !s.ssh_alias);
   if (eligible.length === 0 && manual.length === 0) return null;
 
   return (
