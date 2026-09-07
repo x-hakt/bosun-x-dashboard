@@ -92,6 +92,30 @@ for slug in sorted(os.listdir(proj_dir)):
 PY
 }
 
+# --- the git plan: one JSON line per `method: git` project ------------------
+# BXD-34 — light off-box coverage for small git-repo projects that aren't in the
+# protected set. No destination/archive: the backup IS the git remote; the
+# nightly just makes sure the working tree is committed and pushed.
+git_plan() {
+  python3 - "$BOSUN_DATA" "${1:-}" <<'PY'
+import sys, os, json, yaml
+data_dir, only = sys.argv[1], (sys.argv[2] or "")
+proj_dir = f"{data_dir}/projects"
+for slug in sorted(os.listdir(proj_dir)):
+    if only and slug != only:
+        continue
+    bpath = f"{proj_dir}/{slug}/backups.yml"
+    if not os.path.exists(bpath):
+        continue
+    b = yaml.safe_load(open(bpath)) or {}
+    if (b.get("method") or "agent") != "git":
+        continue
+    if b.get("backup_required") is False:
+        continue
+    print(json.dumps({"slug": slug, "repo_path": b.get("repo_path")}))
+PY
+}
+
 # --- receipts --------------------------------------------------------------
 receipt() {
   # receipt <slug> <store> <ok> <bytes> <sha256> <archive> [error]
@@ -206,6 +230,50 @@ do_store() {
   prune_glob "$out" "${store}-*" "$keep"
 }
 
+# --- one git-repo project (BXD-34) ------------------------------------------
+do_git() {
+  local j=$1
+  local slug rp branch ahead staged
+  slug=$(jq -r '.slug' <<<"$j")
+  rp=$(jq -r '.repo_path // empty' <<<"$j")
+
+  if [ -z "$rp" ] || [ ! -d "$rp" ] || ! git -C "$rp" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    say "$slug: method git but repo_path '$rp' is not a git work tree"
+    receipt "$slug" "code" false 0 "" "" "repo_path not a git work tree"; ((FAILURES++)); return
+  fi
+  branch=$(git -C "$rp" symbolic-ref --quiet --short HEAD 2>/dev/null) || {
+    say "$slug: $rp is on a detached HEAD — skipping"
+    receipt "$slug" "code" false 0 "" "" "detached HEAD"; ((FAILURES++)); return; }
+  if ! git -C "$rp" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1; then
+    say "$slug: $branch has no upstream — skipping"
+    receipt "$slug" "code" false 0 "" "" "no upstream for $branch"; ((FAILURES++)); return
+  fi
+
+  # stage everything the repo doesn't already ignore, commit if that changed
+  # anything (identity set inline so it works under cron), then push. Never
+  # pull/merge/rebase — a rejected push is a failure to surface, not to fix.
+  git -C "$rp" add -A 2>>"$LOG"
+  staged=0; git -C "$rp" diff --cached --quiet || staged=1
+  if [ "$staged" = 1 ]; then
+    git -C "$rp" -c user.name="bosun-x fleet-backup" -c user.email="fleet-backup@x-hakt.local" \
+        commit -q -m "auto: nightly snapshot $(now)" 2>>"$LOG" || {
+      say "$slug: commit failed"; receipt "$slug" "code" false 0 "" "" "commit failed"; ((FAILURES++)); return; }
+  fi
+
+  ahead=$(git -C "$rp" rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo 0)
+  if [ "${ahead:-0}" = 0 ]; then
+    say "$slug: up to date, nothing to push"
+    receipt "$slug" "code" true 0 "" ""; return
+  fi
+  if timeout 120 git -C "$rp" push -q 2>>"$LOG"; then
+    say "$slug: pushed $ahead commit(s) to $branch"
+    receipt "$slug" "code" true 0 "" ""
+  else
+    say "$slug: git push FAILED ($ahead commit(s) committed locally)"
+    receipt "$slug" "code" false 0 "" "" "push failed"; ((FAILURES++)); return
+  fi
+}
+
 # --- requests -------------------------------------------------------------
 process_requests() {
   [ -d "$REQUEST_DIR" ] || exit 0
@@ -265,7 +333,13 @@ run_for() {
     n=$((n + 1))
     do_store "$line"
   done < <(plan "$only")
-  say "done: $n store(s), $FAILURES failure(s)${only:+ (project: $only)}"
+  local g=0
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    g=$((g + 1))
+    do_git "$line"
+  done < <(git_plan "$only")
+  say "done: $n store(s), $g git repo(s), $FAILURES failure(s)${only:+ (project: $only)}"
 }
 
 # --- entry --------------------------------------------------------------------
