@@ -21,7 +21,7 @@ import { loadBackups, loadDestinations } from "@/lib/data/backups";
 import { loadClientRegistry } from "@/lib/data/clients";
 import { SharingControl } from "@/components/portal/sharing-control";
 import { setTaskSharingDefault } from "@/lib/actions/portal-sharing";
-import { readBackupLog, readRestoreLog, readLiveRestoreReceipt } from "@/lib/data/backup-log";
+import { readBackupLog, readRestoreLog, readLiveRestoreReceipt, readArchives } from "@/lib/data/backup-log";
 import { liveRestorePending } from "@/lib/data/backup-request";
 import { backupRequestPending, restoreTestPending } from "@/lib/data/backup-request";
 import { TaskList } from "@/components/task-list";
@@ -65,10 +65,12 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
   const backupLog = backupStatus?.method === "agent" ? await readBackupLog(slug, 10) : [];
   const restoreLog: Record<string, Awaited<ReturnType<typeof readRestoreLog>>> = {};
   const liveRestoreReceipts: Record<string, Awaited<ReturnType<typeof readLiveRestoreReceipt>>> = {};
+  const archives: Record<string, Awaited<ReturnType<typeof readArchives>>> = {};
   if (backupStatus?.method === "agent") {
     for (const s of backupStatus.stores) {
       restoreLog[s.name] = await readRestoreLog(slug, s.name, 8);
       liveRestoreReceipts[s.name] = await readLiveRestoreReceipt(slug, s.name);
+      archives[s.name] = await readArchives(slug, s.name);
     }
   }
   const liveRestoreIsPending = backupStatus?.method === "agent" ? await liveRestorePending(slug) : false;
@@ -225,6 +227,7 @@ export default async function ProjectDetailPage(props: { params: Promise<{ slug:
                   destinations={destinations.map((d) => ({ id: d.id, kind: d.kind }))}
                   backupLog={backupLog}
                   restoreLog={restoreLog}
+                  archives={archives}
                   liveRestorePending={liveRestoreIsPending}
                   liveRestoreReceipts={liveRestoreReceipts}
                 />

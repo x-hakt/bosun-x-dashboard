@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, RotateCcw, Loader2 } from "lucide-react";
 import type { BackupsConfig } from "@/lib/types";
-import type { LiveRestoreReceipt } from "@/lib/data/backup-log";
+import type { LiveRestoreReceipt, ArchiveEntry } from "@/lib/data/backup-log";
 import { triggerLiveRestore } from "@/lib/actions/backups";
 import { useRefreshUntil } from "@/lib/hooks/use-refresh-until";
 import { STATUS_TEXT_CLASS } from "@/lib/status-colors";
@@ -18,6 +18,15 @@ function fmtWhen(iso?: string) {
   return `${Math.round(h / 24)}d ago`;
 }
 
+function fmtBytes(n?: number) {
+  if (!n) return "";
+  const u = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
+}
+
 // CR-38 — the "restore into the live database" control. Collapsed by default,
 // type-to-confirm, and the agent always takes a pre-restore dump first so it's
 // reversible. Postgres container stores only.
@@ -26,11 +35,13 @@ export function LiveRestorePanel({
   config,
   pending,
   receipts,
+  archives = {},
 }: {
   slug: string;
   config: BackupsConfig;
   pending: boolean;
   receipts: Record<string, LiveRestoreReceipt | null>;
+  archives?: Record<string, ArchiveEntry[]>;
 }) {
   const eligible = config.stores.filter((s) => s.kind === "postgres" && s.container);
   const manual = config.stores.filter((s) => s.kind === "postgres" && !s.container);
@@ -48,7 +59,14 @@ export function LiveRestorePanel({
           dump first — that dump is the undo. Nothing else is affected.
         </p>
         {eligible.map((s) => (
-          <StoreRestore key={s.name} slug={slug} store={s.name} pending={pending} receipt={receipts[s.name] ?? null} />
+          <StoreRestore
+            key={s.name}
+            slug={slug}
+            store={s.name}
+            pending={pending}
+            receipt={receipts[s.name] ?? null}
+            archives={archives[s.name] ?? []}
+          />
         ))}
         {manual.map((s) => (
           <p key={s.name} className="text-[11px] text-muted-foreground/70 font-mono">
@@ -65,22 +83,24 @@ function StoreRestore({
   store,
   pending,
   receipt,
+  archives,
 }: {
   slug: string;
   store: string;
   pending: boolean;
   receipt: LiveRestoreReceipt | null;
+  archives: ArchiveEntry[];
 }) {
   const router = useRouter();
   const [isPending, start] = useTransition();
   const [confirm, setConfirm] = useState("");
-  const [source, setSource] = useState<"latest" | "undo" | "custom">("latest");
-  const [custom, setCustom] = useState("");
+  const [source, setSource] = useState<"latest" | "undo" | "pick">("latest");
+  const [picked, setPicked] = useState("");
   const [error, setError] = useState<string | null>(null);
   const watch = useRefreshUntil(pending);
 
   const archive =
-    source === "latest" ? "latest" : source === "undo" ? (receipt?.preRestoreDump ?? "") : custom.trim();
+    source === "latest" ? "latest" : source === "undo" ? (receipt?.preRestoreDump ?? "") : picked.trim();
   const armed = confirm === slug && archive.length > 0 && !isPending && !pending && !watch.watching;
 
   return (
@@ -107,17 +127,29 @@ function StoreRestore({
             <RotateCcw className="size-3" /> undo last restore
           </label>
         )}
-        <label className="inline-flex items-center gap-1">
-          <input type="radio" checked={source === "custom"} onChange={() => setSource("custom")} />
-          archive:
-        </label>
-        {source === "custom" && (
-          <input
-            value={custom}
-            onChange={(e) => setCustom(e.target.value)}
-            placeholder="exact filename on the destination"
-            className="flex-1 min-w-[12rem] rounded border border-border/60 bg-background px-2 py-1 font-mono text-[11px]"
-          />
+        {archives.length > 0 && (
+          <label className="inline-flex items-center gap-1">
+            <input type="radio" checked={source === "pick"} onChange={() => setSource("pick")} />
+            a specific backup:
+          </label>
+        )}
+        {source === "pick" && archives.length > 0 && (
+          <select
+            value={picked}
+            onChange={(e) => setPicked(e.target.value)}
+            className="flex-1 min-w-[16rem] rounded border border-border/60 bg-background px-2 py-1 font-mono text-[11px]"
+          >
+            <option value="">select a point in time…</option>
+            {archives.map((a) => (
+              <option key={a.name} value={a.name}>
+                {fmtWhen(a.takenAt)}
+                {a.bytes ? ` · ${fmtBytes(a.bytes)}` : ""}
+                {a.kind === "pre-restore" ? " · pre-restore dump" : ""}
+                {" — "}
+                {a.name}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 

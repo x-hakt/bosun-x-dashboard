@@ -32,6 +32,8 @@ export BACKUP_RECEIPTS="$RECEIPTS_DIR"
 . "$(dirname "${BASH_SOURCE[0]}")/lib/docker-safe.sh"
 # shellcheck source=lib/job-marker.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
+# shellcheck source=lib/archive-index.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/archive-index.sh"
 
 now() { date -u +%FT%TZ; }
 ts()  { date -u +%Y%m%dT%H%M%SZ; }
@@ -160,6 +162,8 @@ if [ "$TABLES" -gt 0 ]; then
   say "$SLUG/$STORE: RESTORED — $TABLES tables. Undo: fleet-restore.sh $SLUG $STORE $(basename "$PRE_DUMP")"
   receipt true "$ARCHIVE" "$PRE_DUMP" "$TABLES"
   prune_glob "$OUT" "${STORE}-pre-restore-*" 10
+  # BXD-41: the new pre-restore dump is a restore point too — refresh the index.
+  write_archive_index "$SLUG" "$STORE" "$OUT"
   exit 0
 else
   abort "restore produced 0 tables — the pre-restore dump at $PRE_DUMP is your rollback"

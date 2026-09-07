@@ -37,6 +37,8 @@ export BACKUP_RECEIPTS="$RECEIPTS_DIR"
 . "$(dirname "${BASH_SOURCE[0]}")/lib/docker-safe.sh"
 # shellcheck source=lib/job-marker.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
+# shellcheck source=lib/archive-index.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/archive-index.sh"
 ts() { date -u +%Y%m%dT%H%M%SZ; }
 now() { date -u +%FT%TZ; }
 log() { echo "[$(now)] $*" >>"$LOG"; }
@@ -228,6 +230,11 @@ do_store() {
   # prune: keep the newest $keep archives for this store (docker-safe.sh:
   # one level, files only, under BOSUN_PRUNE_ROOT, name-pattern bounded)
   prune_glob "$out" "${store}-*" "$keep"
+
+  # BXD-41: refresh the point-in-time index the dashboard reads (post-prune, so
+  # it matches what's actually there). Pass this run's sha so the newest entry
+  # carries it without a re-hash.
+  write_archive_index "$slug" "$store" "$out" "$(basename "$archive")" "$sha"
 }
 
 # --- one git-repo project (BXD-34) ------------------------------------------
@@ -237,8 +244,13 @@ do_git() {
   slug=$(jq -r '.slug' <<<"$j")
   rp=$(jq -r '.repo_path // empty' <<<"$j")
 
-  if [ -z "$rp" ] || [ ! -d "$rp" ] || ! git -C "$rp" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    say "$slug: method git but repo_path '$rp' is not a git work tree"
+  # No repo_path: `method: git` just means "the backup IS the remote", pushed by
+  # the project's own dev workflow (an actively-developed repo doesn't want a
+  # nightly auto-commit of half-finished work). Nothing for the agent to do.
+  if [ -z "$rp" ]; then return; fi
+
+  if [ ! -d "$rp" ] || ! git -C "$rp" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    say "$slug: repo_path '$rp' is not a git work tree"
     receipt "$slug" "code" false 0 "" "" "repo_path not a git work tree"; ((FAILURES++)); return
   fi
   branch=$(git -C "$rp" symbolic-ref --quiet --short HEAD 2>/dev/null) || {
