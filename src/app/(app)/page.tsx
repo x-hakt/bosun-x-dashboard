@@ -7,6 +7,7 @@ import { loadClientRegistry } from "@/lib/data/clients";
 import { StatTile } from "@/components/stat-tile";
 import { HealthStatTiles } from "@/components/health-stat-tiles";
 import { UnregisteredStatTile } from "@/components/unregistered-stat-tile";
+import { BackupAlertTile } from "@/components/backup-alert-tile";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectStage } from "@/lib/types";
 
@@ -50,6 +51,9 @@ export default async function OverviewPage() {
         </Suspense>
         <Suspense fallback={<Skeleton className="h-[68px] rounded-lg" />}>
           <UnregisteredStatTile />
+        </Suspense>
+        <Suspense fallback={<Skeleton className="h-[68px] rounded-lg" />}>
+          <BackupAlertTile />
         </Suspense>
         <StatTile
           label="By stage"
