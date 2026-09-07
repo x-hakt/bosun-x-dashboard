@@ -116,6 +116,7 @@ export interface BackupsConfig {
   method: BackupMethod;
   destination?: string;
   owner?: string;
+  restore_drill?: boolean;
   stores: BackupStore[];
   notes?: string;
 }

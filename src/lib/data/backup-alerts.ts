@@ -3,6 +3,7 @@ import { getAllBackupStatuses } from "./backup-status";
 import { getJobStatuses } from "./jobs";
 import { getSecretsBackupStatus } from "./secrets-backup";
 import { getOffsiteStatus } from "./offsite";
+import { getAllRestoreDrillStatuses } from "./restore-drills";
 
 // BXD-42 — one place that decides what counts as a *loud* backup/job problem, so
 // the fleet-wide banner and the Overview tile always agree. Read-only; combines
@@ -26,11 +27,12 @@ export interface BackupAlertSummary {
 }
 
 export const getBackupAlerts = cache(async (): Promise<BackupAlertSummary> => {
-  const [statuses, jobInfo, secrets, offsite] = await Promise.all([
+  const [statuses, jobInfo, secrets, offsite, drills] = await Promise.all([
     getAllBackupStatuses(),
     getJobStatuses(),
     getSecretsBackupStatus(),
     getOffsiteStatus(),
+    getAllRestoreDrillStatuses(),
   ]);
 
   const alerts: BackupAlert[] = [];
@@ -109,6 +111,22 @@ export const getBackupAlerts = cache(async (): Promise<BackupAlertSummary> => {
     } else if (secrets.stale) {
       alerts.push({ id: "secrets", severity: "warn", label: "Secrets bundle overdue", href: "/backups" });
     }
+  }
+
+  // Manual restore drills (BXD-44) — a warn, never a bad: the automated
+  // restore-test still runs, this is the deeper end-to-end drill. Only the
+  // regression case (a drill that used to happen and has gone stale) reaches the
+  // fleet-wide banner; "never run yet" is a known baseline you see on /backups
+  // and in the standards check, not an interruption.
+  for (const d of drills) {
+    if (!d.stale || !d.lastDrillAt) continue;
+    alerts.push({
+      id: `drill:${d.slug}`,
+      severity: "warn",
+      label: `${d.slug} restore drill overdue`,
+      detail: d.ageDays !== undefined ? `last drill ${d.ageDays}d ago` : undefined,
+      href: `/projects/${d.slug}`,
+    });
   }
 
   // Off-site copy — only when it's enabled; "configured but off" is expected.

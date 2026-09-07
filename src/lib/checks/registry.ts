@@ -4,6 +4,7 @@ import { anyFileExists } from "./filesystem";
 import { resolveCheckTarget } from "./target";
 import { getRemoteFacts } from "./remote-facts";
 import { getBackupStatus } from "@/lib/data/backup-status";
+import { getRestoreDrillStatus } from "@/lib/data/restore-drills";
 
 type CheckFn = (project: Project, params: Record<string, unknown> | undefined) => Promise<CheckStatus>;
 
@@ -87,6 +88,15 @@ const checkBackupFresh: CheckFn = async (project) => {
   return status.health === "ok" ? "pass" : "fail";
 };
 
+// BXD-44 / IDEA-10. Info-only nag: the weekly restore-test can't do the full
+// "blank box → serving" drill, so that stays manual (docs/restore-drills.md).
+// n/a unless the project's backups.yml sets `restore_drill: true`.
+const checkRestoreDrillCurrent: CheckFn = async (project) => {
+  const status = await getRestoreDrillStatus(project.meta.slug);
+  if (!status) return "na";
+  return status.stale ? "fail" : "pass";
+};
+
 // Fixed lookup table — `type` from standards.yml is only ever used as a key here.
 // It never executes arbitrary code from the YAML file itself.
 export const registry: Partial<Record<string, CheckFn>> = {
@@ -96,6 +106,7 @@ export const registry: Partial<Record<string, CheckFn>> = {
   "git-remote-present": checkGitRemotePresent,
   "handoff-ready": checkHandoffReady,
   "backup-fresh": checkBackupFresh,
+  "restore-drill-current": checkRestoreDrillCurrent,
 };
 
 export async function evaluateCheck(project: Project, def: StandardCheckDef): Promise<CheckResult> {
