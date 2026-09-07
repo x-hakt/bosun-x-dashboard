@@ -37,7 +37,9 @@ export BACKUP_RECEIPTS="$RECEIPTS_DIR"
 . "$(dirname "${BASH_SOURCE[0]}")/lib/job-marker.sh"
 
 now() { date -u +%FT%TZ; }
-say() { echo "[$(now)] offsite: $*" | tee -a "$LOG"; }
+# BXD-43: stderr only — the cron redirect (`>> fleet-backup.log 2>&1`) already
+# captures it into $LOG; a tee to the same file doubled every line.
+say() { echo "[$(now)] offsite: $*" >&2; }
 DATE=$(date -u +%Y%m%d)
 WORK=$(mktemp -d /tmp/fleet-offsite.XXXXXX) || { echo "mktemp failed" >&2; exit 1; }
 

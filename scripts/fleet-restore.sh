@@ -35,7 +35,9 @@ export BACKUP_RECEIPTS="$RECEIPTS_DIR"
 
 now() { date -u +%FT%TZ; }
 ts()  { date -u +%Y%m%dT%H%M%SZ; }
-say() { echo "[$(now)] restore: $*" | tee -a "$LOG"; }
+# BXD-43: stderr only — the cron redirect (`>> fleet-backup.log 2>&1`) already
+# captures it into $LOG; a tee to the same file doubled every line.
+say() { echo "[$(now)] restore: $*" >&2; }
 
 SLUG=${1:-}; STORE=${2:-}; WHICH=${3:-latest}
 [ -n "$SLUG" ] && [ -n "$STORE" ] || { echo "usage: fleet-restore.sh <slug> <store> [<archive>|latest]" >&2; exit 2; }

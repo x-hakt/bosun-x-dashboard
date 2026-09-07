@@ -44,7 +44,9 @@ cleanup() {
 trap 'cleanup; _job_finish' EXIT
 
 now() { date -u +%FT%TZ; }
-say() { echo "[$(now)] restore-test: $*" | tee -a "$LOG"; }
+# BXD-43: stderr only — the cron redirect (`>> fleet-backup.log 2>&1`) already
+# captures it into $LOG; a tee to the same file doubled every line.
+say() { echo "[$(now)] restore-test: $*" >&2; }
 
 FAIL=0
 TESTED=0
