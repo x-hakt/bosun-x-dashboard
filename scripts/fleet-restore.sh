@@ -24,6 +24,7 @@ _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$(dirname "${BASH_SOURCE[0]}")/lib/data-dir.sh"
 RECEIPTS_DIR=${BACKUP_RECEIPTS:-$HOME/backup-receipts}
 KEYS_DIR="$BOSUN_DATA/backup-keys"
+SSH_CONFIG=${BACKUP_SSH_CONFIG:-$HOME/.ssh/config}  # BXD-39: ssh_alias restores
 LOG=${BACKUP_LOG:-$HOME/.local/state/fleet-backup.log}
 
 mkdir -p "$(dirname "$LOG")"
@@ -83,9 +84,25 @@ PY
 )"
 
 [ "${S_FOUND:-0}" = 1 ] || abort "no store '$STORE' in projects/$SLUG/backups.yml"
-[ "${S_KIND:-}" = postgres ] || abort "v1 restores postgres stores only (this is '${S_KIND:-?}')"
+[ "${S_KIND:-}" = postgres ] || abort "restores postgres stores only (this is '${S_KIND:-?}')"
 [ -n "${D_PATH:-}" ] || abort "destination path not resolved"
-[ -n "${S_CONTAINER:-}" ] || abort "store has no container (ssh_alias restores are manual — see docs/restore.md)"
+
+# Container store -> docker exec here. ssh_alias store (a remote host) -> the
+# host's forced-command keys: `backup-<host> backup-dump` for the pre-restore
+# dump, `restore-<host> backup-restore` for the restore itself (BXD-39). The
+# restore alias mirrors the backup alias: backup-gpforms -> restore-gpforms.
+REMOTE=0
+if [ -n "${S_CONTAINER:-}" ]; then
+  :
+elif [ -n "${S_SSH:-}" ]; then
+  REMOTE=1
+  case "$S_SSH" in
+    backup-*) RESTORE_ALIAS="restore-${S_SSH#backup-}" ;;
+    *) abort "ssh_alias '$S_SSH' is not a backup-<host> alias — can't derive the restore alias" ;;
+  esac
+else
+  abort "store has neither a container nor an ssh_alias"
+fi
 
 # --- confirmation -----------------------------------------------------------
 [ "${FLEET_RESTORE_CONFIRM:-}" = "$SLUG" ] || abort "refusing — set FLEET_RESTORE_CONFIRM=$SLUG to proceed"
@@ -96,11 +113,20 @@ export BOSUN_PRUNE_ROOT="$D_PATH"
 [ -n "$D_MOUNT" ] && ! mountpoint -q "$D_MOUNT" && abort "$D_MOUNT not mounted"
 [ -z "$D_SENTINEL" ] || [ -f "$D_PATH/$D_SENTINEL" ] || abort "destination sentinel missing"
 
-# --- confirm the target container --------------------------------------------
-docker inspect "$S_CONTAINER" >/dev/null 2>&1 || abort "container '$S_CONTAINER' not found"
-CState=$(docker inspect -f '{{.State.Running}}' "$S_CONTAINER" 2>/dev/null)
-[ "$CState" = true ] || abort "container '$S_CONTAINER' is not running"
-say "$SLUG/$STORE: target = container '$S_CONTAINER', db '${S_DB:-\$POSTGRES_DB}'"
+# --- confirm the target -----------------------------------------------------
+if [ "$REMOTE" = 1 ]; then
+  # `--check` reaches the container on the remote host and counts tables; it
+  # touches nothing. Also proves the restore key + forced command are in place.
+  ssh -n -F "$SSH_CONFIG" -o BatchMode=yes -o ConnectTimeout=30 "$RESTORE_ALIAS" \
+      "backup-restore --check" >>"$LOG" 2>&1 \
+    || abort "restore target unreachable via $RESTORE_ALIAS (is the restore forced command installed?)"
+  say "$SLUG/$STORE: target = remote via $RESTORE_ALIAS (pre-dump via $S_SSH)"
+else
+  docker inspect "$S_CONTAINER" >/dev/null 2>&1 || abort "container '$S_CONTAINER' not found"
+  CState=$(docker inspect -f '{{.State.Running}}' "$S_CONTAINER" 2>/dev/null)
+  [ "$CState" = true ] || abort "container '$S_CONTAINER' is not running"
+  say "$SLUG/$STORE: target = container '$S_CONTAINER', db '${S_DB:-\$POSTGRES_DB}'"
+fi
 
 job_begin fleet-restore
 
@@ -122,7 +148,12 @@ fi
 # --- 1. pre-restore safety dump (the undo) — MANDATORY ----------------------
 PRE_DUMP="$OUT/${STORE}-pre-restore-$(ts).dump.zst"
 say "$SLUG/$STORE: pre-restore dump -> $PRE_DUMP"
-if docker exec "$S_CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "'"${S_DB:-\$POSTGRES_DB}"'"' 2>>"$LOG" \
+if [ "$REMOTE" = 1 ]; then
+  pre_producer() { ssh -n -F "$SSH_CONFIG" -o BatchMode=yes -o ConnectTimeout=30 "$S_SSH" backup-dump; }
+else
+  pre_producer() { docker exec "$S_CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "'"${S_DB:-\$POSTGRES_DB}"'"'; }
+fi
+if pre_producer 2>>"$LOG" \
      | zstd -q -19 >"$PRE_DUMP.partial" 2>>"$LOG" && [ "$(stat -c %s "$PRE_DUMP.partial")" -gt 64 ]; then
   mv "$PRE_DUMP.partial" "$PRE_DUMP"
   say "$SLUG/$STORE: pre-restore dump ok ($(numfmt --to=iec "$(stat -c %s "$PRE_DUMP")"))"
@@ -147,16 +178,25 @@ zstd -dqf "$DEC" -o "$PLAIN" 2>>"$LOG" || abort "decompress failed"
 # the dump and are recreated by pg_restore.
 DB="${S_DB:-\$POSTGRES_DB}"
 say "$SLUG/$STORE: restoring into the LIVE database now (public schema reset)"
-docker exec -i "$S_CONTAINER" sh -c \
-  'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "'"$DB"'" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO PUBLIC;"' \
-  >>"$LOG" 2>&1 || abort "could not reset the public schema — nothing restored, DB unchanged"
-docker exec -i "$S_CONTAINER" sh -c \
-  'pg_restore --no-owner --no-privileges -U "$POSTGRES_USER" -d "'"$DB"'"' \
-  <"$PLAIN" >>"$LOG" 2>&1 || say "$SLUG/$STORE: pg_restore reported errors (often benign — checking result)"
+if [ "$REMOTE" = 1 ]; then
+  # The forced command does the schema reset + pg_restore + a table-count sanity
+  # check itself (it exits non-zero on 0 tables). Capture its report for TABLES.
+  RREPORT=$(ssh -F "$SSH_CONFIG" -o BatchMode=yes -o ConnectTimeout=30 "$RESTORE_ALIAS" \
+             "backup-restore" <"$PLAIN" 2>&1) || { echo "$RREPORT" >>"$LOG"; abort "remote backup-restore failed: $(echo "$RREPORT" | tail -1)"; }
+  echo "$RREPORT" >>"$LOG"
+  TABLES=$(echo "$RREPORT" | sed -n 's/.*done — \([0-9]\+\) table.*/\1/p' | tail -1); TABLES=${TABLES:-0}
+else
+  docker exec -i "$S_CONTAINER" sh -c \
+    'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "'"$DB"'" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO PUBLIC;"' \
+    >>"$LOG" 2>&1 || abort "could not reset the public schema — nothing restored, DB unchanged"
+  docker exec -i "$S_CONTAINER" sh -c \
+    'pg_restore --no-owner --no-privileges -U "$POSTGRES_USER" -d "'"$DB"'"' \
+    <"$PLAIN" >>"$LOG" 2>&1 || say "$SLUG/$STORE: pg_restore reported errors (often benign — checking result)"
 
-TABLES=$(docker exec "$S_CONTAINER" sh -c \
-  'psql -U "$POSTGRES_USER" -d "'"$DB"'" -tAc "select count(*) from pg_tables where schemaname not in ('"'"'pg_catalog'"'"','"'"'information_schema'"'"')"' \
-  2>>"$LOG" | tr -dc '0-9'); TABLES=${TABLES:-0}
+  TABLES=$(docker exec "$S_CONTAINER" sh -c \
+    'psql -U "$POSTGRES_USER" -d "'"$DB"'" -tAc "select count(*) from pg_tables where schemaname not in ('"'"'pg_catalog'"'"','"'"'information_schema'"'"')"' \
+    2>>"$LOG" | tr -dc '0-9'); TABLES=${TABLES:-0}
+fi
 
 if [ "$TABLES" -gt 0 ]; then
   say "$SLUG/$STORE: RESTORED — $TABLES tables. Undo: fleet-restore.sh $SLUG $STORE $(basename "$PRE_DUMP")"
