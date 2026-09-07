@@ -173,6 +173,8 @@ export const BackupsYmlSchema = z.object({
   method: z.enum(["agent", "git", "none"]).nullish(),
   // id into destinations.yml (agent method only)
   destination: z.string().nullish(),
+  // git method only (BXD-34): the working tree the nightly stages/commits/pushes.
+  repo_path: z.string().nullish(),
   owner: z.string().nullish(),
   stores: z.array(BackupStoreSchema).nullish(),
   notes: z.string().nullish(),
