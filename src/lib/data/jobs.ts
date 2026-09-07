@@ -51,6 +51,8 @@ const KNOWN_JOBS: JobDef[] = [
   { name: "fleet-secrets-backup", label: "Secrets bundle", cadenceHours: 24, graceHours: 14, match: /fleet-secrets-backup\.sh/ },
   { name: "fleet-offsite-push", label: "Off-site push", cadenceHours: 24, graceHours: 26, match: /fleet-offsite-push\.sh/ },
   { name: "data-repo-backup", label: "Data-store backup", cadenceHours: 1, graceHours: 1, match: /(?:bosun-x|control-room)-data-backup\.sh/ },
+  // BXD-45 — weekly proof the fleet scripts still can't remove anything real.
+  { name: "safety-check", label: "Fleet safety check", cadenceHours: 24 * 7, graceHours: 48, match: /safety-check\.sh/ },
 ];
 
 // Recognised as part of a monitored job (so not "unmonitored"), but no heartbeat

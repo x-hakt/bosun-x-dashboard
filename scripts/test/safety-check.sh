@@ -9,7 +9,26 @@
 # the only containers created/destroyed carried the bosun.throwaway label.
 # ============================================================================
 set -uo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+# Repo root. (This script lives in scripts/test/; the `./scripts/fleet-*.sh`
+# calls below need cwd at the root — BXD-45 fixed this from `/..`, which since
+# the move to scripts/test/ had left it running the canary assertions without
+# actually invoking the fleet scripts.)
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+
+# BXD-45: emit a job heartbeat so bosun-x /backups shows this check
+# green / failed / overdue (weekly cron on Caspar). Source the marker with the
+# REAL receipts dir — before the scratch override below — so the marker lands
+# where the dashboard reads it, not in the throwaway dir.
+BACKUP_RECEIPTS="${BACKUP_RECEIPTS:-$HOME/backup-receipts}" \
+  . "$ROOT/scripts/lib/job-marker.sh"
+
+# One run at a time — a weekly cron run must not collide with a manual one.
+exec 9>"/tmp/bosun-safety-check.lock"
+flock -n 9 || { echo "another safety-check run in progress; skipping"; exit 0; }
+SCRATCH=""
+job_begin safety-check
+trap '_job_finish; [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"' EXIT
 
 # Run against a scratch receipts dir + log so real backup state / job markers
 # are untouched. The scripts still hit the real Docker daemon and the real
@@ -18,7 +37,6 @@ SCRATCH=$(mktemp -d /tmp/bosun-safety.XXXXXX)
 export BACKUP_RECEIPTS="$SCRATCH/receipts"
 export BACKUP_LOG="$SCRATCH/log"
 mkdir -p "$BACKUP_RECEIPTS"
-trap 'rm -rf "$SCRATCH"' EXIT
 # exercise both code paths: a files store and a postgres store (the latter is
 # the one that creates + removes containers — the whole point of this test).
 SLUGS=(${SAFETY_CHECK_SLUGS:-cgburchell sportsball-coach})
