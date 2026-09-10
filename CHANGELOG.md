@@ -6,8 +6,13 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+_Nothing yet._
+
+## v0.1.0 — 2026-09-10
+
 First public release, extracted from a private working repo (`x-hakt/control-room`)
-and renamed. Consumes the [`bosun-x`](https://github.com/x-hakt/bosun-x) CLI/MCP
+and renamed. Published to `ghcr.io/x-hakt/bosun-x-dashboard` (`:v0.1.0`, `:0.1`,
+`:latest`). Consumes the [`bosun-x`](https://github.com/x-hakt/bosun-x) CLI/MCP
 package and shares its on-disk data model.
 
 ### Added
