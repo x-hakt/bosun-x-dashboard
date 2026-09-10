@@ -63,6 +63,12 @@ tasks:
 Task ids render as `<KEY>-<num>` (e.g. `RCP-2`). The `bosun-x` CLI's `--task` flag and
 the dashboard's task actions both move `status` and keep it in sync with the handoff.
 
+**Sub-tasks** — set `parent_id` to another task's `id`. The child keeps its own `num`
+but renders indented and dotted: `<parent key>.<n>`, where `n` is its position among
+the parent's children (ordered by creation). So a task with `num: 3` under `RCP-2`
+shows as `RCP-2.1`. `--task RCP-2.1` works from the CLI, and the board flags a
+sub-task whose parent has been removed.
+
 ## STATUS.md
 
 Your prose, plus one generated block:
@@ -89,10 +95,17 @@ stores:
     database: recipes
     schedule: nightly
     retention: { keep_last: 14 }
+    restore_restart: [recipes-api]   # containers to `docker restart` after a restore
 ```
 
-The dashboard only reads this and renders backup health. The dump/transfer is the
-separate backup agent's job (`scripts/fleet-backup.sh` is the reference implementation).
+The dashboard reads this to render backup health and to drive `fleet-restore.sh`
+(see [`restore.md`](restore.md)). The dump/transfer itself is the separate backup
+agent's job (`scripts/fleet-backup.sh` is the reference implementation).
+
+For a `files` or `postgres` store, `restore_restart` lists the containers that need a
+`docker restart` after the data is swapped so they re-read it. For a remote
+(`ssh_alias:`) postgres store the restore runs over SSH; `redis` stores are
+restore-by-hand (a live swap can't work) and carry their runbook inline.
 
 ## Planning
 
