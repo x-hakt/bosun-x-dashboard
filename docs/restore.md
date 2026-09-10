@@ -131,29 +131,37 @@ backup — it must come from your password manager.
 
 ## Restoring from the dashboard
 
-The project's Backups pane has a red **"restore into the live database"** section
-(postgres container stores only). It runs `scripts/fleet-restore.sh` via the
-same request queue as the other buttons. That script:
+The project's Backups pane has a red **"restore into the live store"** section. It
+runs `scripts/fleet-restore.sh` via the same type-to-confirm request queue as the
+other buttons, and dispatches on the store:
+
+| Store | Mode | What it does |
+|---|---|---|
+| `postgres`, container | `pg-container` | pre-restore dump, then reset the `public` schema and `pg_restore` so the DB ends up as *exactly* the archive |
+| `postgres`, `ssh_alias:` | `pg-remote` | the same, over SSH to the remote host |
+| `files`, bind-mount `path` | `files-path` | pre-restore tar of the path, then a throwaway root container clears it and untars the archive (ownership preserved), then restarts the `restore_restart:` containers |
+| `files`, Docker `volume` | `files-volume` | the same, against the named volume |
+| `redis` | refused | a live swap can't work (redis rewrites its AOF on shutdown); the runbook is in `backups.yml` and the pane shows it as manual |
+
+Every mode:
 
 1. refuses to run without `FLEET_RESTORE_CONFIRM=<slug>` (the queue sets it from
    the type-to-confirm request);
-2. takes a **pre-restore dump** of the current database first —
-   `<dest>/<slug>/<store>-pre-restore-<ts>.dump.zst` — and aborts if it can't.
-   That dump is the undo: pick "undo last restore" in the pane, or
-   `fleet-restore.sh <slug> <store> <that-filename>`;
-3. checks the archive's sha256 against its receipt;
-4. resets the `public` schema and `pg_restore`s, so the database ends up as
-   *exactly* the archive (a table added after that backup won't linger).
+2. takes a **pre-restore snapshot** first (`<dest>/<slug>/<store>-pre-restore-<ts>.*`)
+   and aborts if it can't. That snapshot is the undo: pick "undo last restore" in the
+   pane, or `fleet-restore.sh <slug> <store> <that-filename>`;
+3. checks the archive's sha256 against its receipt.
 
-`ssh_alias` (remote) stores have no restore path yet — do those by hand with the
-steps above.
+**Point in time** — the pane lists every archive it can see, not just the newest, so
+you can restore to an earlier one.
 
 ## Testing without a disaster
 
-`scripts/fleet-restore-test.sh` does steps 1–4 weekly into a throwaway
-`postgres:*` container and writes `<store>.restore.json`, which the dashboard
-shows as "restore verified Nd ago". Run one on demand from the project's Backup
-pane ("test restore") or:
+`scripts/fleet-restore-test.sh` does a full round-trip weekly (into a throwaway
+`postgres:*` container, or a scratch copy for a files store) and writes
+`<store>.restore.json`, which the dashboard shows as "restore verified Nd ago". A
+standards check flags a project whose last test is overdue. Run one on demand from
+the project's Backup pane ("test restore") or:
 
 ```sh
 scripts/fleet-restore-test.sh <slug>
