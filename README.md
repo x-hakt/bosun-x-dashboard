@@ -43,6 +43,9 @@ this app uses it and shares its data model.
   "since your last visit" digest, and a direct line to you. Two default-closed
   gates (`portals[]`, `shared_with[]`), one projection function, a lint fence so
   nothing else can read the store. See [`docs/portal.md`](docs/portal.md).
+- **Mobile** — fully responsive, with an off-canvas nav drawer on phone-width
+  screens, so adding a new idea or checking a task doesn't have to wait for a
+  desk.
 
 ## Quick start (self-host)
 

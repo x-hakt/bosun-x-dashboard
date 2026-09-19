@@ -6,7 +6,18 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
-_Nothing yet._
+### Added
+
+- **Mobile support** (BXD-54) — a full responsive retrofit. The sidebar collapses
+  behind a hamburger into an off-canvas drawer below the `md` breakpoint instead of
+  permanently eating ~224px of a phone-width screen; the top bar and main content
+  padding shrink to match. A page-by-page audit fixed the remaining narrow-viewport
+  breakage: a fixed-width rename input, a task row that squeezed its title under a
+  client-portal share toggle, a stat grid, and a header action row that clipped
+  instead of wrapping. Desktop is unchanged. The point: adding a new idea from
+  Planning no longer has to wait until you're back at a desk.
+- Planning page now nests sub-ideas under their parent instead of listing every
+  idea as a flat row grouped only by its own status.
 
 ## v0.1.0 — 2026-09-10
 
