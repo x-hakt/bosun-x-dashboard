@@ -188,7 +188,7 @@ function TaskRow({
           )}
           {portalClients.length > 0 && (
             <span
-              className="flex shrink-0 items-center gap-1"
+              className="hidden shrink-0 items-center gap-1 sm:flex"
               onClick={(event) => event.stopPropagation()}
               title={taskShown ? "Shown in the client portal — click to hide" : "Hidden from the client portal — click to share"}
             >
