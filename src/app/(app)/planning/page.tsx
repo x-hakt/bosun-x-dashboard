@@ -2,7 +2,8 @@ import Link from "next/link";
 import { listPlanningTasks, clientReplyStatus } from "@/lib/data/planning";
 import { PlanningTaskRow } from "@/components/planning-task-row";
 import { NewPlanningItemForm } from "@/components/new-planning-item-form";
-import type { PlanningTaskStatus } from "@/lib/types";
+import type { PlanningTaskStatus, PlanningTaskWithDoc } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -25,18 +26,129 @@ function compareIds(a: string, b: string): number {
   return 0;
 }
 
+// A root either has no parent, or its parent id doesn't resolve (orphan —
+// treated as a root rather than silently dropped).
+function isRoot(task: PlanningTaskWithDoc, idSet: Set<string>): boolean {
+  return !task.meta.parent || !idSet.has(task.meta.parent);
+}
+
+// Recursively nests every sub-idea directly under its parent, regardless of
+// which status bucket the parent landed in — a graduated idea and its
+// still-idea sub-ideas render together instead of splitting across sections.
+function PlanningTree({
+  task,
+  depth,
+  childrenByParent,
+  unseenReplies,
+}: {
+  task: PlanningTaskWithDoc;
+  depth: number;
+  childrenByParent: Map<string, PlanningTaskWithDoc[]>;
+  unseenReplies: Map<string, number>;
+}) {
+  const children = childrenByParent.get(task.meta.id) ?? [];
+  return (
+    <div className={cn(depth > 0 && "border-l border-border/60 pl-3")} style={{ marginLeft: depth > 0 ? 18 : 0 }}>
+      <PlanningTaskRow
+        task={task.meta}
+        childCount={children.length || undefined}
+        clientReplies={unseenReplies.get(task.meta.id)}
+      />
+      {children.length > 0 && (
+        <div className="mt-1.5 space-y-1.5">
+          {children.map((child) => (
+            <PlanningTree
+              key={child.meta.id}
+              task={child}
+              depth={depth + 1}
+              childrenByParent={childrenByParent}
+              unseenReplies={unseenReplies}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default async function PlanningPage(props: { searchParams: Promise<{ status?: string }> }) {
   const { status: statusFilter } = await props.searchParams;
-  const tasks = await listPlanningTasks();
-  const childCounts = new Map<string, number>();
-  for (const t of tasks) {
-    if (t.meta.parent) childCounts.set(t.meta.parent, (childCounts.get(t.meta.parent) ?? 0) + 1);
-  }
-  const unseenReplies = new Map(tasks.map((t) => [t.meta.id, clientReplyStatus(t).unseen]));
+  const allTasks = await listPlanningTasks();
+  const unseenReplies = new Map(allTasks.map((t) => [t.meta.id, clientReplyStatus(t).unseen]));
 
-  const groups = new Map<PlanningTaskStatus, typeof tasks>();
-  for (const t of tasks) {
-    if (statusFilter && t.meta.status !== statusFilter) continue;
+  const idSet = new Set(allTasks.map((t) => t.meta.id));
+  const childrenByParent = new Map<string, PlanningTaskWithDoc[]>();
+  for (const t of allTasks) {
+    if (!t.meta.parent || !idSet.has(t.meta.parent)) continue;
+    childrenByParent.set(t.meta.parent, [...(childrenByParent.get(t.meta.parent) ?? []), t]);
+  }
+  for (const list of childrenByParent.values()) list.sort((a, b) => compareIds(a.meta.id, b.meta.id));
+
+  const roots = allTasks.filter((t) => isRoot(t, idSet));
+
+  // A root "matches" a status filter if it does, or any descendant does — a
+  // filter narrows which trees show, it doesn't prune sub-ideas out of a
+  // tree that's shown for context.
+  function subtreeMatchesFilter(task: PlanningTaskWithDoc): boolean {
+    if (!statusFilter) return true;
+    if (task.meta.status === statusFilter) return true;
+    return (childrenByParent.get(task.meta.id) ?? []).some(subtreeMatchesFilter);
+  }
+
+  const visibleRoots = roots.filter(subtreeMatchesFilter).sort((a, b) => compareIds(a.meta.id, b.meta.id));
+
+  const header = (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h1 className="text-lg font-semibold tracking-tight">Planning</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Ideas and sub-ideas, thought through in depth before any real project exists. Graduating one is a
+          deliberate, separate step — a project only ever gets created once an idea is ready.
+        </p>
+      </div>
+    </div>
+  );
+
+  const footer = (
+    <p className="text-xs text-muted-foreground">
+      Just something to remember, not an idea to build?{" "}
+      <Link href="/notes" className="hover:underline text-sky-400">
+        See Notes
+      </Link>
+      .
+    </p>
+  );
+
+  // Filtered view: a flat list of matching trees, no status-section headers —
+  // grouping by the root's own status would be misleading when the reason a
+  // tree is showing is a sub-idea's status, not the root's.
+  if (statusFilter) {
+    return (
+      <div className="space-y-6">
+        {header}
+        <NewPlanningItemForm />
+        {visibleRoots.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-12 text-center">Nothing here yet.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {visibleRoots.map((task) => (
+              <PlanningTree
+                key={task.meta.id}
+                task={task}
+                depth={0}
+                childrenByParent={childrenByParent}
+                unseenReplies={unseenReplies}
+              />
+            ))}
+          </div>
+        )}
+        {footer}
+      </div>
+    );
+  }
+
+  const groups = new Map<PlanningTaskStatus, PlanningTaskWithDoc[]>();
+  for (const t of roots) {
     const list = groups.get(t.meta.status) ?? [];
     list.push(t);
     groups.set(t.meta.status, list);
@@ -47,16 +159,7 @@ export default async function PlanningPage(props: { searchParams: Promise<{ stat
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Planning</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Ideas and sub-ideas, thought through in depth before any real project exists. Graduating one is a
-            deliberate, separate step — a project only ever gets created once an idea is ready.
-          </p>
-        </div>
-      </div>
-
+      {header}
       <NewPlanningItemForm />
 
       {orderedStatuses.length === 0 ? (
@@ -69,12 +172,13 @@ export default async function PlanningPage(props: { searchParams: Promise<{ stat
                 {status} <span className="text-muted-foreground/60">({groups.get(status)!.length})</span>
               </div>
               <div className="space-y-1.5">
-                {groups.get(status)!.map((t) => (
-                  <PlanningTaskRow
-                    key={t.meta.id}
-                    task={t.meta}
-                    childCount={childCounts.get(t.meta.id)}
-                    clientReplies={unseenReplies.get(t.meta.id)}
+                {groups.get(status)!.map((task) => (
+                  <PlanningTree
+                    key={task.meta.id}
+                    task={task}
+                    depth={0}
+                    childrenByParent={childrenByParent}
+                    unseenReplies={unseenReplies}
                   />
                 ))}
               </div>
@@ -83,13 +187,7 @@ export default async function PlanningPage(props: { searchParams: Promise<{ stat
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        Just something to remember, not an idea to build?{" "}
-        <Link href="/notes" className="hover:underline text-sky-400">
-          See Notes
-        </Link>
-        .
-      </p>
+      {footer}
     </div>
   );
 }
