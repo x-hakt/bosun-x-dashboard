@@ -31,14 +31,14 @@ export default async function StandardsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Standards</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {checks.length} check{checks.length === 1 ? "" : "s"} scored across every tracked project.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 sm:shrink-0">
           <Link
             href="/standards/ai-handoff"
             className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground border border-border/60 rounded-md px-3 py-1.5 transition-colors"

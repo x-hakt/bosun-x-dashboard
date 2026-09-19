@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useMobileNav } from "@/components/mobile-nav-context";
 
 interface Crumb {
   label: string;
@@ -46,10 +49,20 @@ function crumbsFor(pathname: string): Crumb[] {
 export function TopBar() {
   const pathname = usePathname();
   const crumbs = crumbsFor(pathname);
+  const { setOpen } = useMobileNav();
 
   return (
-    <div className="h-11 shrink-0 flex items-center px-8 border-b border-border/60 bg-background/95">
-      <div className="font-mono text-xs text-muted-foreground flex items-center gap-1.5">
+    <div className="h-11 shrink-0 flex items-center gap-2 px-4 md:px-8 border-b border-border/60 bg-background/95">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="md:hidden -ml-1.5"
+        onClick={() => setOpen(true)}
+        aria-label="Open navigation"
+      >
+        <Menu className="size-4" />
+      </Button>
+      <div className="font-mono text-xs text-muted-foreground flex items-center gap-1.5 min-w-0">
         {crumbs.map((c, i) => (
           <span key={i} className="flex items-center gap-1.5">
             {i > 0 && <span className="text-border">/</span>}

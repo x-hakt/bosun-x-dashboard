@@ -28,7 +28,7 @@ export function ProjectTitle({ slug, initialName }: { slug: string; initialName:
 
   if (editing) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <Input
           autoFocus
           value={value}
@@ -37,7 +37,7 @@ export function ProjectTitle({ slug, initialName }: { slug: string; initialName:
             if (e.key === "Enter") save();
             if (e.key === "Escape") setEditing(false);
           }}
-          className="font-mono text-lg font-semibold h-9 w-72"
+          className="font-mono text-lg font-semibold h-9 w-full max-w-72 min-w-0"
           disabled={isPending}
         />
         <button onClick={save} className="text-emerald-400 hover:text-emerald-300" disabled={isPending}>

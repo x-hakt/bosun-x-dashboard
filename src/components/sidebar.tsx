@@ -3,6 +3,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useMobileNav } from "@/components/mobile-nav-context";
 import {
   LayoutGrid,
   FolderKanban,
@@ -128,7 +130,9 @@ function ProjectNav({ projects, pathname, searchParams }: { projects: NavProject
   );
 }
 
-function SidebarInner({
+// Shared between the desktop static <aside> and the mobile Sheet drawer —
+// same nav content either way, just a different outer container.
+function SidebarContent({
   projects,
   hosts,
   unreadMessages,
@@ -146,8 +150,8 @@ function SidebarInner({
   }));
 
   return (
-    <aside className="w-56 shrink-0 h-full border-r border-border/60 bg-sidebar flex flex-col">
-      <div className="h-14 flex items-center px-4 border-b border-border/60">
+    <>
+      <div className="h-14 shrink-0 flex items-center px-4 border-b border-border/60">
         <span className="font-mono text-sm font-semibold tracking-tight text-foreground">
           <span className="text-muted-foreground">▸</span> BOSUN-X
         </span>
@@ -196,7 +200,7 @@ function SidebarInner({
         })}
       </nav>
 
-      <div className="border-t border-border/60 p-2">
+      <div className="border-t border-border/60 p-2 shrink-0">
         <Link
           href="/settings"
           className={cn(
@@ -210,7 +214,27 @@ function SidebarInner({
           Settings
         </Link>
       </div>
-    </aside>
+    </>
+  );
+}
+
+function SidebarInner(props: { projects: NavProject[]; hosts: NavHost[]; unreadMessages: number }) {
+  const { open, setOpen } = useMobileNav();
+
+  return (
+    <>
+      {/* Desktop: statically visible, unchanged from before. */}
+      <aside className="hidden md:flex w-56 shrink-0 h-full border-r border-border/60 bg-sidebar flex-col">
+        <SidebarContent {...props} />
+      </aside>
+
+      {/* Mobile: off-canvas drawer, toggled by the hamburger button in TopBar. */}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent>
+          <SidebarContent {...props} />
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
@@ -228,7 +252,7 @@ export function Sidebar({
   unreadMessages?: number;
 }) {
   return (
-    <Suspense fallback={<aside className="w-56 shrink-0 h-full border-r border-border/60 bg-sidebar" />}>
+    <Suspense fallback={<aside className="hidden md:flex w-56 shrink-0 h-full border-r border-border/60 bg-sidebar" />}>
       <SidebarInner projects={projects} hosts={hosts} unreadMessages={unreadMessages} />
     </Suspense>
   );

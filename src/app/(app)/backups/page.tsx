@@ -193,8 +193,8 @@ export default async function BackupsPage() {
             {jobInfo.jobs.map((j) => {
               const st = JOB_STATE[j.state];
               return (
-                <li key={j.name} className="flex items-start gap-2.5 py-2">
-                  <span className={cn("inline-flex items-center gap-1.5 shrink-0 w-40", st.c)}>
+                <li key={j.name} className="flex flex-col items-start gap-1 py-2 sm:flex-row sm:gap-2.5 sm:items-start">
+                  <span className={cn("inline-flex items-center gap-1.5 shrink-0 w-full sm:w-40", st.c)}>
                     <st.Icon className={cn("size-4", j.state === "running" && "animate-spin")} />
                     <span className="font-mono text-xs">{j.label}</span>
                   </span>
