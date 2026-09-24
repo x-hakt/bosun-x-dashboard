@@ -20,7 +20,7 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "capacity-test-"));
 const tmp = path.join(tmpDir, "capacity-core.mjs");
 fs.writeFileSync(tmp, outputText);
 fs.copyFileSync(path.join(root, "src/lib/infra/snapshot-sections.mjs"), path.join(tmpDir, "snapshot-sections.mjs"));
-const { buildHostCapacity, parseMemUsage, applyHistory, percentile } = await import(pathToFileURL(tmp).href);
+const { buildHostCapacity, parseMemUsage, applyHistory, percentile, simulateMove, fitVerdict } = await import(pathToFileURL(tmp).href);
 
 const GiB = 1024 ** 3;
 const MiB = 1024 ** 2;
@@ -189,4 +189,55 @@ test("failed or empty samples are ignored", () => {
   const live = buildHostCapacity(base);
   assert.equal(applyHistory(base, live, []), live);
   assert.equal(applyHistory(base, live, [{ ...samples[0], memTotal: 0 }]), live);
+});
+
+// ---------------------------------------------------------------- BXD-64: move simulator
+const small = (id, totalGiB, usedGiB, stats = [], groups = []) =>
+  buildHostCapacity({ ...base, hostId: id, hostName: id, memTotalBytes: totalGiB * GiB, memUsedBytes: usedGiB * GiB, stats, groups });
+
+test("fitVerdict uses the 80% comfort line", () => {
+  assert.equal(fitVerdict(0.5), "ok");
+  assert.equal(fitVerdict(0.8), "ok");
+  assert.equal(fitVerdict(0.81), "tight");
+  assert.equal(fitVerdict(1.01), "over");
+});
+
+test("moving a project adds it to the target and frees it on the source", () => {
+  const from = buildHostCapacity(base); // playtopia = 1000 MiB
+  const to = small("vps", 8, 2);
+  const sim = simulateMove(from, to, "playtopia");
+  const t = sim.target.mem;
+  close(t.moving, 1000 * MiB, "moving amount");
+  close(t.bar.used, 2 * GiB + 1000 * MiB, "target used grows by the project");
+  assert.ok(t.bar.segments.find((s) => s.key === "project:playtopia").incoming, "marked incoming");
+  close(sum(t.bar), 8 * GiB, "target still sums to its total when it fits");
+  assert.equal(sim.verdict, "ok");
+  const s = sim.source.mem;
+  assert.equal(s.bar.segments.find((x) => x.key === "project:playtopia"), undefined, "gone from source");
+  close(s.bar.used, from.mem.used - 1000 * MiB, "source frees it");
+});
+
+test("tight and over verdicts; overflow is not scaled away", () => {
+  const from = buildHostCapacity(base);
+  const tight = simulateMove(from, small("vps", 4, 2.5), "playtopia");
+  assert.equal(tight.verdict, "tight");
+  const over = simulateMove(from, small("vps", 2, 1.5), "playtopia");
+  assert.equal(over.verdict, "over");
+  close(over.target.mem.overBy, 1.5 * GiB + 1000 * MiB - 2 * GiB, "overBy");
+  close(over.target.mem.bar.used, 1.5 * GiB + 1000 * MiB, "used exceeds total");
+  close(over.target.mem.bar.segments.at(-1).value, 0, "no free space");
+});
+
+test("a project already on the target (also_on) is replaced, not doubled", () => {
+  const from = buildHostCapacity(base);
+  const to = small("vps", 8, 2, [{ name: "p2", cpuPercent: 0, memBytes: 200 * MiB }], [{ folder: "/x", slug: "playtopia", containers: ["p2"] }]);
+  const t = simulateMove(from, to, "playtopia").target.mem;
+  assert.equal(t.bar.segments.filter((s) => s.key === "project:playtopia").length, 1);
+  close(t.bar.used, 2 * GiB - 200 * MiB + 1000 * MiB, "old copy replaced by the moving one");
+});
+
+test("arch mismatch is flagged", () => {
+  const from = { ...buildHostCapacity(base), arch: "x86_64" };
+  assert.equal(simulateMove(from, { ...small("pi", 8, 1), arch: "aarch64" }, "playtopia").archMismatch, true);
+  assert.equal(simulateMove(from, { ...small("vps", 8, 1), arch: "x86_64" }, "playtopia").archMismatch, false);
 });

@@ -19,6 +19,7 @@ export interface CapacitySegment {
   containers: string[];
   // Present on history-based bars (BXD-63): the live value, p95 and peak over the window.
   stats?: { current: number; p95: number; peak: number };
+  incoming?: boolean; // BXD-64: a project being simulated onto this host
 }
 
 export interface CapacityBar {
@@ -36,6 +37,7 @@ export interface HostCapacity {
   cpu: CapacityBar | null;
   disk: { total: number; used: number } | null;
   history?: { samples: number; spanHours: number };
+  arch?: string; // e.g. x86_64, from `uname -m`
 }
 
 export interface CapacityInput {
@@ -220,5 +222,84 @@ export function applyHistory(input: CapacityInput, live: HostCapacity, samples: 
     history,
     mem: live.mem ? historyBar(input, live.mem, ordered, "mem") : null,
     cpu: live.cpu ? historyBar(input, live.cpu, ordered.filter((s) => s.cores > 0), "cpu") : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// BXD-64: "would project X fit on host Y?" Moves the project's segment (its p95 on a
+// history-based bar, else its live value) from the source host's bars to the
+// target's, without rescaling, so an overflow shows as an overflow.
+
+export type FitVerdict = "ok" | "tight" | "over";
+
+export interface SimulatedBar {
+  bar: CapacityBar; // the host after the move; may be over capacity (overBy > 0)
+  moving: number; // how much of this resource the project brings or frees
+  ratio: number; // used / total after the move
+  overBy: number;
+  verdict: FitVerdict;
+}
+
+export interface MoveSimulation {
+  target: { mem: SimulatedBar | null; cpu: SimulatedBar | null };
+  source: { mem: SimulatedBar | null; cpu: SimulatedBar | null };
+  verdict: FitVerdict; // RAM decides; CPU is advisory (it's a load-average estimate)
+  archMismatch: boolean;
+}
+
+export function fitVerdict(ratio: number): FitVerdict {
+  return ratio > 1 ? "over" : ratio > COMFORT_RATIO ? "tight" : "ok";
+}
+
+function projectValue(bar: CapacityBar, slug: string): number {
+  return bar.segments.find((s) => s.key === `project:${slug}`)?.value ?? 0;
+}
+
+function withoutProject(bar: CapacityBar, slug: string): SimulatedBar {
+  const moving = projectValue(bar, slug);
+  const kept = bar.segments.filter((s) => s.kind !== "free" && s.key !== `project:${slug}`);
+  const used = kept.reduce((sum, s) => sum + s.value, 0);
+  const free = Math.max(0, bar.total - used);
+  return {
+    bar: { ...bar, used, segments: [...kept, { key: "free", kind: "free", label: "Free", value: free, containers: [] }] },
+    moving,
+    ratio: bar.total > 0 ? used / bar.total : 0,
+    overBy: Math.max(0, used - bar.total),
+    verdict: fitVerdict(bar.total > 0 ? used / bar.total : 0),
+  };
+}
+
+function withProject(bar: CapacityBar, incoming: CapacitySegment): SimulatedBar {
+  // If the project already has a segment here (also_on), it's replaced, not doubled.
+  const kept = bar.segments.filter((s) => s.kind !== "free" && s.key !== incoming.key);
+  const segs = [...kept, { ...incoming, incoming: true }];
+  const used = segs.reduce((sum, s) => sum + s.value, 0);
+  const free = Math.max(0, bar.total - used);
+  const ratio = bar.total > 0 ? used / bar.total : 0;
+  return {
+    bar: { ...bar, used, segments: [...segs, { key: "free", kind: "free", label: "Free", value: free, containers: [] }] },
+    moving: incoming.value,
+    ratio,
+    overBy: Math.max(0, used - bar.total),
+    verdict: fitVerdict(ratio),
+  };
+}
+
+export function simulateMove(from: HostCapacity, to: HostCapacity, slug: string): MoveSimulation {
+  const one = (src: CapacityBar | null, dst: CapacityBar | null) => {
+    if (!src || !dst) return { target: null, source: src ? withoutProject(src, slug) : null };
+    const seg = src.segments.find((s) => s.key === `project:${slug}`);
+    const incoming: CapacitySegment = seg
+      ? { ...seg, containers: [...seg.containers] }
+      : { key: `project:${slug}`, kind: "project", label: slug, slug, value: 0, containers: [] };
+    return { target: withProject(dst, incoming), source: withoutProject(src, slug) };
+  };
+  const mem = one(from.mem, to.mem);
+  const cpu = one(from.cpu, to.cpu);
+  return {
+    target: { mem: mem.target, cpu: cpu.target },
+    source: { mem: mem.source, cpu: cpu.source },
+    verdict: mem.target?.verdict ?? "ok",
+    archMismatch: Boolean(from.arch && to.arch && from.arch !== to.arch),
   };
 }

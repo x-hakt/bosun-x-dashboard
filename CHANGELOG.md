@@ -40,6 +40,11 @@ that trigger a GHCR image build.
   capacity bars show each project's p95 over the last 14 days (per-sample project
   totals, containers mapped with current discovery) with now and peak on hover, a
   ↑peak marker where a spike is well above p95, and the 80% line applied to p95.
+- **Move simulator** (BXD-64) — on Servers, pick a running project and a target server
+  to see both servers' RAM/CPU after the move (the project hatched on the target), a
+  fits / tight (over 80%) / doesn't fit verdict, and warnings for databases, named
+  volumes, bind mounts, Traefik routing, CPU architecture and snapshot-only figures.
+  Computed in the browser; changes nothing.
 
 ### Changed
 

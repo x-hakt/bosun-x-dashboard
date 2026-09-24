@@ -11,6 +11,9 @@ export interface ContainerSummary {
   composeProject?: string;
   composeService?: string;
   composeWorkingDir?: string;
+  // BXD-64 (move simulator warnings). Only set from `docker ps` snapshots.
+  mounts?: string[]; // bind mounts start with "/", anything else is a named volume
+  traefik?: boolean; // carries traefik.enable=true
 }
 
 let client: Docker | null = null;
