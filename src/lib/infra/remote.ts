@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import type { ContainerSummary } from "./docker";
 import { cached } from "@/lib/util/ttl-cache";
 import { loadConfig } from "@/lib/data/config";
+import { section, parseHostFigures, parseStatsLines } from "./snapshot-sections.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -12,13 +13,6 @@ interface DockerPsLine {
   State: string;
   Status: string;
   Labels: string;
-}
-
-interface DockerStatsLine {
-  Name: string;
-  CPUPerc: string;
-  MemUsage: string;
-  MemPerc: string;
 }
 
 export interface RemoteSpecs {
@@ -61,15 +55,6 @@ function extractLabel(labels: string, key: string): string | undefined {
   return match?.[1];
 }
 
-function section(body: string, name: string): string {
-  const marker = `===${name}===`;
-  const start = body.indexOf(marker);
-  if (start === -1) return "";
-  const from = start + marker.length;
-  const nextMarker = body.indexOf("===", from);
-  return body.slice(from, nextMarker === -1 ? undefined : nextMarker).trim();
-}
-
 function parseContainers(block: string): ContainerSummary[] {
   return block
     .split("\n")
@@ -96,58 +81,32 @@ function parseContainers(block: string): ContainerSummary[] {
     });
 }
 
-function parseStats(block: string): Map<string, RemoteContainerStat> {
-  const stats = new Map<string, RemoteContainerStat>();
-  for (const line of block.split("\n")) {
-    if (!line.trim()) continue;
-    try {
-      const parsed = JSON.parse(line) as DockerStatsLine;
-      stats.set(parsed.Name, {
-        cpuPercent: Number.parseFloat(parsed.CPUPerc) || 0,
-        memUsage: parsed.MemUsage,
-        memPercent: Number.parseFloat(parsed.MemPerc) || 0,
-      });
-    } catch {
-      // one malformed stats line shouldn't take down the rest
-    }
-  }
-  return stats;
-}
-
 // Exported so local.ts (the local host's own specs/usage, no SSH involved) can feed the exact
 // same section-tagged shell output through one shared parser instead of duplicating it.
 export function parseSnapshot(raw: string): RemoteSnapshot {
-  const uname = section(raw, "UNAME"); // "Linux 5.15.152-1-pve x86_64"
-  const nproc = Number.parseInt(section(raw, "NPROC"), 10);
-  const specs: RemoteSpecs | null = uname ? { kernel: uname, cores: Number.isFinite(nproc) ? nproc : 0 } : null;
-
-  const meminfo = section(raw, "MEMINFO"); // `free -b` output
-  const memLine = meminfo.split("\n").find((l) => l.startsWith("Mem:"));
-  const memParts = memLine?.trim().split(/\s+/) ?? [];
-  // free -b: Mem: total used free shared buff/cache available
-  const memTotalBytes = Number(memParts[1]) || 0;
-  const memAvailBytes = Number(memParts[6]) || 0;
-  const memUsedBytes = memTotalBytes && memAvailBytes ? memTotalBytes - memAvailBytes : Number(memParts[2]) || 0;
-
-  const diskLine = section(raw, "DISK"); // "size used avail pcent%"
-  const diskParts = diskLine.trim().split(/\s+/);
-  const diskSizeBytes = Number(diskParts[0]) || 0;
-  const diskUsedBytes = Number(diskParts[1]) || 0;
-  const diskAvailBytes = Number(diskParts[2]) || 0;
-  const diskUsePercent = Number.parseInt(diskParts[3] ?? "0", 10) || 0;
-
-  const loadLine = section(raw, "LOAD"); // "/proc/loadavg" — "0.12 0.08 0.05 1/370 3574090"
-  const loadAvg1 = Number.parseFloat(loadLine.split(/\s+/)[0]) || 0;
-
-  const usage: RemoteUsage | null = meminfo
-    ? { memTotalBytes, memUsedBytes, memAvailBytes, diskSizeBytes, diskUsedBytes, diskAvailBytes, diskUsePercent, loadAvg1 }
+  const h = parseHostFigures(raw);
+  const specs: RemoteSpecs | null = h.kernel ? { kernel: h.kernel, cores: h.cores } : null;
+  const usage: RemoteUsage | null = h.hasMem
+    ? {
+        memTotalBytes: h.memTotalBytes,
+        memUsedBytes: h.memUsedBytes,
+        memAvailBytes: h.memAvailBytes,
+        diskSizeBytes: h.diskSizeBytes,
+        diskUsedBytes: h.diskUsedBytes,
+        diskAvailBytes: h.diskAvailBytes,
+        diskUsePercent: h.diskUsePercent,
+        loadAvg1: h.loadAvg1,
+      }
     : null;
+  const stats = new Map<string, RemoteContainerStat>(
+    parseStatsLines(section(raw, "DOCKER_STATS")).map((s) => [s.name, { cpuPercent: s.cpuPercent, memUsage: s.memUsage, memPercent: s.memPercent }]),
+  );
 
   return {
     containers: parseContainers(section(raw, "DOCKER_PS")),
     specs,
     usage,
-    stats: parseStats(section(raw, "DOCKER_STATS")),
+    stats,
   };
 }
 

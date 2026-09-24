@@ -53,6 +53,8 @@ const KNOWN_JOBS: JobDef[] = [
   { name: "data-repo-backup", label: "Data-store backup", cadenceHours: 1, graceHours: 1, match: /(?:bosun-x|control-room)-data-backup\.sh/ },
   // BXD-45 — weekly proof the fleet scripts still can't remove anything real.
   { name: "safety-check", label: "Fleet safety check", cadenceHours: 24 * 7, graceHours: 48, match: /safety-check\.sh/ },
+  // BXD-62 — 5-minute capacity history for the Servers capacity view.
+  { name: "capacity-sample", label: "Capacity sampler", cadenceHours: 5 / 60, graceHours: 0.25, match: /capacity-sample\.sh/ },
 ];
 
 // Recognised as part of a monitored job (so not "unmonitored"), but no heartbeat

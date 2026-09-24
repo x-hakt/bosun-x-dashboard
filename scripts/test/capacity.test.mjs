@@ -16,8 +16,10 @@ const source = fs.readFileSync(path.join(root, "src/lib/infra/capacity-core.ts")
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 });
-const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "capacity-test-")), "capacity-core.mjs");
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "capacity-test-"));
+const tmp = path.join(tmpDir, "capacity-core.mjs");
 fs.writeFileSync(tmp, outputText);
+fs.copyFileSync(path.join(root, "src/lib/infra/snapshot-sections.mjs"), path.join(tmpDir, "snapshot-sections.mjs"));
 const { buildHostCapacity, parseMemUsage } = await import(pathToFileURL(tmp).href);
 
 const GiB = 1024 ** 3;

@@ -32,6 +32,10 @@ that trigger a GHCR image build.
   whole machine, split into the projects using it, unregistered and shared containers,
   the host itself, and free space, with a dashed 80% comfort line and a per-project
   legend. Live snapshot for now (history + p95 next: BXD-62/63).
+- **Capacity sampler** (BXD-62) — `scripts/capacity-sample.sh`, a 5-minute host cron
+  job that records every server host's memory/CPU/disk totals and per-container
+  memory/CPU to `$BACKUP_RECEIPTS/_capacity/<date>.jsonl` (14 days kept). Read-only on
+  every host; shows as "Capacity sampler" among the scheduled jobs.
 
 ### Changed
 

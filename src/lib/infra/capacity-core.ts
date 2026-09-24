@@ -1,7 +1,11 @@
 // BXD-61: the pure half of the capacity view: joins one host's snapshot (host totals +
 // per-container stats) with discovery's container→project grouping into stacked
-// segments that always sum to the host's capacity. No I/O and type-only imports, so
-// scripts/test/capacity.test.mjs can transpile and test it directly.
+// segments that always sum to the host's capacity. No I/O; its only runtime import is
+// the dependency-free snapshot-sections.mjs, so scripts/test/capacity.test.mjs can
+// transpile it and run it next to a copy of that file.
+import { parseMemUsage } from "./snapshot-sections.mjs";
+
+export { parseMemUsage };
 
 export type SegmentKind = "project" | "unregistered" | "infra" | "other" | "free";
 
@@ -47,26 +51,6 @@ export interface CapacityInput {
 
 // Comfort line agreed for BXD-55: 80% (of p95 once history exists, BXD-63).
 export const COMFORT_RATIO = 0.8;
-
-const UNITS: Record<string, number> = {
-  b: 1,
-  kb: 1e3,
-  mb: 1e6,
-  gb: 1e9,
-  tb: 1e12,
-  kib: 1024,
-  mib: 1024 ** 2,
-  gib: 1024 ** 3,
-  tib: 1024 ** 4,
-};
-
-// docker stats MemUsage: "123.4MiB / 15.5GiB" → bytes of the left-hand side.
-export function parseMemUsage(memUsage: string): number {
-  const match = /^\s*([\d.]+)\s*([a-z]+)/i.exec(memUsage.split("/")[0] ?? "");
-  if (!match) return 0;
-  const factor = UNITS[match[2].toLowerCase()];
-  return factor ? Number.parseFloat(match[1]) * factor : 0;
-}
 
 type Pick = (s: CapacityInput["stats"][number]) => number;
 
