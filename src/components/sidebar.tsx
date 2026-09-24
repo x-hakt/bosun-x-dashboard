@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -15,34 +15,22 @@ import {
   BookOpen,
   Laptop,
   HardDrive,
-  Lightbulb,
-  ClipboardList,
-  Sparkles,
-  GraduationCap,
   StickyNote,
+  ChevronRight,
   MessageSquare,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { projectStatusAccent } from "@/lib/status-colors";
+import { projectStatusAccent, planningStatusAccent } from "@/lib/status-colors";
 
 type NavProject = { slug: string; name: string; status?: string };
+type NavIdea = { id: string; title: string; status: string };
 type NavHost = { id: string; name: string; workstation: boolean };
 
 const NAV = [
   { href: "/", label: "Overview", icon: LayoutGrid },
   { href: "/projects", label: "Projects", icon: FolderKanban, projectNav: true as const },
-  {
-    href: "/planning",
-    label: "Planning",
-    icon: Compass,
-    children: [
-      { href: "/planning?status=idea", label: "Idea", icon: Lightbulb },
-      { href: "/planning?status=planning", label: "Planning", icon: ClipboardList },
-      { href: "/planning?status=ready", label: "Ready", icon: Sparkles },
-      { href: "/planning?status=graduated", label: "Graduated", icon: GraduationCap },
-    ],
-  },
+  { href: "/planning", label: "Planning", icon: Compass, planningNav: true as const },
   { href: "/notes", label: "Notes", icon: StickyNote },
   { href: "/messages", label: "Messages", icon: MessageSquare },
   { href: "/servers", label: "Servers", icon: Server, hostNav: true as const },
@@ -60,6 +48,16 @@ const NAV = [
 
 // Status groups shown under Projects, in this order; anything else falls under "Other".
 const STATUS_ORDER = ["Live", "Development", "Paused", "Abandoned"];
+// Same idea for Planning (BXD-56): the idea lifecycle, in order.
+const PLANNING_STATUS_ORDER = ["idea", "planning", "ready", "graduated"];
+
+// BXD-59: which sections are expanded is independent of which one is active, so
+// Projects and Planning (say) can both stay open. Remembered per browser.
+const NAV_OPEN_KEY = "bosun-x:nav-open";
+
+function sectionActive(href: string, pathname: string): boolean {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
 
 // A child href may carry a query string (e.g. "/planning?status=idea") to filter within
 // a shared route rather than navigating to a distinct page — pathname alone can't tell
@@ -130,16 +128,132 @@ function ProjectNav({ projects, pathname, searchParams }: { projects: NavProject
   );
 }
 
+// BXD-56: Planning mirrors Projects: coloured status sub-headings (each a link to
+// that status filter) with the top-level ideas listed beneath. Sub-ideas follow
+// their parent's status (BXD-58) and live on the parent's page, so only roots show.
+function PlanningNav({ ideas, pathname, searchParams }: { ideas: NavIdea[]; pathname: string; searchParams: URLSearchParams }) {
+  const groups = new Map<string, NavIdea[]>();
+  for (const idea of ideas) {
+    if (!groups.has(idea.status)) groups.set(idea.status, []);
+    groups.get(idea.status)!.push(idea);
+  }
+  const orderedKeys = PLANNING_STATUS_ORDER.filter((status) => groups.has(status));
+  const statusFilter = searchParams.get("status");
+
+  return (
+    <div className="ml-4 mt-1 space-y-2.5 border-l border-border/60 pl-2">
+      {orderedKeys.map((key) => {
+        const group = groups.get(key)!;
+        const groupActive = pathname === "/planning" && statusFilter === key;
+        const accent = planningStatusAccent(key);
+        return (
+          <div key={key}>
+            <Link
+              href={`/planning?status=${encodeURIComponent(key)}`}
+              className={cn(
+                "flex items-center justify-between gap-2 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider transition-colors",
+                accent.text,
+                groupActive ? "bg-accent" : "hover:bg-accent/50",
+              )}
+            >
+              <span>{key}</span>
+              <span className="opacity-50">{group.length}</span>
+            </Link>
+            <div className={cn("mt-1 ml-1.5 space-y-0.5 border-l pl-2.5", accent.border)}>
+              {group.map((idea) => {
+                const href = `/planning/${idea.id}`;
+                const active = pathname === href || pathname.startsWith(`${href}.`);
+                return (
+                  <Link key={idea.id} href={href} className={childLinkClass(active)} title={`${idea.id}: ${idea.title}`}>
+                    <span className="truncate">{idea.title}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Explicit open/closed choices, keyed by section href, in localStorage (with an
+// in-memory fallback when storage is unavailable). A section with no explicit
+// choice is open exactly when it's the active one.
+const navListeners = new Set<() => void>();
+let navMemory = "{}";
+
+function subscribeNav(listener: () => void) {
+  navListeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    navListeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+function readNav(): string {
+  try {
+    return localStorage.getItem(NAV_OPEN_KEY) ?? navMemory;
+  } catch {
+    return navMemory;
+  }
+}
+
+function writeNav(state: Record<string, boolean>) {
+  navMemory = JSON.stringify(state);
+  try {
+    localStorage.setItem(NAV_OPEN_KEY, navMemory);
+  } catch {}
+  navListeners.forEach((listener) => listener());
+}
+
+function parseNav(raw: string): Record<string, boolean> {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function useNavOpen(pathname: string) {
+  const activeSection = NAV.find((item) => item.href !== "/" && sectionActive(item.href, pathname))?.href;
+  // Server snapshot is "{}" so the first paint matches: only the active section open.
+  const raw = useSyncExternalStore(subscribeNav, readNav, () => "{}");
+  const explicit = useMemo(() => parseNav(raw), [raw]);
+
+  // Landing in a section with no explicit choice records it as open, so it stays
+  // open after navigating somewhere else (opening one never closes another).
+  // Reads storage fresh: during hydration `explicit` is still the server snapshot.
+  useEffect(() => {
+    if (!activeSection) return;
+    const current = parseNav(readNav());
+    if (current[activeSection] === undefined) writeNav({ ...current, [activeSection]: true });
+  }, [activeSection, explicit]);
+
+  const isOpen = useCallback((href: string) => explicit[href] ?? href === activeSection, [explicit, activeSection]);
+  const toggle = useCallback((href: string) => writeNav({ ...parseNav(readNav()), [href]: !isOpen(href) }), [isOpen]);
+  // Clicking a section's label opens it (and never closes any other section).
+  const expand = useCallback((href: string) => writeNav({ ...parseNav(readNav()), [href]: true }), []);
+
+  return { isOpen, toggle, expand };
+}
+
 // Shared between the desktop static <aside> and the mobile Sheet drawer —
 // same nav content either way, just a different outer container.
 function SidebarContent({
   projects,
+  ideas,
   hosts,
   unreadMessages,
+  nav,
 }: {
   projects: NavProject[];
+  ideas: NavIdea[];
   hosts: NavHost[];
   unreadMessages: number;
+  nav: ReturnType<typeof useNavOpen>;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -158,33 +272,60 @@ function SidebarContent({
       </div>
       <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto themed-scrollbar">
         {NAV.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const active = sectionActive(item.href, pathname);
           const Icon = item.icon;
+          const expandable = Boolean(
+            ("projectNav" in item && item.projectNav) ||
+              ("planningNav" in item && item.planningNav) ||
+              ("children" in item && item.children) ||
+              ("hostNav" in item && item.hostNav && hostChildren.length > 0),
+          );
+          const expanded = expandable && nav.isOpen(item.href);
           return (
             <div key={item.href}>
-              <Link
-                href={item.href}
+              <div
                 className={cn(
-                  "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm font-mono transition-colors",
+                  "flex items-center rounded-md transition-colors",
                   active ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
                 )}
               >
-                <Icon className="size-4 shrink-0" strokeWidth={1.75} />
-                {item.label}
-                {item.href === "/messages" && unreadMessages > 0 && (
-                  <span className="ml-auto rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
-                    {unreadMessages}
-                  </span>
+                <Link
+                  href={item.href}
+                  onClick={() => expandable && nav.expand(item.href)}
+                  className="flex flex-1 min-w-0 items-center gap-2.5 px-2.5 py-1.5 text-sm font-mono"
+                >
+                  <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+                  {item.label}
+                  {item.href === "/messages" && unreadMessages > 0 && (
+                    <span className="ml-auto rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                      {unreadMessages}
+                    </span>
+                  )}
+                </Link>
+                {expandable && (
+                  <button
+                    type="button"
+                    onClick={() => nav.toggle(item.href)}
+                    aria-expanded={expanded}
+                    aria-label={`${expanded ? "Collapse" : "Expand"} ${item.label}`}
+                    className="mr-1 grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-accent"
+                  >
+                    <ChevronRight className={cn("size-3.5 transition-transform", expanded && "rotate-90")} strokeWidth={2} />
+                  </button>
                 )}
-              </Link>
+              </div>
 
-              {item.projectNav && active && (
+              {"projectNav" in item && item.projectNav && expanded && (
                 <ProjectNav projects={projects} pathname={pathname} searchParams={searchParams} />
               )}
 
-              {(item.children || (item.hostNav && hostChildren.length > 0)) && active && (
+              {"planningNav" in item && item.planningNav && expanded && (
+                <PlanningNav ideas={ideas} pathname={pathname} searchParams={searchParams} />
+              )}
+
+              {(("children" in item && item.children) || ("hostNav" in item && item.hostNav && hostChildren.length > 0)) && expanded && (
                 <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border/60 pl-2.5">
-                  {(item.children ?? hostChildren).map((child) => {
+                  {(("children" in item && item.children) || hostChildren).map((child) => {
                     const ChildIcon = child.icon;
                     return (
                       <Link key={child.href} href={child.href} className={childLinkClass(isChildActive(child.href, pathname, searchParams))}>
@@ -218,20 +359,21 @@ function SidebarContent({
   );
 }
 
-function SidebarInner(props: { projects: NavProject[]; hosts: NavHost[]; unreadMessages: number }) {
+function SidebarInner(props: { projects: NavProject[]; ideas: NavIdea[]; hosts: NavHost[]; unreadMessages: number }) {
   const { open, setOpen } = useMobileNav();
+  const nav = useNavOpen(usePathname());
 
   return (
     <>
       {/* Desktop: statically visible, unchanged from before. */}
       <aside className="hidden md:flex w-56 shrink-0 h-full border-r border-border/60 bg-sidebar flex-col">
-        <SidebarContent {...props} />
+        <SidebarContent {...props} nav={nav} />
       </aside>
 
       {/* Mobile: off-canvas drawer, toggled by the hamburger button in TopBar. */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent>
-          <SidebarContent {...props} />
+          <SidebarContent {...props} nav={nav} />
         </SheetContent>
       </Sheet>
     </>
@@ -244,16 +386,18 @@ function SidebarInner(props: { projects: NavProject[]; hosts: NavHost[]; unreadM
 // remember to.
 export function Sidebar({
   projects,
+  ideas = [],
   hosts,
   unreadMessages = 0,
 }: {
   projects: NavProject[];
+  ideas?: NavIdea[];
   hosts: NavHost[];
   unreadMessages?: number;
 }) {
   return (
     <Suspense fallback={<aside className="hidden md:flex w-56 shrink-0 h-full border-r border-border/60 bg-sidebar" />}>
-      <SidebarInner projects={projects} hosts={hosts} unreadMessages={unreadMessages} />
+      <SidebarInner projects={projects} ideas={ideas} hosts={hosts} unreadMessages={unreadMessages} />
     </Suspense>
   );
 }

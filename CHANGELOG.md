@@ -18,6 +18,24 @@ that trigger a GHCR image build.
   Planning no longer has to wait until you're back at a desk.
 - Planning page now nests sub-ideas under their parent instead of listing every
   idea as a flat row grouped only by its own status.
+- **Planning in the sidebar** (BXD-56) — mirrors Projects: coloured status
+  sub-headings (idea / planning / ready / graduated) with the top-level ideas listed
+  under each. The Planning page's status headings use the same colours.
+- **Independent sidebar sections** (BXD-59) — every section with sub-items has a
+  chevron and stays open until you close it, so Projects and Planning (or Servers)
+  can be open together. Remembered per browser.
+- **Rename an idea** (BXD-57) — inline title editing on the idea page.
+
+### Changed
+
+- **Sub-ideas follow their parent's status** (BXD-58) — changing an idea's status
+  (including graduating it) applies the same status to every sub-idea beneath it.
+  A sub-idea can still be moved on its own afterwards.
+
+### Fixed
+
+- Editing an idea from the UI no longer strips the `#` comment lines agents leave
+  in its `task.yml`.
 
 ## v0.1.0 — 2026-09-10
 

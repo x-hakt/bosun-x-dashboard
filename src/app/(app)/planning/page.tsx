@@ -4,6 +4,7 @@ import { PlanningTaskRow } from "@/components/planning-task-row";
 import { NewPlanningItemForm } from "@/components/new-planning-item-form";
 import type { PlanningTaskStatus, PlanningTaskWithDoc } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { planningStatusAccent } from "@/lib/status-colors";
 
 export const dynamic = "force-dynamic";
 
@@ -166,24 +167,33 @@ export default async function PlanningPage(props: { searchParams: Promise<{ stat
         <p className="text-sm text-muted-foreground py-12 text-center">Nothing here yet.</p>
       ) : (
         <div className="space-y-5">
-          {orderedStatuses.map((status) => (
-            <div key={status}>
-              <div className="text-xs font-mono uppercase tracking-wide text-muted-foreground mb-2 capitalize">
-                {status} <span className="text-muted-foreground/60">({groups.get(status)!.length})</span>
+          {orderedStatuses.map((status) => {
+            const accent = planningStatusAccent(status);
+            return (
+              <div key={status}>
+                <Link
+                  href={`/planning?status=${status}`}
+                  className={cn(
+                    "inline-flex items-center gap-2 mb-2 text-xs font-mono font-semibold uppercase tracking-wider hover:underline",
+                    accent.text,
+                  )}
+                >
+                  {status} <span className="opacity-50">{groups.get(status)!.length}</span>
+                </Link>
+                <div className={cn("space-y-1.5 border-l pl-3", accent.border)}>
+                  {groups.get(status)!.map((task) => (
+                    <PlanningTree
+                      key={task.meta.id}
+                      task={task}
+                      depth={0}
+                      childrenByParent={childrenByParent}
+                      unseenReplies={unseenReplies}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1.5">
-                {groups.get(status)!.map((task) => (
-                  <PlanningTree
-                    key={task.meta.id}
-                    task={task}
-                    depth={0}
-                    childrenByParent={childrenByParent}
-                    unseenReplies={unseenReplies}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -95,12 +95,40 @@ export async function nextPlanningId(parent?: string): Promise<string> {
   return `${parent}.${next}`;
 }
 
+// Agents leave research breadcrumbs as full-line `#` comments in task.yml (usually
+// appended at the end). js-yaml drops comments on a round-trip, so carry every
+// column-0 comment line over and re-append it after the dump. Column 0 only:
+// block-scalar content is always indented, so it can't be mistaken for a comment.
+function fullLineComments(raw: string): string[] {
+  return raw.split("\n").filter((line) => line.startsWith("#"));
+}
+
 export async function writePlanningTaskYaml(id: string, patch: Record<string, unknown>): Promise<void> {
   const filePath = taskYmlPath(id);
   const raw = await fs.readFile(filePath, "utf-8");
   const current = (loadYaml(raw) as Record<string, unknown>) ?? {};
   const next = { ...current, updated: dateStamp(), ...patch };
-  await fs.writeFile(filePath, dumpYaml(next), "utf-8");
+  const comments = fullLineComments(raw);
+  const body = dumpYaml(next) + (comments.length > 0 ? comments.join("\n") + "\n" : "");
+  await fs.writeFile(filePath, body, "utf-8");
+}
+
+// Every descendant id of `id` (sub-ideas can have sub-ideas), resolved through
+// `parent` links rather than id prefixes so a re-parented item still follows.
+export function descendantIds(tasks: PlanningTaskWithDoc[], id: string): string[] {
+  const found = new Set<string>();
+  let frontier = [id];
+  while (frontier.length > 0) {
+    const next: string[] = [];
+    for (const t of tasks) {
+      if (t.meta.parent && frontier.includes(t.meta.parent) && !found.has(t.meta.id) && t.meta.id !== id) {
+        found.add(t.meta.id);
+        next.push(t.meta.id);
+      }
+    }
+    frontier = next;
+  }
+  return [...found];
 }
 
 export async function createPlanningTask(title: string, parent?: string): Promise<string> {

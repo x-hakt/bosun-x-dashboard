@@ -8,7 +8,15 @@ import type { PlanningTaskStatus } from "@/lib/types";
 
 const OPTIONS: PlanningTaskStatus[] = ["idea", "planning", "ready", "graduated"];
 
-export function PlanningStatusEditor({ id, status }: { id: string; status: PlanningTaskStatus }) {
+export function PlanningStatusEditor({
+  id,
+  status,
+  descendantCount = 0,
+}: {
+  id: string;
+  status: PlanningTaskStatus;
+  descendantCount?: number;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -16,6 +24,11 @@ export function PlanningStatusEditor({ id, status }: { id: string; status: Plann
     <select
       value={status}
       disabled={isPending}
+      title={
+        descendantCount > 0
+          ? `Status change also applies to ${descendantCount} sub-idea${descendantCount === 1 ? "" : "s"}`
+          : undefined
+      }
       onChange={(e) =>
         startTransition(async () => {
           await updatePlanningStatus(id, e.target.value);
