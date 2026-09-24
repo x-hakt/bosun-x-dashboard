@@ -28,6 +28,11 @@ that trigger a GHCR image build.
 - **Collapse sub-ideas** (BXD-60) — a chevron at the front of any Planning row with
   sub-ideas hides or shows them. Remembered per browser.
 
+- **Capacity on Servers** (BXD-61) — per server, RAM (primary), CPU and disk bars of the
+  whole machine, split into the projects using it, unregistered and shared containers,
+  the host itself, and free space, with a dashed 80% comfort line and a per-project
+  legend. Live snapshot for now (history + p95 next: BXD-62/63).
+
 ### Changed
 
 - **Sub-ideas follow their parent's status** (BXD-58) — changing an idea's status
