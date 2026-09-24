@@ -20,7 +20,7 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "capacity-test-"));
 const tmp = path.join(tmpDir, "capacity-core.mjs");
 fs.writeFileSync(tmp, outputText);
 fs.copyFileSync(path.join(root, "src/lib/infra/snapshot-sections.mjs"), path.join(tmpDir, "snapshot-sections.mjs"));
-const { buildHostCapacity, parseMemUsage } = await import(pathToFileURL(tmp).href);
+const { buildHostCapacity, parseMemUsage, applyHistory, percentile } = await import(pathToFileURL(tmp).href);
 
 const GiB = 1024 ** 3;
 const MiB = 1024 ** 2;
@@ -116,4 +116,77 @@ test("an idle host is all free apart from host usage", () => {
   const { mem } = buildHostCapacity({ ...base, stats: [], groups: [] });
   assert.deepEqual(mem.segments.map((s) => s.key), ["other", "free"]);
   close(sum(mem), 16 * GiB, "sums to total");
+});
+
+// ---------------------------------------------------------------- BXD-63: history
+const hour = 3_600_000;
+const t0 = Date.parse("2026-09-01T00:00:00Z");
+// 30 hourly samples: play-web 500 MiB most of the time, 1500 MiB in the last 2
+// (a spike above p95), cgb-web only appears from sample 10, host uses 3 GiB.
+const samples = Array.from({ length: 30 }, (_, i) => ({
+  t: new Date(t0 + i * hour).toISOString(),
+  cores: 8,
+  memTotal: 16 * GiB,
+  memUsed: 3 * GiB,
+  load1: 1,
+  c: {
+    "play-web": [(i >= 28 ? 1500 : 500) * MiB, 10],
+    "play-db": [300 * MiB, 5],
+    ...(i >= 10 ? { "cgb-web": [70 * MiB, 0] } : {}),
+  },
+}));
+
+test("percentile is nearest-rank", () => {
+  assert.equal(percentile([], 0.95), 0);
+  assert.equal(percentile([5], 0.95), 5);
+  assert.equal(percentile(Array.from({ length: 100 }, (_, i) => i + 1), 0.95), 95);
+  assert.equal(percentile([3, 1, 2], 0.5), 2);
+});
+
+test("under 24h of history the live bars are kept, with the window reported", () => {
+  const live = buildHostCapacity(base);
+  const cap = applyHistory(base, live, samples.slice(0, 10));
+  assert.equal(cap.mem.basis, "snapshot");
+  assert.equal(cap.mem, live.mem);
+  assert.equal(cap.history.samples, 10);
+  close(cap.history.spanHours, 9, "span");
+});
+
+test("with 24h+ of history, bars use per-project p95 and still sum to the total", () => {
+  const live = buildHostCapacity(base);
+  const cap = applyHistory(base, live, samples);
+  const { mem, cpu } = cap;
+  assert.equal(mem.basis, "p95");
+  close(sum(mem), 16 * GiB, "sums to total");
+  close(sum(cpu), 8, "cpu sums to cores");
+  const play = seg(mem, "project:playtopia");
+  // per-sample playtopia: 800 MiB x28, 1800 MiB x2. Nearest-rank p95 of 30 is the
+  // 29th smallest, which is one of the two spikes: 1800 MiB.
+  close(play.stats.p95, 1800 * MiB, "p95 is per-sample project totals");
+  close(play.stats.peak, 1800 * MiB, "peak");
+  close(play.stats.current, live.mem.segments.find((s) => s.key === "project:playtopia").value, "current is the live value");
+  const cgb = seg(mem, "project:cgburchell");
+  close(cgb.stats.p95, 70 * MiB, "late-appearing container zero-filled before, p95 unaffected");
+  assert.ok(mem.segments.every((s) => s.kind === "free" || s.stats), "every non-free segment has stats");
+  // live-only containers (mystery, traefik) still appear
+  assert.ok(seg(mem, "unregistered") && seg(mem, "infra"));
+  close(mem.liveUsed, live.mem.used, "liveUsed carried over");
+});
+
+test("a long quiet window: p95 ignores a short spike, peak keeps it", () => {
+  const long = Array.from({ length: 200 }, (_, i) => ({
+    t: new Date(t0 + i * 10 * 60_000).toISOString(),
+    cores: 8, memTotal: 16 * GiB, memUsed: 2 * GiB, load1: 0.5,
+    c: { "play-web": [(i === 150 ? 4000 : 400) * MiB, 1] },
+  }));
+  const { mem } = applyHistory(base, buildHostCapacity(base), long);
+  const play = seg(mem, "project:playtopia");
+  close(play.stats.p95, 400 * MiB, "spike excluded from p95");
+  close(play.stats.peak, 4000 * MiB, "spike kept as peak");
+});
+
+test("failed or empty samples are ignored", () => {
+  const live = buildHostCapacity(base);
+  assert.equal(applyHistory(base, live, []), live);
+  assert.equal(applyHistory(base, live, [{ ...samples[0], memTotal: 0 }]), live);
 });

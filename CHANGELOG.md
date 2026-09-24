@@ -36,6 +36,10 @@ that trigger a GHCR image build.
   job that records every server host's memory/CPU/disk totals and per-container
   memory/CPU to `$BACKUP_RECEIPTS/_capacity/<date>.jsonl` (14 days kept). Read-only on
   every host; shows as "Capacity sampler" among the scheduled jobs.
+- **Typical and peak usage** (BXD-63) — once a day of sampler history exists, the
+  capacity bars show each project's p95 over the last 14 days (per-sample project
+  totals, containers mapped with current discovery) with now and peak on hover, a
+  ↑peak marker where a spike is well above p95, and the 80% line applied to p95.
 
 ### Changed
 
