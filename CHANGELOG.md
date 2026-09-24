@@ -6,8 +6,18 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+## v0.2.0 — 2026-09-25
+
+The dashboard is now installable from npm, and gains a capacity view for your servers.
+
 ### Added
 
+- **On npm** (BXD-68): `npx bosun-x-dashboard --demo` runs it on sample data with
+  nothing to set up; `bosun-x-dashboard --data <dir>` (or `bosun dashboard` from the
+  bosun-x CLI) runs it over your own data folder. Listens on localhost by default and
+  warns before binding a network address with no sign-in. Built from a clean clone by
+  `npm run build:npm` (see docs/deploying.md). New [getting started](docs/getting-started.md)
+  guide: install, first data folder, agents, remote servers, sign-in, systemd.
 - **Mobile support** (BXD-54) — a full responsive retrofit. The sidebar collapses
   behind a hamburger into an off-canvas drawer below the `md` breakpoint instead of
   permanently eating ~224px of a phone-width screen; the top bar and main content
