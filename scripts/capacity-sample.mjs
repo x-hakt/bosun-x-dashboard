@@ -15,9 +15,10 @@
 //
 // Exit: 0 if at least one host was sampled, 1 if none were (so the job shows failed).
 //
-// --disk (BXD-65, daily): per-project disk footprint instead. Runs LOCAL_DISK_SCRIPT
-// on the local host (remote hosts follow in BXD-66) and writes the parsed result, never
-// the raw output, to _capacity/disk-<UTC date>.json as {"t":…,"hosts":{"<id>":{…}}}.
+// --disk (BXD-65/66, daily): per-project disk footprint instead. Runs LOCAL_DISK_SCRIPT
+// on the local host and asks each remote host's forced read-only command for exactly
+// `bosun-x-disk` (the same sequence), then writes the parsed result, never the raw
+// output, to _capacity/disk-<UTC date>.json as {"t":…,"hosts":{"<id>":{…}}}.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs/promises";
@@ -79,13 +80,16 @@ async function snapshotText(host) {
 const t = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
 if (process.argv.includes("--disk")) {
-  // Local host only for now: remote hosts need the same sections added to their
-  // forced read-only command first (BXD-66).
-  const local = hosts.filter((h) => !h.ssh_alias);
   const out = { t, hosts: {} };
-  for (const host of local) {
+  for (const host of hosts) {
     try {
-      const { stdout } = await run("sh", ["-c", LOCAL_DISK_SCRIPT], { timeout: 15 * 60_000, maxBuffer: 64 * 1024 * 1024 });
+      const { stdout } = host.ssh_alias
+        ? await run(
+            "ssh",
+            ["-F", sshConfig, "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", host.ssh_alias, "bosun-x-disk"],
+            { timeout: 15 * 60_000, maxBuffer: 64 * 1024 * 1024 },
+          )
+        : await run("sh", ["-c", LOCAL_DISK_SCRIPT], { timeout: 15 * 60_000, maxBuffer: 64 * 1024 * 1024 });
       const record = parseDiskSections(stdout);
       if (!record.diskSizeBytes) throw new Error("no DISK section in output");
       out.hosts[host.id] = { t, ...record };
@@ -98,7 +102,7 @@ if (process.argv.includes("--disk")) {
   const file = path.join(outDir, `disk-${t.slice(0, 10)}.json`);
   const okCount = Object.keys(out.hosts).length;
   if (okCount > 0) await fs.writeFile(file, JSON.stringify(out));
-  console.error(`[${t}] capacity-disk: ${okCount}/${local.length} hosts → ${okCount ? file : "(nothing written)"}`);
+  console.error(`[${t}] capacity-disk: ${okCount}/${hosts.length} hosts → ${okCount ? file : "(nothing written)"}`);
   process.exit(okCount > 0 ? 0 : 1);
 }
 const lines = await Promise.all(
