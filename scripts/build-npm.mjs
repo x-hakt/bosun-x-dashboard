@@ -70,6 +70,48 @@ try {
       return !SKIP.has(first) && !first.startsWith(".env");
     },
   });
+  // Turbopack reaches external packages through hashed aliases: .next/node_modules/
+  // dockerode-<hash> is a symlink to ../../node_modules/dockerode, and server chunks
+  // require("dockerode-<hash>"). npm never publishes a folder called node_modules, so
+  // rewrite each alias back to the real package name in the server code and drop the
+  // folder; normal resolution then finds the declared dependency.
+  const aliasDir = path.join(app, ".next", "node_modules");
+  if (fs.existsSync(aliasDir)) {
+    const aliases = new Map();
+    for (const name of fs.readdirSync(aliasDir)) {
+      const scoped = name.startsWith("@") ? fs.readdirSync(path.join(aliasDir, name)).map((m) => `${name}/${m}`) : [name];
+      for (const alias of scoped) {
+        const target = fs.readlinkSync(path.join(aliasDir, alias)); // ../../node_modules/<pkg>
+        const pkgName = target.split("node_modules/").pop();
+        if (!pkgName || !(pkgName in dependencies)) throw new Error(`alias ${alias} → ${target} isn't a declared runtime dependency`);
+        aliases.set(alias, pkgName);
+      }
+    }
+    let rewritten = 0;
+    const rewrite = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) rewrite(p);
+        else if (/\.(c|m)?js$/.test(e.name)) {
+          let text = fs.readFileSync(p, "utf8");
+          let changed = false;
+          for (const [alias, real] of aliases) {
+            if (text.includes(alias)) {
+              text = text.split(`"${alias}"`).join(`"${real}"`).split(`'${alias}'`).join(`'${real}'`);
+              changed = true;
+            }
+          }
+          if (changed) {
+            fs.writeFileSync(p, text);
+            rewritten++;
+          }
+        }
+      }
+    };
+    rewrite(path.join(app, ".next", "server"));
+    fs.rmSync(aliasDir, { recursive: true, force: true });
+    say(`rewrote ${aliases.size} package alias(es) in ${rewritten} server file(s): ${[...aliases].map(([a, r]) => `${a}→${r}`).join(", ")}`);
+  }
   fs.cpSync(path.join(src, ".next", "static"), path.join(app, ".next", "static"), { recursive: true });
   fs.cpSync(path.join(src, "public"), path.join(app, "public"), { recursive: true });
   fs.cpSync(path.join(src, "data.example"), path.join(app, "data.example"), { recursive: true });
