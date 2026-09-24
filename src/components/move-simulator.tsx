@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bar, fmtBytes, fmtCores } from "@/components/capacity-bar";
+import { Bar, fmtBytes, fmtCores, fmtDisk } from "@/components/capacity-bar";
 import { COMFORT_RATIO, simulateMove, type FitVerdict, type HostCapacity } from "@/lib/infra/capacity-core";
 import type { ProjectFacts } from "@/lib/infra/capacity";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ export function MoveSimulator({ hosts, projects }: { hosts: HostCapacity[]; proj
   const snapshotBasis = Boolean(source && target && (source.mem?.basis !== "p95" || target.mem?.basis !== "p95"));
   const mem = sim?.target.mem;
   const cpu = sim?.target.cpu;
+  const disk = sim?.target.disk;
 
   const warnings: string[] = [];
   if (sim && project && source && target) {
@@ -53,18 +54,24 @@ export function MoveSimulator({ hosts, projects }: { hosts: HostCapacity[]; proj
     if (project.traefik) warnings.push("Has Traefik routing labels: DNS and the reverse proxy need moving too.");
     if (cpu && cpu.verdict !== "ok") warnings.push(`CPU would be at ${Math.round(cpu.ratio * 100)}% (an estimate from load average).`);
     if (snapshotBasis) warnings.push("Based on a single live snapshot; this switches to p95 once a day of history is recorded.");
-    warnings.push("Disk footprint isn't measured per project yet (BXD-65/66): check free disk on the target by hand.");
+    if (!disk) warnings.push(`${source.hostName}'s disk isn't measured per project yet (BXD-66): check free disk on the target by hand.`);
+    else warnings.push("Disk includes images, volumes and writable data folders; folders the sampler can't read count low, and base image layers shared with other projects aren't included.");
   }
 
   let headline = "";
   if (sim && mem && target && project) {
-    const pctAfter = Math.round(mem.ratio * 100);
-    headline =
-      sim.verdict === "ok"
-        ? `Fits comfortably: ${target.hostName} RAM would be at ${pctAfter}%.`
-        : sim.verdict === "tight"
-          ? `Tight: ${target.hostName} RAM would be at ${pctAfter}%, above the ${Math.round(COMFORT_RATIO * 100)}% line.`
-          : `Doesn't fit: ${target.hostName} would be ${fmtBytes(mem.overBy)} over its RAM.`;
+    const line = Math.round(COMFORT_RATIO * 100);
+    const at = (r: number) => `${Math.round(r * 100)}%`;
+    const parts = [`RAM ${at(mem.ratio)}`, ...(disk ? [`disk ${at(disk.ratio)}`] : [])].join(", ");
+    if (sim.verdict === "ok") headline = `Fits comfortably: ${target.hostName} would be at ${parts}.`;
+    else if (sim.verdict === "tight") headline = `Tight: ${target.hostName} would be at ${parts}, above the ${line}% line.`;
+    else {
+      const over = [
+        ...(mem.overBy > 0 ? [`${fmtBytes(mem.overBy)} over its RAM`] : []),
+        ...(disk && disk.overBy > 0 ? [`${fmtDisk(disk.overBy)} over its disk`] : []),
+      ].join(" and ");
+      headline = `Doesn't fit: ${target.hostName} would be ${over}.`;
+    }
   }
 
   return (
@@ -116,18 +123,21 @@ export function MoveSimulator({ hosts, projects }: { hosts: HostCapacity[]; proj
             </p>
             <p className="text-[11px] font-mono text-muted-foreground">
               {project.name} brings {fmtBytes(mem?.moving ?? 0)} RAM and {fmtCores(cpu?.moving ?? 0)}
-              {mem?.bar.basis === "p95" || source.mem?.basis === "p95" ? " (p95)" : " (now)"}.
+              {mem?.bar.basis === "p95" || source.mem?.basis === "p95" ? " (p95)" : " (now)"}
+              {disk && <>, and {fmtDisk(disk.moving)} of disk</>}.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <p className="text-[11px] font-mono text-foreground">{target.hostName}, after (hatched = moving in)</p>
                 {mem && <Bar bar={mem.bar} format={fmtBytes} height="h-4" label="RAM" />}
                 {cpu && <Bar bar={cpu.bar} format={fmtCores} height="h-2" label="CPU" />}
+                {disk && <Bar bar={disk.bar} format={fmtDisk} height="h-2" label="Disk" />}
               </div>
               <div className="space-y-2">
                 <p className="text-[11px] font-mono text-foreground">{source.hostName}, after</p>
                 {sim.source.mem && <Bar bar={sim.source.mem.bar} format={fmtBytes} height="h-4" label="RAM" />}
                 {sim.source.cpu && <Bar bar={sim.source.cpu.bar} format={fmtCores} height="h-2" label="CPU" />}
+                {sim.source.disk && <Bar bar={sim.source.disk.bar} format={fmtDisk} height="h-2" label="Disk" />}
               </div>
             </div>
             {warnings.length > 0 && (

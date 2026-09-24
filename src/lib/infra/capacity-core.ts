@@ -7,7 +7,7 @@ import { parseMemUsage } from "./snapshot-sections.mjs";
 
 export { parseMemUsage };
 
-export type SegmentKind = "project" | "unregistered" | "infra" | "other" | "free";
+export type SegmentKind = "project" | "unregistered" | "infra" | "reclaimable" | "other" | "free";
 
 export interface CapacitySegment {
   key: string;
@@ -28,6 +28,7 @@ export interface CapacityBar {
   segments: CapacitySegment[];
   basis: "snapshot" | "p95";
   liveUsed?: number; // on a p95 bar: what the live snapshot showed as used
+  measuredAt?: string; // on a disk bar (BXD-65): when the daily measurement ran
 }
 
 export interface HostCapacity {
@@ -38,6 +39,7 @@ export interface HostCapacity {
   disk: { total: number; used: number } | null;
   history?: { samples: number; spanHours: number };
   arch?: string; // e.g. x86_64, from `uname -m`
+  diskBar?: CapacityBar; // BXD-65: per-project disk split, when a daily measurement exists
 }
 
 export interface CapacityInput {
@@ -61,7 +63,7 @@ export const COMFORT_RATIO = 0.8;
 
 type Owner = { key: string; kind: SegmentKind; label: string; slug?: string; status?: string };
 const INFRA: Owner = { key: "infra", kind: "infra", label: "Shared containers" };
-const ORDER: Record<SegmentKind, number> = { project: 0, unregistered: 1, infra: 2, other: 3, free: 4 };
+const ORDER: Record<SegmentKind, number> = { project: 0, unregistered: 1, infra: 2, reclaimable: 3, other: 4, free: 5 };
 
 // container name → the segment it belongs to. First group wins, so a container is
 // never counted twice.
@@ -241,10 +243,21 @@ export interface SimulatedBar {
 }
 
 export interface MoveSimulation {
-  target: { mem: SimulatedBar | null; cpu: SimulatedBar | null };
-  source: { mem: SimulatedBar | null; cpu: SimulatedBar | null };
-  verdict: FitVerdict; // RAM decides; CPU is advisory (it's a load-average estimate)
+  target: { mem: SimulatedBar | null; cpu: SimulatedBar | null; disk: SimulatedBar | null };
+  source: { mem: SimulatedBar | null; cpu: SimulatedBar | null; disk: SimulatedBar | null };
+  // RAM and (when the source's per-project disk is measured) disk decide; CPU is
+  // advisory, being a load-average estimate.
+  verdict: FitVerdict;
   archMismatch: boolean;
+}
+
+const WORST: FitVerdict[] = ["ok", "tight", "over"];
+const worst = (...v: (FitVerdict | undefined)[]) =>
+  WORST[Math.max(0, ...v.filter((x): x is FitVerdict => Boolean(x)).map((x) => WORST.indexOf(x)))];
+
+// A host with only a total/used figure (no per-project split yet) as a plain bar.
+export function plainDiskBar(disk: { total: number; used: number }): CapacityBar {
+  return finish([], { key: "other", kind: "other", label: "Used", value: disk.used, containers: [] }, disk.total);
 }
 
 export function fitVerdict(ratio: number): FitVerdict {
@@ -296,10 +309,89 @@ export function simulateMove(from: HostCapacity, to: HostCapacity, slug: string)
   };
   const mem = one(from.mem, to.mem);
   const cpu = one(from.cpu, to.cpu);
+  // Disk only when the source's footprint is known; the target just needs totals.
+  const targetDisk = to.diskBar ?? (to.disk ? plainDiskBar(to.disk) : null);
+  const disk = from.diskBar ? one(from.diskBar, targetDisk) : { target: null, source: null };
   return {
-    target: { mem: mem.target, cpu: cpu.target },
-    source: { mem: mem.source, cpu: cpu.source },
-    verdict: mem.target?.verdict ?? "ok",
+    target: { mem: mem.target, cpu: cpu.target, disk: disk.target },
+    source: { mem: mem.source, cpu: cpu.source, disk: disk.source },
+    verdict: worst(mem.target?.verdict ?? "ok", disk.target?.verdict),
     archMismatch: Boolean(from.arch && to.arch && from.arch !== to.arch),
   };
+}
+
+// ---------------------------------------------------------------------------
+// BXD-65: per-project disk. From the daily measurement (LOCAL_DISK_SCRIPT, parsed by
+// parseDiskSections): each project gets its images' unique layers (split evenly when
+// several projects share an image), its containers' writable layers, its named volumes
+// (split likewise) and the size of its writable bind-mount folders. Images and volumes
+// no container uses are "reclaimable"; shared base layers, build cache, the OS and
+// everything else is "other".
+
+export interface DiskRecord {
+  t?: string;
+  diskSizeBytes: number;
+  diskUsedBytes: number;
+  images: { id: string; size: number; unique: number }[];
+  containers: { name: string; imageId: string; writable: number; volumes: string[]; binds: string[] }[];
+  volumes: { name: string; size: number }[];
+  bindDu: Record<string, number>;
+}
+
+const isUnder = (p: string, ancestor: string) => p !== ancestor && p.startsWith(ancestor.endsWith("/") ? ancestor : `${ancestor}/`);
+
+export function buildDiskBar(record: DiskRecord, input: Pick<CapacityInput, "groups" | "projects">): CapacityBar | null {
+  if (record.diskSizeBytes <= 0) return null;
+  const owner = ownership(input);
+  const buckets = new Map<string, { owner: Owner; value: number; containers: Set<string> }>();
+  const add = (o: Owner, value: number, container?: string) => {
+    const b = buckets.get(o.key) ?? { owner: o, value: 0, containers: new Set<string>() };
+    b.value += Math.max(0, value);
+    if (container) b.containers.add(container);
+    buckets.set(o.key, b);
+  };
+  const ownerOf = (name: string) => owner.get(name) ?? INFRA;
+
+  // Who uses what: image id / volume name / bind path → distinct owners.
+  const users = (pick: (c: DiskRecord["containers"][number]) => string[]) => {
+    const map = new Map<string, Map<string, Owner>>();
+    for (const c of record.containers) {
+      for (const item of pick(c)) {
+        const o = ownerOf(c.name);
+        if (!map.has(item)) map.set(item, new Map());
+        map.get(item)!.set(o.key, o);
+      }
+    }
+    return map;
+  };
+  const imageUsers = users((c) => (c.imageId ? [c.imageId] : []));
+  const volumeUsers = users((c) => c.volumes);
+  // A bind folder nested inside another measured one is already counted there.
+  const measured = Object.keys(record.bindDu);
+  const bindUsers = users((c) => c.binds.filter((b) => b in record.bindDu && !measured.some((m) => isUnder(b, m))));
+
+  const reclaimable: Owner = { key: "reclaimable", kind: "reclaimable", label: "Unused images & volumes" };
+  for (const img of record.images) {
+    const who = imageUsers.get(img.id);
+    if (!who || who.size === 0) add(reclaimable, img.unique);
+    else for (const o of who.values()) add(o, img.unique / who.size);
+  }
+  for (const vol of record.volumes) {
+    const who = volumeUsers.get(vol.name);
+    if (!who || who.size === 0) add(reclaimable, vol.size);
+    else for (const o of who.values()) add(o, vol.size / who.size);
+  }
+  for (const [path, who] of bindUsers) for (const o of who.values()) add(o, record.bindDu[path] / who.size);
+  for (const c of record.containers) add(ownerOf(c.name), c.writable, c.name);
+
+  const segments = [...buckets.values()].map((b) => ({ ...b.owner, value: b.value, containers: [...b.containers] }));
+  const total = record.diskSizeBytes;
+  const accounted = segments.reduce((sum, seg) => sum + seg.value, 0);
+  const other = Math.max(0, Math.min(total, record.diskUsedBytes) - accounted);
+  return finish(
+    segments,
+    { key: "other", kind: "other", label: "Shared layers, build cache, OS & other files", value: other, containers: [] },
+    total,
+    { measuredAt: record.t },
+  );
 }

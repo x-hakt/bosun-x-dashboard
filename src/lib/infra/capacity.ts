@@ -4,8 +4,8 @@ import { displayName } from "@/lib/data/project-display";
 import { getLocalSnapshot } from "./local";
 import { getRemoteSnapshot } from "./remote";
 import { discoverGroups } from "./discovery";
-import { applyHistory, buildHostCapacity, parseMemUsage, type CapacityInput, type HostCapacity } from "./capacity-core";
-import { getCapacityHistory } from "./capacity-history";
+import { applyHistory, buildDiskBar, buildHostCapacity, parseMemUsage, type CapacityInput, type HostCapacity } from "./capacity-core";
+import { getCapacityHistory, getLatestDisk } from "./capacity-history";
 
 export type { HostCapacity, CapacitySegment, CapacityBar } from "./capacity-core";
 
@@ -29,11 +29,12 @@ export { COMFORT_RATIO, MIN_HISTORY_HOURS } from "./capacity-core";
 // no new SSH or Docker calls of its own. With a day or more of sampler history
 // (BXD-62) the RAM/CPU bars show p95 over the window instead (BXD-63).
 export async function getCapacityOverview(): Promise<{ hosts: HostCapacity[]; projects: ProjectFacts[] }> {
-  const [hosts, groups, projects, history] = await Promise.all([
+  const [hosts, groups, projects, history, diskRecords] = await Promise.all([
     loadHosts(),
     discoverGroups().catch(() => []),
     listProjects(),
     getCapacityHistory().catch(() => new Map()),
+    getLatestDisk().catch(() => new Map()),
   ]);
   const projectInfo = Object.fromEntries(
     projects.map((p) => [p.meta.slug, { name: displayName(p.meta), status: p.meta.status }]),
@@ -89,7 +90,12 @@ export async function getCapacityOverview(): Promise<{ hosts: HostCapacity[]; pr
         projects: projectInfo,
       };
       const capacity = applyHistory(input, buildHostCapacity(input), history.get(host.id) ?? []);
-      const result: HostCapacity = { ...capacity, arch: snapshot.specs?.kernel.split(/\s+/).at(-1) };
+      const diskRecord = diskRecords.get(host.id);
+      const result: HostCapacity = {
+        ...capacity,
+        arch: snapshot.specs?.kernel.split(/\s+/).at(-1),
+        diskBar: diskRecord ? buildDiskBar(diskRecord, input) ?? undefined : undefined,
+      };
       return result;
     }),
   );

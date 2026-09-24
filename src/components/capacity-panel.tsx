@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCapacityOverview, MIN_HISTORY_HOURS, type CapacityBar, type HostCapacity } from "@/lib/infra/capacity";
-import { Bar, fmtBytes, fmtCores, fmtSpan, segmentBg, segmentTitle } from "@/components/capacity-bar";
+import { Bar, fmtBytes, fmtCores, fmtDisk, fmtSpan, segmentBg, segmentTitle } from "@/components/capacity-bar";
+import { plainDiskBar } from "@/lib/infra/capacity-core";
 import { MoveSimulator } from "@/components/move-simulator";
 import { cn } from "@/lib/utils";
 
@@ -10,21 +11,35 @@ import { cn } from "@/lib/utils";
 // and shared containers, then whatever the host itself uses, then free space. RAM is
 // the primary bar (it's the constraint that matters most here).
 
-function DiskBar({ disk }: { disk: NonNullable<HostCapacity["disk"]> }) {
-  const bar: CapacityBar = {
-    basis: "snapshot",
-    total: disk.total,
-    used: disk.used,
-    segments: [
-      { key: "used", kind: "other", label: "Used (per-project split: BXD-65/66)", value: disk.used, containers: [] },
-      { key: "free", kind: "free", label: "Free", value: Math.max(0, disk.total - disk.used), containers: [] },
-    ],
-  };
-  return <Bar bar={bar} format={(b) => `${(b / 1e9).toFixed(0)} GB`} height="h-2" label="Disk" />;
+function DiskSection({ host }: { host: HostCapacity }) {
+  if (host.diskBar) {
+    const at = host.diskBar.measuredAt
+      ? new Date(host.diskBar.measuredAt).toLocaleString("en-AU", {
+          timeZone: "Australia/Sydney",
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+      : undefined;
+    return (
+      <>
+        <Bar bar={host.diskBar} format={fmtDisk} height="h-2.5" label={`Disk${at ? ` · measured ${at}` : ""}`} />
+        <Legend bar={host.diskBar} format={fmtDisk} limit={6} />
+      </>
+    );
+  }
+  if (!host.disk) return null;
+  return <Bar bar={plainDiskBar(host.disk)} format={fmtDisk} height="h-2" label="Disk" />;
 }
 
-function Legend({ bar }: { bar: CapacityBar }) {
-  const shown = bar.segments.filter((s) => s.kind !== "free" && s.value > 0);
+function Legend({ bar, format = fmtBytes, limit }: { bar: CapacityBar; format?: (v: number) => string; limit?: number }) {
+  const all = bar.segments.filter((s) => s.kind !== "free" && s.value > 0);
+  // With a limit, keep the biggest projects/buckets and fold the rest into one line.
+  const ranked = limit ? [...all].sort((a, b) => b.value - a.value) : all;
+  const shown = limit ? ranked.slice(0, limit) : ranked;
+  const rest = limit ? ranked.slice(limit) : [];
   return (
     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] font-mono">
       {shown.map((seg) => (
@@ -35,18 +50,25 @@ function Legend({ bar }: { bar: CapacityBar }) {
               {seg.label}
             </Link>
           ) : (
-            <span className="truncate text-muted-foreground" title={seg.containers.join(", ") || undefined}>
+            <span className="truncate text-muted-foreground" title={seg.containers.join(", ") || seg.label}>
               {seg.label}
             </span>
           )}
-          <span className="ml-auto shrink-0 text-muted-foreground" title={segmentTitle(seg, fmtBytes)}>
-            {fmtBytes(seg.value)}
+          <span className="ml-auto shrink-0 text-muted-foreground" title={segmentTitle(seg, format)}>
+            {format(seg.value)}
             {seg.stats && seg.stats.peak > seg.value * 1.05 && (
-              <span className="text-muted-foreground/60"> ↑{fmtBytes(seg.stats.peak)}</span>
+              <span className="text-muted-foreground/60"> ↑{format(seg.stats.peak)}</span>
             )}
           </span>
         </li>
       ))}
+      {rest.length > 0 && (
+        <li className="flex items-center gap-1.5 min-w-0 text-muted-foreground" title={rest.map((r) => `${r.label}: ${format(r.value)}`).join("\n")}>
+          <span className="size-2 shrink-0" aria-hidden />
+          <span className="truncate">+ {rest.length} smaller</span>
+          <span className="ml-auto shrink-0">{format(rest.reduce((n, r) => n + r.value, 0))}</span>
+        </li>
+      )}
     </ul>
   );
 }
@@ -71,7 +93,7 @@ function HostCapacityCard({ host }: { host: HostCapacity }) {
           <p className="text-xs text-muted-foreground">No memory figures from this host.</p>
         )}
         {host.cpu && <Bar bar={host.cpu} format={fmtCores} height="h-2" label="CPU" />}
-        {host.disk && <DiskBar disk={host.disk} />}
+        <DiskSection host={host} />
       </CardContent>
     </Card>
   );

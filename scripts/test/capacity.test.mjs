@@ -20,7 +20,8 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "capacity-test-"));
 const tmp = path.join(tmpDir, "capacity-core.mjs");
 fs.writeFileSync(tmp, outputText);
 fs.copyFileSync(path.join(root, "src/lib/infra/snapshot-sections.mjs"), path.join(tmpDir, "snapshot-sections.mjs"));
-const { buildHostCapacity, parseMemUsage, applyHistory, percentile, simulateMove, fitVerdict } = await import(pathToFileURL(tmp).href);
+const { buildHostCapacity, parseMemUsage, applyHistory, percentile, simulateMove, fitVerdict, buildDiskBar } = await import(pathToFileURL(tmp).href);
+const { parseDiskSections } = await import(pathToFileURL(path.join(root, "src/lib/infra/snapshot-sections.mjs")).href);
 
 const GiB = 1024 ** 3;
 const MiB = 1024 ** 2;
@@ -240,4 +241,80 @@ test("arch mismatch is flagged", () => {
   const from = { ...buildHostCapacity(base), arch: "x86_64" };
   assert.equal(simulateMove(from, { ...small("pi", 8, 1), arch: "aarch64" }, "playtopia").archMismatch, true);
   assert.equal(simulateMove(from, { ...small("vps", 8, 1), arch: "x86_64" }, "playtopia").archMismatch, false);
+});
+
+// ---------------------------------------------------------------- BXD-65: disk
+const GB = 1e9;
+const T = "\t";
+const rawDisk = [
+  "===DISK===",
+  `${500 * GB} ${200 * GB} ${300 * GB} 40%`,
+  "===SYSTEM_DF===",
+  `I${T}sha256:play${T}1.5GB${T}1GB`,
+  `I${T}sha256:pg${T}300MB${T}250MB`,
+  `I${T}sha256:old${T}2GB${T}2GB`, // no containers → reclaimable
+  `C${T}play-web${T}20MB`,
+  `C${T}play-db${T}100MB`,
+  `C${T}cgb-web${T}0B`,
+  `V${T}play_db_data${T}3GB`,
+  `V${T}orphan_vol${T}1GB`, // unused → reclaimable
+  "===MOUNTS===",
+  `C${T}/play-web${T}sha256:play`,
+  `M${T}/play-web${T}bind${T}${T}/srv/playtopia/uploads${T}true`,
+  `M${T}/play-web${T}bind${T}${T}/srv/playtopia/uploads/thumbs${T}true`, // nested: counted via parent
+  `M${T}/play-web${T}bind${T}${T}/etc/ro-config${T}false`, // read-only: ignored
+  `C${T}/play-db${T}sha256:pg`,
+  `M${T}/play-db${T}volume${T}play_db_data${T}/var/lib/docker/volumes/play_db_data/_data${T}true`,
+  `C${T}/cgb-web${T}sha256:pg`, // shares the pg image with playtopia → split
+  "===BIND_DU===",
+  `5000000000	/srv/playtopia/uploads`,
+  `1000000000	/srv/playtopia/uploads/thumbs`,
+  "===END===",
+].join("\n");
+
+test("parseDiskSections reads images, containers, volumes, rw binds and du", () => {
+  const d = parseDiskSections(rawDisk);
+  assert.equal(d.diskSizeBytes, 500 * GB);
+  assert.equal(d.images.length, 3);
+  assert.deepEqual(d.images[0], { id: "sha256:play", size: 1.5 * GB, unique: 1 * GB });
+  const web = d.containers.find((c) => c.name === "play-web");
+  assert.deepEqual(web.binds, ["/srv/playtopia/uploads", "/srv/playtopia/uploads/thumbs"], "ro bind dropped");
+  assert.equal(web.writable, 20e6);
+  assert.deepEqual(d.containers.find((c) => c.name === "play-db").volumes, ["play_db_data"]);
+  assert.equal(d.bindDu["/srv/playtopia/uploads"], 5 * GB);
+});
+
+test("buildDiskBar attributes images, volumes, binds and writable layers per project", () => {
+  const record = { t: "2026-09-25T00:00:00Z", ...parseDiskSections(rawDisk) };
+  const input = {
+    groups: [
+      { folder: "/srv/playtopia", slug: "playtopia", containers: ["play-web", "play-db"] },
+      { folder: "/srv/cgb", slug: "cgburchell", containers: ["cgb-web"] },
+    ],
+    projects: base.projects,
+  };
+  const bar = buildDiskBar(record, input);
+  close(sum(bar), 500 * GB, "sums to disk size");
+  // playtopia: play image 1GB + half the pg image 125MB + volume 3GB + uploads 5GB (thumbs nested) + writable 120MB
+  close(seg(bar, "project:playtopia").value, 1 * GB + 125e6 + 3 * GB + 5 * GB + 120e6, "playtopia footprint");
+  close(seg(bar, "project:cgburchell").value, 125e6, "cgb gets its half of the shared pg image");
+  close(seg(bar, "reclaimable").value, 2 * GB + 1 * GB, "unused image + unused volume");
+  close(seg(bar, "free").value, 300 * GB, "free = size - used");
+  assert.equal(bar.measuredAt, "2026-09-25T00:00:00Z");
+});
+
+test("simulator moves disk too when the source is measured, and disk can decide the verdict", () => {
+  const record = { ...parseDiskSections(rawDisk) };
+  const input = { groups: [{ folder: "/srv/playtopia", slug: "playtopia", containers: ["play-web", "play-db"] }], projects: base.projects };
+  const from = { ...buildHostCapacity(base), diskBar: buildDiskBar(record, input) };
+  const roomy = { ...small("vps", 8, 1), disk: { total: 63 * GB, used: 10 * GB } };
+  const sim = simulateMove(from, roomy, "playtopia");
+  close(sim.target.disk.moving, seg(from.diskBar, "project:playtopia").value, "disk moving");
+  assert.equal(sim.verdict, "ok");
+  const cramped = { ...small("vps", 8, 1), disk: { total: 63 * GB, used: 60 * GB } };
+  const tight = simulateMove(from, cramped, "playtopia");
+  assert.equal(tight.target.mem.verdict, "ok", "RAM alone is fine");
+  assert.equal(tight.verdict, "over", "but disk overflows, so it doesn't fit");
+  const unmeasured = simulateMove(buildHostCapacity(base), roomy, "playtopia");
+  assert.equal(unmeasured.target.disk, null, "no disk simulation without a source measurement");
 });
