@@ -54,7 +54,7 @@ export function MoveSimulator({ hosts, projects }: { hosts: HostCapacity[]; proj
     if (project.traefik) warnings.push("Has Traefik routing labels: DNS and the reverse proxy need moving too.");
     if (cpu && cpu.verdict !== "ok") warnings.push(`CPU would be at ${Math.round(cpu.ratio * 100)}% (an estimate from load average).`);
     if (snapshotBasis) warnings.push("Based on a single live snapshot; this switches to p95 once a day of history is recorded.");
-    if (!disk) warnings.push(`${source.hostName}'s disk isn't measured per project yet (BXD-66): check free disk on the target by hand.`);
+    if (!disk) warnings.push(`No recent per-project disk measurement for ${source.hostName} (it runs daily): check free disk on the target by hand.`);
     else warnings.push("Disk includes images, volumes and writable data folders; folders the sampler can't read count low, and base image layers shared with other projects aren't included.");
   }
 

@@ -143,6 +143,8 @@ docker stats --no-stream --format '{{json .}}' 2>/dev/null
 //   MOUNTS     C<TAB>container, image id  +  M<TAB>container, type, volume name, source, rw
 //   BIND_DU    `du -sb` of every writable bind-mount directory on the root filesystem
 //              (unreadable subfolders are skipped, so these can read low)
+// The remote hosts run the same sequence from their forced read-only command when
+// asked for exactly `bosun-x-disk` (BXD-66): keep that block in step with this one.
 export const LOCAL_DISK_SCRIPT = `
 echo "===DISK==="
 df -B1 -P / | tail -1 | awk '{print $2, $3, $4, $5}'
@@ -154,7 +156,7 @@ ids=$(docker ps -aq)
 echo "===BIND_DU==="
 root_dev=$(stat -c %d /)
 [ -n "$ids" ] && docker inspect --format '{{range .Mounts}}{{if and (eq .Type "bind") .RW}}{{.Source}}{{println}}{{end}}{{end}}' $ids 2>/dev/null | sort -u | while IFS= read -r p; do
-  [ -d "$p" ] && [ "$(stat -c %d "$p")" = "$root_dev" ] && du -sb "$p" 2>/dev/null | tail -1
+  [ -d "$p" ] && [ "$(stat -c %d "$p")" = "$root_dev" ] && nice -n 19 du -sb "$p" 2>/dev/null | tail -1
 done
 echo "===END==="
 `;

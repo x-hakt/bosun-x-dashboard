@@ -45,10 +45,34 @@ chmod 600 "$KEY"
 
 # The forced command: a fixed, read-only sequence. Its output is section-tagged so the
 # dashboard's one parser (src/lib/infra/remote.ts) reads it the same as the local host.
+# Asked for exactly `bosun-x-disk`, it prints the daily per-project disk measurement
+# instead (BXD-66; same sequence as LOCAL_DISK_SCRIPT in snapshot-sections.mjs).
 # Uses `docker`; if the target runs Podman, change the last two lines to `podman`.
 cat > "$KEY.command" <<'SCRIPT'
 #!/bin/sh
 # bosun-x discovery — read-only. Installed by setup-remote.sh. Safe to inspect.
+# BXD-66: per-project disk footprint for bosun-x's capacity view,
+# requested daily as exactly `bosun-x-disk`. Read-only. Docker is queried field by
+# field (never Command/Labels/Env, which can hold secrets); du runs only on writable
+# bind-mount directories on the root filesystem, at low priority. Keep in step with
+# LOCAL_DISK_SCRIPT in bosun-x-dashboard/src/lib/infra/snapshot-sections.mjs.
+if [ "$SSH_ORIGINAL_COMMAND" = "bosun-x-disk" ]; then
+  echo "===DISK==="
+  df -B1 -P / | tail -1 | awk '{print $2, $3, $4, $5}'
+  echo "===SYSTEM_DF==="
+  docker system df -v --format '{{range .Images}}I{{"\t"}}{{.ID}}{{"\t"}}{{.Size}}{{"\t"}}{{.UniqueSize}}{{println}}{{end}}{{range .Containers}}C{{"\t"}}{{.Names}}{{"\t"}}{{.Size}}{{println}}{{end}}{{range .Volumes}}V{{"\t"}}{{.Name}}{{"\t"}}{{.Size}}{{println}}{{end}}' 2>/dev/null
+  echo "===MOUNTS==="
+  ids=$(docker ps -aq)
+  [ -n "$ids" ] && docker inspect --format '{{$n := .Name}}C{{"\t"}}{{$n}}{{"\t"}}{{.Image}}{{println}}{{range .Mounts}}M{{"\t"}}{{$n}}{{"\t"}}{{.Type}}{{"\t"}}{{.Name}}{{"\t"}}{{.Source}}{{"\t"}}{{.RW}}{{println}}{{end}}' $ids 2>/dev/null
+  echo "===BIND_DU==="
+  root_dev=$(stat -c %d /)
+  [ -n "$ids" ] && docker inspect --format '{{range .Mounts}}{{if and (eq .Type "bind") .RW}}{{.Source}}{{println}}{{end}}{{end}}' $ids 2>/dev/null | sort -u | while IFS= read -r p; do
+    [ -d "$p" ] && [ "$(stat -c %d "$p")" = "$root_dev" ] && nice -n 19 du -sb "$p" 2>/dev/null | tail -1
+  done
+  echo "===END==="
+  exit 0
+fi
+
 echo "===UNAME==="; uname -srm
 echo "===NPROC==="; nproc
 echo "===MEMINFO==="; free -b

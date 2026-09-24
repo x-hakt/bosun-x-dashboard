@@ -51,6 +51,10 @@ that trigger a GHCR image build.
   images/volumes as reclaimable. The move simulator adds disk to its verdict.
   Docker is queried field-by-field so container commands, labels and environment
   (which can hold secrets) are never read.
+- **Disk per project on remote servers** (BXD-66) — the remote hosts' forced read-only
+  command answers exactly `bosun-x-disk` with the same measurement (installed on
+  lighthouse, gp-forms-prod and podusa-prod; `setup-remote.sh` includes it for new
+  hosts), so every server's disk bar is split by project.
 
 ### Changed
 
