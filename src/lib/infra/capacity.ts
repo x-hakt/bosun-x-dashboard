@@ -4,21 +4,23 @@ import { displayName } from "@/lib/data/project-display";
 import { getLocalSnapshot } from "./local";
 import { getRemoteSnapshot } from "./remote";
 import { discoverGroups } from "./discovery";
-import { buildHostCapacity, parseMemUsage, type HostCapacity } from "./capacity-core";
+import { applyHistory, buildHostCapacity, parseMemUsage, type CapacityInput, type HostCapacity } from "./capacity-core";
+import { getCapacityHistory } from "./capacity-history";
 
 export type { HostCapacity, CapacitySegment, CapacityBar } from "./capacity-core";
-export { COMFORT_RATIO } from "./capacity-core";
+export { COMFORT_RATIO, MIN_HISTORY_HOURS } from "./capacity-core";
 
 // BXD-61: capacity per live-monitored server host (workstations excluded: they're
 // not placement targets). Everything here is already fetched and cached for the
 // Servers page (snapshots: 15s local / 5min remote; discovery: 5min), so this adds
-// no new SSH or Docker calls of its own. Values are a point-in-time snapshot until
-// the BXD-62 sampler + BXD-63 p95 land.
+// no new SSH or Docker calls of its own. With a day or more of sampler history
+// (BXD-62) the RAM/CPU bars show p95 over the window instead (BXD-63).
 export async function getHostCapacities(): Promise<HostCapacity[]> {
-  const [hosts, groups, projects] = await Promise.all([
+  const [hosts, groups, projects, history] = await Promise.all([
     loadHosts(),
     discoverGroups().catch(() => []),
     listProjects(),
+    getCapacityHistory().catch(() => new Map()),
   ]);
   const projectInfo = Object.fromEntries(
     projects.map((p) => [p.meta.slug, { name: displayName(p.meta), status: p.meta.status }]),
@@ -30,7 +32,7 @@ export async function getHostCapacities(): Promise<HostCapacity[]> {
       const snapshot = host.ssh_alias ? await getRemoteSnapshot(host.ssh_alias) : await getLocalSnapshot();
       if (!snapshot.usage) return null;
       const running = new Set(snapshot.containers.filter((c) => c.state === "running").map((c) => c.name));
-      return buildHostCapacity({
+      const input: CapacityInput = {
         hostId: host.id,
         hostName: host.name,
         cores: snapshot.specs?.cores ?? 0,
@@ -46,7 +48,8 @@ export async function getHostCapacities(): Promise<HostCapacity[]> {
           .filter((g) => g.host === host.id && g.reachable)
           .map((g) => ({ folder: g.folder, slug: g.matchedSlug, containers: g.containers.map((c) => c.name) })),
         projects: projectInfo,
-      });
+      };
+      return applyHistory(input, buildHostCapacity(input), history.get(host.id) ?? []);
     }),
   );
   return results.filter((r): r is HostCapacity => r !== null);

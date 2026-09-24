@@ -17,12 +17,16 @@ export interface CapacitySegment {
   slug?: string;
   status?: string;
   containers: string[];
+  // Present on history-based bars (BXD-63): the live value, p95 and peak over the window.
+  stats?: { current: number; p95: number; peak: number };
 }
 
 export interface CapacityBar {
   total: number;
   used: number; // everything except "free"
   segments: CapacitySegment[];
+  basis: "snapshot" | "p95";
+  liveUsed?: number; // on a p95 bar: what the live snapshot showed as used
 }
 
 export interface HostCapacity {
@@ -31,6 +35,7 @@ export interface HostCapacity {
   mem: CapacityBar | null;
   cpu: CapacityBar | null;
   disk: { total: number; used: number } | null;
+  history?: { samples: number; spanHours: number };
 }
 
 export interface CapacityInput {
@@ -52,13 +57,17 @@ export interface CapacityInput {
 // Comfort line agreed for BXD-55: 80% (of p95 once history exists, BXD-63).
 export const COMFORT_RATIO = 0.8;
 
-type Pick = (s: CapacityInput["stats"][number]) => number;
+type Owner = { key: string; kind: SegmentKind; label: string; slug?: string; status?: string };
+const INFRA: Owner = { key: "infra", kind: "infra", label: "Shared containers" };
+const ORDER: Record<SegmentKind, number> = { project: 0, unregistered: 1, infra: 2, other: 3, free: 4 };
 
-function buildBar(input: CapacityInput, total: number, hostUsed: number, pick: Pick, otherLabel: string): CapacityBar {
-  const owner = new Map<string, { key: string; kind: SegmentKind; label: string; slug?: string; status?: string }>();
+// container name → the segment it belongs to. First group wins, so a container is
+// never counted twice.
+function ownership(input: Pick<CapacityInput, "groups" | "projects">): Map<string, Owner> {
+  const owner = new Map<string, Owner>();
   for (const group of input.groups) {
     for (const name of group.containers) {
-      if (owner.has(name)) continue; // first group wins, so a container is never counted twice
+      if (owner.has(name)) continue;
       if (group.slug) {
         const project = input.projects[group.slug];
         owner.set(name, { key: `project:${group.slug}`, kind: "project", label: project?.name ?? group.slug, slug: group.slug, status: project?.status });
@@ -67,50 +76,149 @@ function buildBar(input: CapacityInput, total: number, hostUsed: number, pick: P
       }
     }
   }
+  return owner;
+}
 
-  const buckets = new Map<string, CapacitySegment>();
-  for (const stat of input.stats) {
-    const value = Math.max(0, pick(stat));
-    const o = owner.get(stat.name) ?? { key: "infra", kind: "infra" as const, label: "Shared containers" };
-    const seg = buckets.get(o.key) ?? { ...o, value: 0, containers: [] };
-    seg.value += value;
-    seg.containers.push(stat.name);
-    buckets.set(o.key, seg);
+// One moment's allocation: per-segment totals plus the host's own "other" usage.
+// Host usage can read lower than the containers' own sum (different accounting for
+// page cache), so "used" is never less than what the containers account for.
+function allocate(owner: Map<string, Owner>, values: { name: string; value: number }[], total: number, hostUsed: number) {
+  const buckets = new Map<string, { owner: Owner; value: number; containers: string[] }>();
+  for (const { name, value } of values) {
+    const o = owner.get(name) ?? INFRA;
+    const b = buckets.get(o.key) ?? { owner: o, value: 0, containers: [] };
+    b.value += Math.max(0, value);
+    b.containers.push(name);
+    buckets.set(o.key, b);
   }
-
-  const order: Record<SegmentKind, number> = { project: 0, unregistered: 1, infra: 2, other: 3, free: 4 };
-  const segments = [...buckets.values()]
-    .filter((s) => s.value > 0 || s.kind === "project")
-    .sort((a, b) => order[a.kind] - order[b.kind] || b.value - a.value || a.label.localeCompare(b.label));
-
-  const containerSum = segments.reduce((sum, s) => sum + s.value, 0);
-  // Host usage can read lower than the containers' own sum (different accounting
-  // for page cache), so "used" is never less than what the containers account for.
+  const containerSum = [...buckets.values()].reduce((sum, b) => sum + b.value, 0);
   const used = Math.min(total, Math.max(hostUsed, containerSum));
-  const other = Math.max(0, used - containerSum);
-  if (other > 0) segments.push({ key: "other", kind: "other", label: otherLabel, value: other, containers: [] });
+  return { buckets, other: Math.max(0, used - containerSum) };
+}
 
-  // If containers alone exceed the host total (bad sample), scale down to fit so the bar never overflows.
-  const allocated = containerSum + other;
+// Sort, append "other", scale down if the parts exceed capacity (bad sample, or
+// summed p95s), and close with "free" so the segments always sum to the total.
+function finish(segments: CapacitySegment[], other: CapacitySegment | null, total: number, extra: Partial<CapacityBar> = {}): CapacityBar {
+  const out = segments
+    .filter((s) => s.value > 0 || s.kind === "project")
+    .sort((a, b) => ORDER[a.kind] - ORDER[b.kind] || b.value - a.value || a.label.localeCompare(b.label));
+  if (other && other.value > 0) out.push(other);
+  const allocated = out.reduce((sum, s) => sum + s.value, 0);
   if (allocated > total && allocated > 0) {
     const scale = total / allocated;
-    for (const s of segments) s.value *= scale;
+    for (const s of out) s.value *= scale;
   }
-  const free = Math.max(0, total - segments.reduce((sum, s) => sum + s.value, 0));
-  segments.push({ key: "free", kind: "free", label: "Free", value: free, containers: [] });
+  const free = Math.max(0, total - out.reduce((sum, s) => sum + s.value, 0));
+  out.push({ key: "free", kind: "free", label: "Free", value: free, containers: [] });
+  return { total, used: total - free, segments: out, basis: "snapshot", ...extra };
+}
 
-  return { total, used: total - free, segments };
+type Resource = "mem" | "cpu";
+const OTHER_LABEL: Record<Resource, string> = { mem: "Host / non-Docker", cpu: "Host / other (load avg)" };
+
+function buildBar(input: CapacityInput, resource: Resource): CapacityBar {
+  const total = resource === "mem" ? input.memTotalBytes : input.cores;
+  const hostUsed = resource === "mem" ? input.memUsedBytes : Math.min(input.cores, input.loadAvg1);
+  const values = input.stats.map((s) => ({ name: s.name, value: resource === "mem" ? s.memBytes : s.cpuPercent / 100 }));
+  const { buckets, other } = allocate(ownership(input), values, total, hostUsed);
+  const segments = [...buckets.values()].map((b) => ({ ...b.owner, value: b.value, containers: b.containers }));
+  return finish(segments, { key: "other", kind: "other", label: OTHER_LABEL[resource], value: other, containers: [] }, total);
 }
 
 export function buildHostCapacity(input: CapacityInput): HostCapacity {
-  const mem =
-    input.memTotalBytes > 0
-      ? buildBar(input, input.memTotalBytes, input.memUsedBytes, (s) => s.memBytes, "Host / non-Docker")
-      : null;
-  const cpu =
-    input.cores > 0
-      ? buildBar(input, input.cores, Math.min(input.cores, input.loadAvg1), (s) => s.cpuPercent / 100, "Host / other (load avg)")
-      : null;
+  const mem = input.memTotalBytes > 0 ? buildBar(input, "mem") : null;
+  const cpu = input.cores > 0 ? buildBar(input, "cpu") : null;
   const disk = input.diskSizeBytes > 0 ? { total: input.diskSizeBytes, used: input.diskUsedBytes } : null;
   return { hostId: input.hostId, hostName: input.hostName, mem, cpu, disk };
+}
+
+// ---------------------------------------------------------------------------
+// BXD-63: history. The sampler (BXD-62) records host totals and per-container
+// [memBytes, cpuPercent] every 5 minutes; containers are mapped to projects here,
+// with today's discovery. Each sample is allocated exactly like the live snapshot,
+// then every segment gets current / p95 / peak across the window.
+
+export interface HistorySample {
+  t: string; // ISO timestamp
+  cores: number;
+  memTotal: number;
+  memUsed: number;
+  load1: number;
+  c: Record<string, [number, number]>;
+}
+
+// Bars switch from the live snapshot to p95 once history spans at least this long.
+export const MIN_HISTORY_HOURS = 24;
+export const PERCENTILE = 0.95;
+
+// Nearest-rank percentile of an unsorted list (0 for an empty one).
+export function percentile(values: number[], p: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1))];
+}
+
+function historyBar(input: CapacityInput, live: CapacityBar, samples: HistorySample[], resource: Resource): CapacityBar {
+  const owner = ownership(input);
+  const series = new Map<string, number[]>();
+  const meta = new Map<string, { owner: Owner; containers: Set<string> }>();
+  const otherSeries: number[] = [];
+
+  samples.forEach((sample, i) => {
+    const total = resource === "mem" ? sample.memTotal : sample.cores;
+    const hostUsed = resource === "mem" ? sample.memUsed : Math.min(sample.cores, sample.load1);
+    const values = Object.entries(sample.c).map(([name, [mem, cpu]]) => ({ name, value: resource === "mem" ? mem : cpu / 100 }));
+    const { buckets, other } = allocate(owner, values, total, hostUsed);
+    for (const [key, b] of buckets) {
+      if (!series.has(key)) {
+        // A segment first seen part-way through the window was 0 before that.
+        series.set(key, new Array(i).fill(0));
+        meta.set(key, { owner: b.owner, containers: new Set() });
+      }
+      series.get(key)!.push(b.value);
+      b.containers.forEach((c) => meta.get(key)!.containers.add(c));
+    }
+    for (const list of series.values()) if (list.length < i + 1) list.push(0); // absent this sample
+    otherSeries.push(other);
+  });
+
+  const liveByKey = new Map(live.segments.map((s) => [s.key, s]));
+  const segments: CapacitySegment[] = [...series].map(([key, list]) => {
+    const m = meta.get(key)!;
+    const current = liveByKey.get(key)?.value ?? 0;
+    const p95 = percentile(list, PERCENTILE);
+    return { ...m.owner, value: p95, containers: [...m.containers], stats: { current, p95, peak: Math.max(...list, current) } };
+  });
+  // Live-only segments (a project started since the last sample) still show.
+  for (const s of live.segments) {
+    if (s.kind === "free" || s.kind === "other" || series.has(s.key)) continue;
+    segments.push({ ...s, stats: { current: s.value, p95: s.value, peak: s.value } });
+  }
+  const otherCurrent = liveByKey.get("other")?.value ?? 0;
+  const otherP95 = percentile(otherSeries, PERCENTILE);
+  const other: CapacitySegment = {
+    key: "other",
+    kind: "other",
+    label: OTHER_LABEL[resource],
+    value: otherP95,
+    containers: [],
+    stats: { current: otherCurrent, p95: otherP95, peak: Math.max(...otherSeries, otherCurrent) },
+  };
+  return finish(segments, other, live.total, { basis: "p95", liveUsed: live.used });
+}
+
+// Replace a live capacity's RAM/CPU bars with p95-based ones when the history is
+// long enough; otherwise return it unchanged apart from the history window info.
+export function applyHistory(input: CapacityInput, live: HostCapacity, samples: HistorySample[]): HostCapacity {
+  const ordered = samples.filter((s) => s.memTotal > 0).sort((a, b) => a.t.localeCompare(b.t));
+  if (ordered.length === 0) return live;
+  const spanHours = (Date.parse(ordered.at(-1)!.t) - Date.parse(ordered[0].t)) / 3_600_000;
+  const history = { samples: ordered.length, spanHours };
+  if (spanHours < MIN_HISTORY_HOURS) return { ...live, history };
+  return {
+    ...live,
+    history,
+    mem: live.mem ? historyBar(input, live.mem, ordered, "mem") : null,
+    cpu: live.cpu ? historyBar(input, live.cpu, ordered.filter((s) => s.cores > 0), "cpu") : null,
+  };
 }
