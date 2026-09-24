@@ -1,0 +1,110 @@
+#!/usr/bin/env node
+// BXD-62: one capacity sample of every live-monitored server host, appended as
+// JSONL to $BACKUP_RECEIPTS/_capacity/<UTC date>.jsonl. Normally run every 5 minutes
+// by scripts/capacity-sample.sh (cron on the host the dashboard runs on), which owns
+// the lock, the job heartbeat and retention. Read-only everywhere: the local host
+// runs the same command sequence the app does (LOCAL_SNAPSHOT_SCRIPT), remote hosts
+// are reached through their forced read-only SSH command (bosun-x-ro.sh).
+//
+// One line per host per run:
+//   {"t":"…Z","host":"caspar","ok":true,"cores":8,"mem_total":…,"mem_used":…,
+//    "disk_size":…,"disk_used":…,"load1":0.5,"c":{"<container>":[memBytes,cpuPercent]}}
+//   {"t":"…Z","host":"podusa-prod","ok":false,"error":"…"}
+// Containers are recorded by name; the dashboard maps them to projects at read
+// time (BXD-63) with the same discovery it uses everywhere else.
+//
+// Exit: 0 if at least one host was sampled, 1 if none were (so the job shows failed).
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { load as loadYaml } from "js-yaml";
+import {
+  LOCAL_SNAPSHOT_SCRIPT,
+  parseHostFigures,
+  parseMemUsage,
+  parseStatsLines,
+  section,
+} from "../src/lib/infra/snapshot-sections.mjs";
+import { resolveDataDir } from "./lib/data-dir.mjs";
+
+const run = promisify(execFile);
+const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const dataDir = resolveDataDir(repoRoot);
+
+async function readYaml(file) {
+  try {
+    return loadYaml(await fs.readFile(file, "utf-8")) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+const expandHome = (p) => (p && p.startsWith("~/") ? path.join(process.env.HOME ?? "", p.slice(2)) : p);
+
+const config = await readYaml(path.join(dataDir, "config.yml"));
+const receipts = path.resolve(expandHome(process.env.BACKUP_RECEIPTS || config.backup_receipts || path.join(dataDir, "..", "backup-receipts")));
+// The discovery (read-only) key's SSH config, as the app uses. Deliberately NOT
+// $BACKUP_SSH_CONFIG: that one maps aliases to the backup key's forced command.
+const sshConfig = expandHome(config.ssh_config || path.join(process.env.HOME ?? "", ".ssh", "config"));
+const outDir = path.join(receipts, "_capacity");
+
+const hostsFile = await readYaml(path.join(dataDir, "infra", "hosts.yml"));
+const hosts = (hostsFile.hosts ?? []).filter((h) => h.live_monitored && h.role !== "workstation");
+if (hosts.length === 0) {
+  console.error(`capacity-sample: no live-monitored server hosts in ${path.join(dataDir, "infra", "hosts.yml")}`);
+  process.exit(1);
+}
+
+async function snapshotText(host) {
+  if (host.ssh_alias) {
+    const { stdout } = await run(
+      "ssh",
+      ["-F", sshConfig, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host.ssh_alias, "bosun-x-ro"],
+      { timeout: 45_000, maxBuffer: 16 * 1024 * 1024 },
+    );
+    return stdout;
+  }
+  const { stdout } = await run("sh", ["-c", LOCAL_SNAPSHOT_SCRIPT], { timeout: 45_000, maxBuffer: 16 * 1024 * 1024 });
+  return stdout;
+}
+
+const t = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+const lines = await Promise.all(
+  hosts.map(async (host) => {
+    try {
+      const raw = await snapshotText(host);
+      const h = parseHostFigures(raw);
+      if (!h.hasMem) throw new Error("no MEMINFO section in snapshot output");
+      const c = {};
+      for (const s of parseStatsLines(section(raw, "DOCKER_STATS"))) {
+        c[s.name] = [Math.round(parseMemUsage(s.memUsage)), Math.round(s.cpuPercent * 100) / 100];
+      }
+      return {
+        t,
+        host: host.id,
+        ok: true,
+        cores: h.cores,
+        mem_total: h.memTotalBytes,
+        mem_used: h.memUsedBytes,
+        disk_size: h.diskSizeBytes,
+        disk_used: h.diskUsedBytes,
+        load1: h.loadAvg1,
+        c,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { t, host: host.id, ok: false, error: message.split("\n")[0].slice(0, 300) };
+    }
+  }),
+);
+
+await fs.mkdir(outDir, { recursive: true });
+const file = path.join(outDir, `${t.slice(0, 10)}.jsonl`);
+await fs.appendFile(file, lines.map((l) => JSON.stringify(l)).join("\n") + (lines.length ? "\n" : ""));
+
+const okCount = lines.filter((l) => l.ok).length;
+for (const l of lines) if (!l.ok) console.error(`[${t}] capacity-sample: ${l.host} failed: ${l.error}`);
+console.error(`[${t}] capacity-sample: ${okCount}/${lines.length} hosts → ${file}`);
+process.exit(hosts.length > 0 && okCount === 0 ? 1 : 0);
