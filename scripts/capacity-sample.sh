@@ -6,6 +6,10 @@
 #
 #   */5 * * * * . ~/unified-services/.backup-env; ~/unified-services/bosun-x-dashboard/scripts/capacity-sample.sh >> ~/unified-services/logs/capacity-sample.log 2>&1
 #
+# --disk (BXD-65): the daily per-project disk measurement instead (job
+# "capacity-disk", writes _capacity/disk-<date>.json, keeps 15):
+#   50 4 * * * . ~/unified-services/.backup-env; ~/unified-services/bosun-x-dashboard/scripts/capacity-sample.sh --disk >> ~/unified-services/logs/capacity-sample.log 2>&1
+#
 # Read-only on every host it samples. The only thing it deletes is its own
 # day files older than the newest 15, via prune_glob under _capacity/.
 # ============================================================================
@@ -21,17 +25,24 @@ mkdir -p "$OUT"
 # shellcheck source=lib/job-marker.sh
 . "$ROOT/scripts/lib/job-marker.sh"
 
-exec 9>"/tmp/bosun-capacity-sample.lock"
-flock -n 9 || { echo "[$(date -u +%FT%TZ)] capacity-sample: previous run still going; skipping" >&2; exit 0; }
+MODE=sample JOB=capacity-sample PATTERN="*.jsonl"
+if [ "${1:-}" = "--disk" ]; then MODE=disk JOB=capacity-disk PATTERN="disk-*.json"; fi
 
-job_begin capacity-sample
+exec 9>"/tmp/bosun-$JOB.lock"
+flock -n 9 || { echo "[$(date -u +%FT%TZ)] $JOB: previous run still going; skipping" >&2; exit 0; }
+
+job_begin "$JOB"
 trap _job_finish EXIT
 
-node "$ROOT/scripts/capacity-sample.mjs"
+if [ "$MODE" = disk ]; then
+  node "$ROOT/scripts/capacity-sample.mjs" --disk
+else
+  node "$ROOT/scripts/capacity-sample.mjs"
+fi
 rc=$?
 
-# Keep today + the previous 14 days.
+# Keep today + the previous 14 days (or 15 daily disk files).
 export BOSUN_PRUNE_ROOT="$OUT"
-prune_glob "$OUT" "*.jsonl" 15
+prune_glob "$OUT" "$PATTERN" 15
 
 exit $rc

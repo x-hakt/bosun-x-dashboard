@@ -54,7 +54,9 @@ const KNOWN_JOBS: JobDef[] = [
   // BXD-45 — weekly proof the fleet scripts still can't remove anything real.
   { name: "safety-check", label: "Fleet safety check", cadenceHours: 24 * 7, graceHours: 48, match: /safety-check\.sh/ },
   // BXD-62 — 5-minute capacity history for the Servers capacity view.
-  { name: "capacity-sample", label: "Capacity sampler", cadenceHours: 5 / 60, graceHours: 0.25, match: /capacity-sample\.sh/ },
+  { name: "capacity-sample", label: "Capacity sampler", cadenceHours: 5 / 60, graceHours: 0.25, match: /capacity-sample\.sh(?![^\n]*--disk)/ },
+  // BXD-65 — daily per-project disk measurement (same script, --disk).
+  { name: "capacity-disk", label: "Disk measurement", cadenceHours: 24, graceHours: 6, match: /capacity-sample\.sh[^\n]*--disk/ },
 ];
 
 // Recognised as part of a monitored job (so not "unmonitored"), but no heartbeat

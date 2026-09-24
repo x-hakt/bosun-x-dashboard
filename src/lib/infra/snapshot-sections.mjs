@@ -131,3 +131,84 @@ docker ps -a --format '{{json .}}'
 echo "===DOCKER_STATS==="
 docker stats --no-stream --format '{{json .}}' 2>/dev/null
 `;
+
+// BXD-65: per-project disk footprint. Read-only, like the snapshot above, and built
+// from docker + coreutils only so the same sequence can later run on the remote hosts
+// (BXD-66). Every docker call selects exact fields with a Go template: a container's
+// Command, Labels and environment can hold secrets (a Redis --requirepass was found in
+// testing), so they never leave Docker.
+//   SYSTEM_DF  I<TAB>image id, size, unique size   (shared base layers aren't in unique)
+//              C<TAB>container name, writable-layer size
+//              V<TAB>volume name, size
+//   MOUNTS     C<TAB>container, image id  +  M<TAB>container, type, volume name, source, rw
+//   BIND_DU    `du -sb` of every writable bind-mount directory on the root filesystem
+//              (unreadable subfolders are skipped, so these can read low)
+export const LOCAL_DISK_SCRIPT = `
+echo "===DISK==="
+df -B1 -P / | tail -1 | awk '{print $2, $3, $4, $5}'
+echo "===SYSTEM_DF==="
+docker system df -v --format '{{range .Images}}I{{"\\t"}}{{.ID}}{{"\\t"}}{{.Size}}{{"\\t"}}{{.UniqueSize}}{{println}}{{end}}{{range .Containers}}C{{"\\t"}}{{.Names}}{{"\\t"}}{{.Size}}{{println}}{{end}}{{range .Volumes}}V{{"\\t"}}{{.Name}}{{"\\t"}}{{.Size}}{{println}}{{end}}' 2>/dev/null
+echo "===MOUNTS==="
+ids=$(docker ps -aq)
+[ -n "$ids" ] && docker inspect --format '{{$n := .Name}}C{{"\\t"}}{{$n}}{{"\\t"}}{{.Image}}{{println}}{{range .Mounts}}M{{"\\t"}}{{$n}}{{"\\t"}}{{.Type}}{{"\\t"}}{{.Name}}{{"\\t"}}{{.Source}}{{"\\t"}}{{.RW}}{{println}}{{end}}' $ids 2>/dev/null
+echo "===BIND_DU==="
+root_dev=$(stat -c %d /)
+[ -n "$ids" ] && docker inspect --format '{{range .Mounts}}{{if and (eq .Type "bind") .RW}}{{.Source}}{{println}}{{end}}{{end}}' $ids 2>/dev/null | sort -u | while IFS= read -r p; do
+  [ -d "$p" ] && [ "$(stat -c %d "$p")" = "$root_dev" ] && du -sb "$p" 2>/dev/null | tail -1
+done
+echo "===END==="
+`;
+
+/**
+ * Parse LOCAL_DISK_SCRIPT output. `docker system df` sizes are decimal strings
+ * ("186.1MB"), converted with parseMemUsage's unit table.
+ * @param {string} raw
+ */
+export function parseDiskSections(raw) {
+  const diskParts = section(raw, "DISK").trim().split(/\s+/);
+  const bytes = (/** @type {string | undefined} */ v) => Math.round(parseMemUsage(v ?? "0"));
+
+  const images = [];
+  /** @type {Map<string, number>} */
+  const writable = new Map();
+  const volumes = [];
+  for (const line of section(raw, "SYSTEM_DF").split("\n")) {
+    const [kind, ...f] = line.split("\t");
+    if (kind === "I" && f[0]) images.push({ id: f[0], size: bytes(f[1]), unique: bytes(f[2]) });
+    else if (kind === "C" && f[0]) writable.set(f[0], bytes(f[1]));
+    else if (kind === "V" && f[0]) volumes.push({ name: f[0], size: bytes(f[1]) });
+  }
+
+  /** @type {Map<string, { name: string; imageId: string; writable: number; volumes: string[]; binds: string[] }>} */
+  const containers = new Map();
+  for (const line of section(raw, "MOUNTS").split("\n")) {
+    const [kind, rawName, ...f] = line.split("\t");
+    if (!rawName) continue;
+    const name = rawName.replace(/^\//, "");
+    if (kind === "C") {
+      containers.set(name, { name, imageId: f[0] ?? "", writable: writable.get(name) ?? 0, volumes: [], binds: [] });
+    } else if (kind === "M") {
+      const c = containers.get(name);
+      if (!c) continue;
+      const [type, volName, source, rw] = f;
+      if (type === "volume" && volName) c.volumes.push(volName);
+      else if (type === "bind" && rw === "true" && source) c.binds.push(source);
+    }
+  }
+
+  /** @type {Record<string, number>} */
+  const bindDu = {};
+  for (const line of section(raw, "BIND_DU").split("\n")) {
+    const m = /^(\d+)\s+(\/.*)$/.exec(line.trim());
+    if (m) bindDu[m[2]] = Number(m[1]);
+  }
+
+  return {
+    diskSizeBytes: Number(diskParts[0]) || 0,
+    diskUsedBytes: Number(diskParts[1]) || 0,
+    images,
+    containers: [...containers.values()],
+    volumes,
+    bindDu,
+  };
+}

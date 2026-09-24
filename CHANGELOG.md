@@ -45,6 +45,12 @@ that trigger a GHCR image build.
   fits / tight (over 80%) / doesn't fit verdict, and warnings for databases, named
   volumes, bind mounts, Traefik routing, CPU architecture and snapshot-only figures.
   Computed in the browser; changes nothing.
+- **Disk per project** (BXD-65) — a daily read-only measurement on the dashboard's own
+  host (`capacity-sample.sh --disk`) splits the disk bar by project: images' unique
+  layers, writable layers, named volumes and writable data folders, plus unused
+  images/volumes as reclaimable. The move simulator adds disk to its verdict.
+  Docker is queried field-by-field so container commands, labels and environment
+  (which can hold secrets) are never read.
 
 ### Changed
 

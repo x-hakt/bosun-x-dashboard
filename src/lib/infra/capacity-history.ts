@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { receiptsDir } from "@/lib/data/config";
 import { cached } from "@/lib/util/ttl-cache";
-import type { HistorySample } from "./capacity-core";
+import type { DiskRecord, HistorySample } from "./capacity-core";
 
 // BXD-63: reads the capacity sampler's history (BXD-62) back:
 // $BACKUP_RECEIPTS/_capacity/<UTC date>.jsonl, one line per host per 5-minute run.
@@ -68,4 +68,38 @@ async function readAll(): Promise<Map<string, HistorySample[]>> {
 // Five minutes: a new sample only lands every five minutes anyway.
 export async function getCapacityHistory(): Promise<Map<string, HistorySample[]>> {
   return cached("capacity:history", 5 * 60_000, readAll);
+}
+
+// BXD-65: the newest daily disk measurement (_capacity/disk-<date>.json), per host.
+// Measurements older than a few days are ignored rather than shown as current.
+const DISK_FILE = /^disk-\d{4}-\d{2}-\d{2}\.json$/;
+const DISK_MAX_AGE_DAYS = 3;
+
+async function readLatestDisk(): Promise<Map<string, DiskRecord>> {
+  const dir = path.join(receiptsDir(), "_capacity");
+  const out = new Map<string, DiskRecord>();
+  let files: string[];
+  try {
+    files = (await fs.readdir(dir)).filter((f) => DISK_FILE.test(f)).sort().reverse();
+  } catch {
+    return out;
+  }
+  // Newest file first; an older file only fills in hosts the newer one lacks.
+  for (const file of files.slice(0, DISK_MAX_AGE_DAYS)) {
+    try {
+      const parsed = JSON.parse(await fs.readFile(path.join(dir, file), "utf-8")) as { hosts?: Record<string, DiskRecord> };
+      for (const [host, record] of Object.entries(parsed.hosts ?? {})) {
+        if (out.has(host) || !record?.diskSizeBytes) continue;
+        if (record.t && Date.now() - Date.parse(record.t) > DISK_MAX_AGE_DAYS * 86_400_000) continue;
+        out.set(host, record);
+      }
+    } catch {
+      continue;
+    }
+  }
+  return out;
+}
+
+export async function getLatestDisk(): Promise<Map<string, DiskRecord>> {
+  return cached("capacity:disk", 10 * 60_000, readLatestDisk);
 }

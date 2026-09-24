@@ -19,6 +19,8 @@ export function segmentBg(seg: CapacitySegment): string {
       return "bg-orange-400/70";
     case "infra":
       return "bg-zinc-400/60";
+    case "reclaimable":
+      return "bg-violet-400/50";
     case "other":
       return "bg-zinc-600/70";
     case "free":
@@ -28,6 +30,8 @@ export function segmentBg(seg: CapacitySegment): string {
 
 const GIB = 1024 ** 3;
 export const fmtBytes = (b: number) => (b >= 100 * GIB ? `${(b / 1e9).toFixed(0)} GB` : b >= GIB ? `${(b / GIB).toFixed(1)} GiB` : `${(b / 1024 ** 2).toFixed(0)} MiB`);
+// Disk in decimal GB, like df and the host cards.
+export const fmtDisk = (b: number) => (b >= 10e9 ? `${(b / 1e9).toFixed(0)} GB` : b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${(b / 1e6).toFixed(0)} MB`);
 export const fmtCores = (c: number) => `${c < 0.1 ? c.toFixed(2) : c.toFixed(1)} cores`;
 export const pct = (v: number, total: number) => (total > 0 ? (v / total) * 100 : 0);
 export const fmtSpan = (hours: number) => (hours >= 48 ? `${(hours / 24).toFixed(1)} days` : `${hours.toFixed(hours < 10 ? 1 : 0)} h`);
