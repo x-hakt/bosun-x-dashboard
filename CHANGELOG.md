@@ -25,6 +25,8 @@ that trigger a GHCR image build.
   chevron and stays open until you close it, so Projects and Planning (or Servers)
   can be open together. Remembered per browser.
 - **Rename an idea** (BXD-57) — inline title editing on the idea page.
+- **Collapse sub-ideas** (BXD-60) — a chevron at the front of any Planning row with
+  sub-ideas hides or shows them. Remembered per browser.
 
 ### Changed
 

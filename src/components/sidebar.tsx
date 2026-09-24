@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
+import { Suspense, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { projectStatusAccent, planningStatusAccent } from "@/lib/status-colors";
+import { useStoredFlags, readStoredFlags } from "@/lib/hooks/use-stored-flags";
 
 type NavProject = { slug: string; name: string; status?: string };
 type NavIdea = { id: string; title: string; status: string };
@@ -177,65 +178,23 @@ function PlanningNav({ ideas, pathname, searchParams }: { ideas: NavIdea[]; path
   );
 }
 
-// Explicit open/closed choices, keyed by section href, in localStorage (with an
-// in-memory fallback when storage is unavailable). A section with no explicit
-// choice is open exactly when it's the active one.
-const navListeners = new Set<() => void>();
-let navMemory = "{}";
-
-function subscribeNav(listener: () => void) {
-  navListeners.add(listener);
-  window.addEventListener("storage", listener);
-  return () => {
-    navListeners.delete(listener);
-    window.removeEventListener("storage", listener);
-  };
-}
-
-function readNav(): string {
-  try {
-    return localStorage.getItem(NAV_OPEN_KEY) ?? navMemory;
-  } catch {
-    return navMemory;
-  }
-}
-
-function writeNav(state: Record<string, boolean>) {
-  navMemory = JSON.stringify(state);
-  try {
-    localStorage.setItem(NAV_OPEN_KEY, navMemory);
-  } catch {}
-  navListeners.forEach((listener) => listener());
-}
-
-function parseNav(raw: string): Record<string, boolean> {
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
+// Explicit open/closed choices, keyed by section href (see useStoredFlags). A section
+// with no explicit choice is open exactly when it's the active one.
 function useNavOpen(pathname: string) {
   const activeSection = NAV.find((item) => item.href !== "/" && sectionActive(item.href, pathname))?.href;
-  // Server snapshot is "{}" so the first paint matches: only the active section open.
-  const raw = useSyncExternalStore(subscribeNav, readNav, () => "{}");
-  const explicit = useMemo(() => parseNav(raw), [raw]);
+  const { flags: explicit, set } = useStoredFlags(NAV_OPEN_KEY);
 
   // Landing in a section with no explicit choice records it as open, so it stays
   // open after navigating somewhere else (opening one never closes another).
   // Reads storage fresh: during hydration `explicit` is still the server snapshot.
   useEffect(() => {
-    if (!activeSection) return;
-    const current = parseNav(readNav());
-    if (current[activeSection] === undefined) writeNav({ ...current, [activeSection]: true });
-  }, [activeSection, explicit]);
+    if (activeSection && readStoredFlags(NAV_OPEN_KEY)[activeSection] === undefined) set(activeSection, true);
+  }, [activeSection, explicit, set]);
 
   const isOpen = useCallback((href: string) => explicit[href] ?? href === activeSection, [explicit, activeSection]);
-  const toggle = useCallback((href: string) => writeNav({ ...parseNav(readNav()), [href]: !isOpen(href) }), [isOpen]);
+  const toggle = useCallback((href: string) => set(href, !isOpen(href)), [isOpen, set]);
   // Clicking a section's label opens it (and never closes any other section).
-  const expand = useCallback((href: string) => writeNav({ ...parseNav(readNav()), [href]: true }), []);
+  const expand = useCallback((href: string) => set(href, true), [set]);
 
   return { isOpen, toggle, expand };
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listPlanningTasks, clientReplyStatus } from "@/lib/data/planning";
 import { PlanningTaskRow } from "@/components/planning-task-row";
+import { PlanningSubtree } from "@/components/planning-tree-toggle";
 import { NewPlanningItemForm } from "@/components/new-planning-item-form";
 import type { PlanningTaskStatus, PlanningTaskWithDoc } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -54,19 +55,22 @@ function PlanningTree({
         task={task.meta}
         childCount={children.length || undefined}
         clientReplies={unseenReplies.get(task.meta.id)}
+        collapsible
       />
       {children.length > 0 && (
-        <div className="mt-1.5 space-y-1.5">
-          {children.map((child) => (
-            <PlanningTree
-              key={child.meta.id}
-              task={child}
-              depth={depth + 1}
-              childrenByParent={childrenByParent}
-              unseenReplies={unseenReplies}
-            />
-          ))}
-        </div>
+        <PlanningSubtree id={task.meta.id}>
+          <div className="mt-1.5 space-y-1.5">
+            {children.map((child) => (
+              <PlanningTree
+                key={child.meta.id}
+                task={child}
+                depth={depth + 1}
+                childrenByParent={childrenByParent}
+                unseenReplies={unseenReplies}
+              />
+            ))}
+          </div>
+        </PlanningSubtree>
       )}
     </div>
   );
