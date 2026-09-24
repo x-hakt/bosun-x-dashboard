@@ -1,5 +1,6 @@
 # Docs
 
+- **[Getting started](getting-started.md)**: install from npm, your first data folder, wiring agents, sign-in, running it as a service
 - **[Configuration](configuration.md)** — `config.yml` and environment variables
 - **[Projects](projects.md)** — `project.yml`, `tasks.yml`, `STATUS.md`, `backups.yml`
 - **[Discovery](discovery.md)** — how running services are found; `setup-remote.sh`; Podman

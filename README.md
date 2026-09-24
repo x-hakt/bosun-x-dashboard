@@ -1,7 +1,14 @@
 # bosun-x dashboard
 
-A self-hosted dashboard for the handful of projects you run across a couple of
-Linux boxes — **especially if you build them with AI coding agents.**
+**One page for everything your AI agents are working on.** A self-hosted dashboard
+for the handful of projects you run across a couple of Linux boxes, especially if you
+build them with AI coding agents.
+
+```bash
+npx bosun-x-dashboard --demo      # sample data at http://localhost:3010, nothing to set up
+```
+
+![A project's page: task board, active handoff, spec and docs (demo data)](https://x-hakt.com/shots/bosun-project.webp)
 
 It tracks *projects*, not just containers: each one has a spec, a live status, a
 task board, a cross-agent handoff log, and a computed standards checklist. It
@@ -9,8 +16,9 @@ finds services you're running but haven't tracked yet. And every byte of its
 state is plain Markdown and YAML on disk, so Claude Code, Codex, or you with a
 text editor can all read and write it directly.
 
-The companion CLI + MCP server is [`bosun-x`](https://github.com/x-hakt/bosun-x);
-this app uses it and shares its data model.
+The companion CLI + MCP server is [`bosun-x`](https://github.com/x-hakt/bosun-x):
+your agents use it to check work in and out, and `bosun dashboard` opens this app
+over the same data. **New here? Start with [getting started](docs/getting-started.md).**
 
 > **Self-hosted, MIT, no support promised.** It reads your Docker socket and
 > SSHes your boxes — it is inherently a thing you run yourself, on a private
@@ -50,7 +58,22 @@ this app uses it and shares its data model.
   screens, so adding a new idea or checking a task doesn't have to wait for a
   desk.
 
-## Quick start (self-host)
+## Quick start
+
+With Node.js 20+:
+
+```bash
+npm install -g bosun-x bosun-x-dashboard
+mkdir ~/bosun-data && cd ~/bosun-data
+bosun setup                 # timezone, sign-in, where your projects live
+bosun dashboard --open      # http://localhost:3010
+```
+
+It listens on `localhost` only, with no sign-in, until you configure a provider.
+[Getting started](docs/getting-started.md) covers adding projects, wiring your
+agents, remote servers, sign-in and running it as a service.
+
+### Or with Docker
 
 ```bash
 git clone https://github.com/x-hakt/bosun-x-dashboard
@@ -69,7 +92,7 @@ see [`docs/auth.md`](docs/auth.md). Instance settings (timezone, operators,
 where your projects live, remote hosts) are on the **Settings** page or in
 `<data>/config.yml`; a first-run `bosun setup` wizard scaffolds it.
 
-Full docs: **[docs/](docs/)** — configuration, the data model, discovery +
+Full docs: **[docs/](docs/)**: getting started, configuration, the data model, discovery +
 `setup-remote.sh`, capacity, deploying (source or the GHCR image), the client
 portal, the security model, restore runbooks.
 

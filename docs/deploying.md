@@ -1,6 +1,27 @@
 # Deploying
 
-## From source
+Two ways to run it: the **npm package** (a Node process, simplest on a machine you
+already use) or the **container image** (isolated, and how the client portal guide
+is written). Both read the same data folder and behave the same.
+
+## From npm
+
+```bash
+npm install -g bosun-x-dashboard
+bosun-x-dashboard --data ~/bosun-data            # or `bosun dashboard` from the CLI
+```
+
+`--port` (default 3010) and `--host` (default `127.0.0.1`) choose where it listens;
+every other setting is the same environment variables and `config.yml` as the
+container. Run it under systemd so it survives reboots: see
+[getting started](getting-started.md#8-run-it-as-a-service). Upgrade with
+`npm install -g bosun-x-dashboard@latest`.
+
+The package ships the prebuilt server; `npm` installs its runtime dependencies for
+your platform. It needs Node.js 20+, and the `docker`, `git` and `ssh` commands for
+the live server features.
+
+## From source (Docker)
 
 ```bash
 git clone https://github.com/x-hakt/bosun-x-dashboard
@@ -35,6 +56,7 @@ for `BOSUN_PORTAL`, the required sign-in provider, and the `clients.yml` allowli
 
 ## Updating
 
+- **npm:** `npm install -g bosun-x-dashboard@latest`, then restart it
 - **Source:** `git pull && docker compose up -d --build`
 - **Image:** bump the tag (or `docker compose pull` for `:latest`) then `up -d`
 
@@ -42,11 +64,23 @@ Your data directory is never touched by an update — it's a separate bind mount
 
 ## Cutting a release (maintainers)
 
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
+1. Bump `version` in `package.json` (and the lockfile: `npm install --package-lock-only`),
+   move the CHANGELOG's Unreleased notes under the new version, commit.
+2. Tag and push; the `Release` workflow builds and pushes `:vX.Y.Z`, `:X.Y` and
+   `:latest` to GHCR with the repo's `GITHUB_TOKEN`:
 
-The `Release` workflow builds and pushes `:v0.1.0`, `:0.1`, and `:latest` to GHCR using
-the repo's `GITHUB_TOKEN` (no extra secret). Update `CHANGELOG.md` in the same commit
-as the tag.
+   ```bash
+   git tag v0.2.0
+   git push origin main v0.2.0
+   ```
+
+3. Publish the npm package (npm asks for your one-time password):
+
+   ```bash
+   npm run build:npm        # builds from a clean clone of HEAD into ./dist-npm
+   npm publish ./dist-npm
+   ```
+
+   `npm run pack:npm` makes a `.tgz` instead, to install and try first
+   (`npm install -g ./bosun-x-dashboard-X.Y.Z.tgz`). If the major or minor version
+   changed, bump `DASHBOARD_RANGE` in the bosun-x CLI so `bosun dashboard` fetches it.
