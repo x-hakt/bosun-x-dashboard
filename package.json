@@ -9,7 +9,9 @@
     "lint": "eslint",
     "init-data": "bash scripts/init-data.sh",
     "handoff": "node scripts/handoff.mjs",
-    "mcp": "node mcp/server.mjs"
+    "mcp": "node mcp/server.mjs",
+    "build:npm": "node scripts/build-npm.mjs",
+    "pack:npm": "node scripts/build-npm.mjs --pack"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

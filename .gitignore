@@ -50,3 +50,7 @@ deploy/docker-compose.control-room.yml
 
 # portal-isolation.sh scratch (compiled-module test sections)
 scripts/test/.tmp-*/
+
+# npm package build output (scripts/build-npm.mjs)
+/dist-npm/
+/bosun-x-dashboard-*.tgz
