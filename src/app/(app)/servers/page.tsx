@@ -1,4 +1,5 @@
 import path from "node:path";
+import { Suspense } from "react";
 import { loadHosts } from "@/lib/data/hosts";
 import { getLocalSnapshot } from "@/lib/infra/local";
 import { getRemoteSnapshot } from "@/lib/infra/remote";
@@ -6,6 +7,7 @@ import { readMarkdownIfExists } from "@/lib/data/markdown";
 import { importedDir } from "@/lib/data/paths";
 import { HostCard } from "@/components/host-card";
 import { TopologyStrip } from "@/components/topology-strip";
+import { CapacityPanel } from "@/components/capacity-panel";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -63,6 +65,10 @@ export default async function InfraPage() {
           );
         })}
       </div>
+
+      <Suspense fallback={<p className="text-xs text-muted-foreground">Working out capacity…</p>}>
+        <CapacityPanel />
+      </Suspense>
 
       {networkMap && (
         <Card>
