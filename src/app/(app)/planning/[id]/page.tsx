@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getPlanningTask, listPlanningTasks, clientReplyStatus } from "@/lib/data/planning";
+import { getPlanningTask, listPlanningTasks, clientReplyStatus, descendantIds } from "@/lib/data/planning";
 import { loadClientRegistry } from "@/lib/data/clients";
 import { SharingControl } from "@/components/portal/sharing-control";
 import { PlanningClientRepliesNotice } from "@/components/planning-client-replies-notice";
 import { PlanningStatusEditor } from "@/components/planning-status-editor";
+import { PlanningTitle } from "@/components/planning-title";
 import { PlanningNotesEditor } from "@/components/planning-notes-editor";
 import { GraduatedLinkEditor } from "@/components/graduated-link-editor";
 import { NewPlanningItemForm } from "@/components/new-planning-item-form";
@@ -30,15 +31,15 @@ export default async function PlanningDetailPage(props: { params: Promise<{ id: 
   for (const t of all) {
     if (t.meta.parent) grandchildCounts.set(t.meta.parent, (grandchildCounts.get(t.meta.parent) ?? 0) + 1);
   }
-  const descendantCount = all.filter((t) => t.meta.id.startsWith(`${id}.`)).length;
+  const descendantCount = descendantIds(all, id).length;
   const redirectAfterDelete = parent ? `/planning/${parent.meta.id}` : "/planning";
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-mono text-muted-foreground">{task.meta.id}</p>
-          <h1 className="text-lg font-semibold tracking-tight">{task.meta.title}</h1>
+          <PlanningTitle id={task.meta.id} initialTitle={task.meta.title} />
           {parent && (
             <p className="text-xs text-muted-foreground mt-1">
               Sub-idea of{" "}
@@ -49,7 +50,7 @@ export default async function PlanningDetailPage(props: { params: Promise<{ id: 
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <PlanningStatusEditor id={task.meta.id} status={task.meta.status} />
+          <PlanningStatusEditor id={task.meta.id} status={task.meta.status} descendantCount={descendantCount} />
           <PlanningDeleteButton
             id={task.meta.id}
             title={task.meta.title}
