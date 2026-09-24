@@ -34,7 +34,9 @@ add the host to `infra/hosts.yml`.
 
 The restriction is `command="...",restrict` — no pty, no forwarding, no `~/.ssh/rc`.
 Verify it: `ssh -i <key> user@host 'id'` should run the discovery script, not `id`, and
-`ssh -tt` should be refused. See [security](security.md).
+`ssh -tt` should be refused. See [security](security.md). The one requested command it
+honours is exactly `bosun-x-disk`, the daily per-project disk measurement (read-only,
+sizes and paths only); see [capacity](capacity.md).
 
 If the target is reachable only through a jump host, add `ProxyJump` to the Host block
 and give the jump host a matching line with `permitopen="TARGET:22"` instead of plain
