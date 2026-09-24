@@ -78,7 +78,7 @@ function parseContainers(block: string): ContainerSummary[] {
           extractLabel(parsed.Labels, "com.docker.compose.service") ??
           extractLabel(parsed.Labels, "io.podman.compose.service"),
         composeWorkingDir: extractLabel(parsed.Labels, "com.docker.compose.project.working_dir"),
-        // BXD-64: `docker ps` truncates mount names ("/home/thrax/un…"), but a leading
+        // BXD-64: `docker ps` truncates mount names ("/srv/app/da…"), but a leading
         // "/" still tells a bind mount from a named volume, which is all that's needed.
         mounts: parsed.Mounts ? parsed.Mounts.split(",").map((m) => m.trim()).filter(Boolean) : [],
         traefik: /(?:^|,)traefik\.enable=true(?:,|$)/.test(parsed.Labels),

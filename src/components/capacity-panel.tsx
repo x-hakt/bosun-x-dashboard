@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCapacityOverview, MIN_HISTORY_HOURS, type CapacityBar, type HostCapacity } from "@/lib/infra/capacity";
+import { getCapacityOverview, MIN_HISTORY_HOURS, type CapacityBar, type HostCapacity, type ProjectFacts } from "@/lib/infra/capacity";
 import { Bar, fmtBytes, fmtCores, fmtDisk, fmtSpan, segmentBg, segmentTitle } from "@/components/capacity-bar";
 import { plainDiskBar } from "@/lib/infra/capacity-core";
 import { MoveSimulator } from "@/components/move-simulator";
@@ -41,7 +41,9 @@ function Legend({ bar, format = fmtBytes, limit }: { bar: CapacityBar; format?: 
   const shown = limit ? ranked.slice(0, limit) : ranked;
   const rest = limit ? ranked.slice(limit) : [];
   return (
-    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] font-mono">
+    // Two columns only when the card itself is wide enough (a container query, not the
+    // viewport), so names and peak markers aren't squeezed in the two-up host grid.
+    <ul className="grid grid-cols-1 @xl/capacity:grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] font-mono">
       {shown.map((seg) => (
         <li key={seg.key} className="flex items-center gap-1.5 min-w-0">
           <span className={cn("size-2 shrink-0 rounded-[2px]", segmentBg(seg))} aria-hidden />
@@ -83,7 +85,7 @@ function HostCapacityCard({ host }: { host: HostCapacity }) {
           </Link>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="@container/capacity space-y-3">
         {host.mem ? (
           <>
             <Bar bar={host.mem} format={fmtBytes} height="h-4" label="RAM" />
@@ -109,8 +111,9 @@ function intro(hosts: HostCapacity[]): string {
   return `What's using each server right now. The dashed line is the 80% comfort limit. Switches to p95 and peak usage once ${MIN_HISTORY_HOURS} hours of history is recorded${soFar}.`;
 }
 
-export async function CapacityPanel() {
-  const { hosts, projects } = await getCapacityOverview();
+// Presentational half, so it can be rendered from fixed data (docs screenshots) as
+// well as from the live overview.
+export function CapacityView({ hosts, projects }: { hosts: HostCapacity[]; projects: ProjectFacts[] }) {
   if (hosts.length === 0) return null;
   return (
     <section className="space-y-3" aria-labelledby="capacity-heading">
@@ -128,4 +131,9 @@ export async function CapacityPanel() {
       <MoveSimulator hosts={hosts} projects={projects} />
     </section>
   );
+}
+
+export async function CapacityPanel() {
+  const { hosts, projects } = await getCapacityOverview();
+  return <CapacityView hosts={hosts} projects={projects} />;
 }

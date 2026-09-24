@@ -9,7 +9,7 @@ infrastructure: run it on a private network or behind auth, never open to the in
 | --- | --- | --- |
 | local Docker socket | **read-only** mount | list containers + health for discovery |
 | `project_roots` dirs | **read-only** mount | parse compose files; `git`/file standards checks |
-| remote hosts | SSH, one forced read-only command | remote container list + host stats |
+| remote hosts | SSH, one forced read-only command | remote container list + host stats; per-project disk sizes when asked for exactly `bosun-x-disk` ([capacity](capacity.md)) |
 | `DATA_DIR` | read-write | its own data — projects, tasks, notes |
 | `backup_receipts` | read-only | render backup health (the agent does the work) |
 

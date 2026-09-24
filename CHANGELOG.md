@@ -52,9 +52,9 @@ that trigger a GHCR image build.
   Docker is queried field-by-field so container commands, labels and environment
   (which can hold secrets) are never read.
 - **Disk per project on remote servers** (BXD-66) — the remote hosts' forced read-only
-  command answers exactly `bosun-x-disk` with the same measurement (installed on
-  lighthouse, gp-forms-prod and podusa-prod; `setup-remote.sh` includes it for new
-  hosts), so every server's disk bar is split by project.
+  command answers exactly `bosun-x-disk` with the same measurement (`setup-remote.sh`
+  includes it for new hosts; existing hosts need the block added to their script, see
+  docs/capacity.md), so every server's disk bar is split by project.
 
 ### Changed
 

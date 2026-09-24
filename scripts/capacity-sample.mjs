@@ -7,9 +7,9 @@
 // are reached through their forced read-only SSH command (bosun-x-ro.sh).
 //
 // One line per host per run:
-//   {"t":"…Z","host":"caspar","ok":true,"cores":8,"mem_total":…,"mem_used":…,
+//   {"t":"…Z","host":"home-server","ok":true,"cores":8,"mem_total":…,"mem_used":…,
 //    "disk_size":…,"disk_used":…,"load1":0.5,"c":{"<container>":[memBytes,cpuPercent]}}
-//   {"t":"…Z","host":"podusa-prod","ok":false,"error":"…"}
+//   {"t":"…Z","host":"cloud-vps","ok":false,"error":"…"}
 // Containers are recorded by name; the dashboard maps them to projects at read
 // time (BXD-63) with the same discovery it uses everywhere else.
 //

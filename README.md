@@ -27,6 +27,9 @@ this app uses it and shares its data model.
 - **Infrastructure** — live container and disk state for the local host; a network
   map for the rest; discovery that groups running containers into projects and
   flags the ones you don't track yet.
+- **Capacity** — every server's RAM, CPU and disk split by project, with typical
+  (p95) and peak usage from a 5-minute sampler, and a move simulator that says
+  whether a project would fit on another server. See [`docs/capacity.md`](docs/capacity.md).
 - **Handoff** — an append-only `HANDOFF.md` + a bounded `HANDOFF.yml` snapshot per
   project, so the next session (agent or human) resumes without re-deriving state.
   Driven by the `bosun-x` CLI.
@@ -67,8 +70,8 @@ where your projects live, remote hosts) are on the **Settings** page or in
 `<data>/config.yml`; a first-run `bosun setup` wizard scaffolds it.
 
 Full docs: **[docs/](docs/)** — configuration, the data model, discovery +
-`setup-remote.sh`, deploying (source or the GHCR image), the client portal, the
-security model, restore runbooks.
+`setup-remote.sh`, capacity, deploying (source or the GHCR image), the client
+portal, the security model, restore runbooks.
 
 ## Local development
 
