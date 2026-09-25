@@ -4,13 +4,17 @@ import { createRequire } from "node:module";
 import ts from "typescript";
 
 const require = createRequire(import.meta.url);
-const source = fs.readFileSync(new URL("../../src/lib/activity.ts", import.meta.url), "utf8");
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-const mod = { exports: {} };
-new Function("require", "module", "exports", compiled)(
-  (name) => name === "@/lib/data/paths" ? { DATA_DIR: "/tmp" }
-    : name === "@/lib/data/tasks" ? { loadTasks: async () => [] } : require(name), mod, mod.exports,
-);
+const load = (file, resolve) => {
+  const source = fs.readFileSync(new URL(`../../src/lib/${file}`, import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const mod = { exports: {} };
+  new Function("require", "module", "exports", compiled)(resolve, mod, mod.exports);
+  return mod;
+};
+const stateModule = load("activity-state.ts", require);
+const mod = load("activity.ts", (name) => name === "@/lib/data/paths" ? { DATA_DIR: "/tmp" }
+  : name === "@/lib/data/tasks" ? { loadTasks: async () => [] }
+  : name === "@/lib/activity-state" ? stateModule.exports : require(name));
 const { projectActivity } = mod.exports;
 const at = "2026-09-25T00:00:00.000Z";
 const base = { v: 1, provider: "codex", session: "one", parent: null, turn: null, host: "dragonfly", project: "bosun-x", task: "BX-8", received: at };

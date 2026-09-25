@@ -23,6 +23,12 @@ The operator view also places known scheduled jobs from the existing `_jobs` run
 
 An agent can also attach a known provider session to the task in a `bosun start` or `bosun checkpoint` call by passing `--session <id>` (or setting `BOSUN_SESSION_ID`). This emits an `assignment` event after the handoff write. It never guesses that a project-wide handoff belongs to every open session; when several task keys are carried, the first is the displayed primary task.
 
+## Harbour and ship's log
+
+With sessions on more than one project, **Harbour** shows each project as a small moored ship: sized by its open tasks, a red flag when someone aboard needs approval, crew on deck in the same poses as the main ship. Sessions with no project row about in a dinghy. Click a ship to board it (the full deck); **Harbour** returns. The private page moors every project seen in the last three hours; the public embed moors its approved aliases, never the dinghy.
+
+The private **Ship's log** draws the last 24 hours as one lane per session, grouped by project, subagents under their parent: bars coloured by state, hatched once a signal goes stale (no event for five minutes), ending after an hour of silence or when the session finishes. Scheduled jobs are markers on their own row; the right edge is now. It replays the same state rules as the session list (`src/lib/activity-state.ts`), so a lane always ends in the state the roster shows. It reads the same bounded window as the page (the last 2000 events of three days) and says so if that cuts the day short.
+
 ## First live Codex signal
 
 On dragonfly, open a terminal and run `codex`. At the Codex prompt, type `/hooks`, choose each configured event, inspect the Bosun command handler and trust it. The handler should invoke `node /home/thrax/devserver/unified-services/bosun-x/hooks/activity.mjs codex`. Repeat in a Codex session on Caspar (`ssh devserver`, then `codex`); there the path is `node /home/thrax/unified-services/bosun-x/hooks/activity.mjs codex`. `/hooks` is a Codex slash command, not a URL or a shell command. Codex will skip these user hooks until a person reviews and trusts the exact definition.

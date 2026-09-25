@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { PublicCrew, PublicFleet } from "@/lib/activity";
-import { layoutCrew, SLOTS, type Placed, type Pose } from "@/lib/crew-scene";
+import { layoutCrew, poseFor, SLOTS, type Placed, type Pose } from "@/lib/crew-scene";
 
 // IDEA-20 (BXD-81): the living deck. One SVG ship; each session is an original
 // pixel-art sailor standing where its observed state puts it (see lib/crew-scene.ts).
@@ -236,25 +236,144 @@ function Ship({ crew }: { crew: DisplayCrew[] }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// BXD-82: the harbour. "All" with more than one project shows each as a small moored
+// ship (sized by open tasks, a red flag when someone needs you) with its crew on deck;
+// unmapped sessions row about in a dinghy. Clicking a ship boards it (the deck above).
+
+const UNMAPPED = "Unmapped";
+const DECK_SLOTS = 6;
+
+// Needs-you first, then the rest in their deck order, so the flagged sailor is visible.
+const ATTENTION: Record<PublicCrew["state"], number> = { needs_approval: 0, working: 1, waiting_for_tool: 2, ready_for_prompt: 3, stale: 4, finished: 5, unknown: 6 };
+
+function DeckHands({ crew, xs, y, u }: { crew: DisplayCrew[]; xs: number[]; y: number; u: number }) {
+  const onDeck = crew.filter((m) => poseFor(m.state)).sort((a, b) => ATTENTION[a.state] - ATTENTION[b.state]);
+  const shown = onDeck.slice(0, xs.length);
+  return (
+    <g>
+      {shown.map((m, i) => (
+        <g key={`${m.alias}-${i}`} className={`crew-figure crew-${m.state}`} transform={`translate(${xs[i]} ${y}) scale(${u * (m.sub ? 0.75 : 1)})`}>
+          <title>{`${m.alias} · ${labels[m.state]}`}</title>
+          <Sailor pose={poseFor(m.state)!} coat={coatFor(m.alias)} sub={m.sub} />
+        </g>
+      ))}
+      {onDeck.length > shown.length && (
+        <text x={xs.at(-1)! + 16} y={y - 30} className="crew-moored-more">+{onDeck.length - shown.length}</text>
+      )}
+    </g>
+  );
+}
+
+function MooredShip({ crew, tasks }: { crew: DisplayCrew[]; tasks: number }) {
+  // 0.8 for an empty board up to 1.1 for 15+ open tasks; scaled about the waterline.
+  const size = 0.8 + 0.3 * Math.min(1, tasks / 15);
+  const alarm = crew.some((m) => m.state === "needs_approval");
+  return (
+    <svg viewBox="0 0 240 150" className="crew-moored-svg" aria-hidden="true">
+      <g transform={`translate(120 128) scale(${size}) translate(-120 -128)`}>
+        <rect x="117" y="22" width="5" height="76" fill="#5a3b2a" />
+        <path d="M86 32 L154 32 L149 72 L91 72 Z" fill="#e9dcb8" className="crew-sail" />
+        <g className="crew-flag">
+          <path d={alarm ? "M122 14 L150 20 L122 28 Z" : "M122 16 L142 20 L122 25 Z"} fill={alarm ? "#d23b3b" : "#a8363a"} />
+        </g>
+        {alarm && <text x="131" y="25" className="crew-moored-alarm">!</text>}
+        <path d="M30 96 L210 96 L196 126 Q120 136 44 126 Z" fill="#6e4530" />
+        <rect x="28" y="92" width="184" height="5" fill="#b98050" />
+        <line x1="40" y1="110" x2="202" y2="110" stroke="#5a3826" strokeWidth="2" />
+        <DeckHands crew={crew} xs={[52, 84, 156, 188, 100, 204].slice(0, DECK_SLOTS)} y={92} u={2.1} />
+      </g>
+      <path d="M0 130 Q15 125 30 130 T60 130 T90 130 T120 130 T150 130 T180 130 T210 130 T240 130 L240 150 L0 150 Z" fill="#1f5a73" />
+    </svg>
+  );
+}
+
+function Dinghy({ crew }: { crew: DisplayCrew[] }) {
+  return (
+    <svg viewBox="0 0 240 150" className="crew-moored-svg" aria-hidden="true">
+      <g stroke="#caa877" strokeWidth="3" strokeLinecap="round">
+        <line x1="70" y1="112" x2="30" y2="132" />
+        <line x1="170" y1="112" x2="210" y2="132" />
+      </g>
+      <path d="M62 110 L178 110 L166 128 Q120 134 74 128 Z" fill="#7a4b2c" />
+      <rect x="60" y="106" width="120" height="5" fill="#b98050" />
+      <DeckHands crew={crew} xs={[90, 120, 150, 105]} y={106} u={1.9} />
+      <path d="M0 130 Q15 125 30 130 T60 130 T90 130 T120 130 T150 130 T180 130 T210 130 T240 130 L240 150 L0 150 Z" fill="#1f5a73" />
+    </svg>
+  );
+}
+
+function Harbour({ ships, dinghy, onBoard }: {
+  ships: { project: string; crew: DisplayCrew[]; order?: PublicFleet }[];
+  dinghy: DisplayCrew[];
+  onBoard: (project: string) => void;
+}) {
+  const summary = (crew: DisplayCrew[]) => {
+    const aboard = crew.filter((m) => poseFor(m.state)).length;
+    const needs = crew.filter((m) => m.state === "needs_approval").length;
+    return { aboard, needs };
+  };
+  return (
+    <div className="crew-harbour-grid" role="list" aria-label="Harbour: one ship per project">
+      {ships.map(({ project, crew, order }) => {
+        const { aboard, needs } = summary(crew);
+        const tasks = (order?.todo ?? 0) + (order?.inProgress ?? 0);
+        const orders = order ? `${order.inProgress} underway · ${order.todo} to do` : "";
+        return (
+          <div role="listitem" key={project}>
+            <button type="button" className={`crew-moored${needs ? " crew-moored-alert" : ""}`} onClick={() => onBoard(project)}
+              aria-label={`Board ${project}: ${aboard} aboard${needs ? `, ${needs} need${needs === 1 ? "s" : ""} you` : ""}${orders ? `, ${orders}` : ""}`}>
+              <MooredShip crew={crew} tasks={tasks} />
+              <span className="crew-moored-name">{project}</span>
+              <span className="crew-moored-stats">
+                {aboard ? `${aboard} aboard` : "no one aboard"}{needs ? <b> · {needs} need{needs === 1 ? "s" : ""} you</b> : null}
+              </span>
+              {orders && <span className="crew-moored-stats">{orders}</span>}
+            </button>
+          </div>
+        );
+      })}
+      {dinghy.length > 0 && (() => {
+        const { aboard, needs } = summary(dinghy);
+        return (
+          <div role="listitem">
+            <button type="button" className={`crew-moored crew-moored-dinghy${needs ? " crew-moored-alert" : ""}`} onClick={() => onBoard(UNMAPPED)}
+              aria-label={`Rowing boat, sessions with no project: ${aboard} aboard${needs ? `, ${needs} need${needs === 1 ? "s" : ""} you` : ""}`}>
+              <Dinghy crew={dinghy} />
+              <span className="crew-moored-name">Rowing boat</span>
+              <span className="crew-moored-stats">{aboard} unmapped{needs ? <b> · {needs} need{needs === 1 ? "s" : ""} you</b> : null}</span>
+            </button>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
 export function CrewShip({ crew, fleet = [], publicView = false }: { crew: DisplayCrew[]; fleet?: PublicFleet[]; publicView?: boolean }) {
   const [selection, setSelection] = useState("all");
   const projects = [...new Set([...fleet.map((ship) => ship.project), ...crew.map((member) => member.project)])].sort();
   const selected = projects.includes(selection) ? selection : "all";
   const visible = selected === "all" ? crew : crew.filter((member) => member.project === selected);
+  const orders = new Map(fleet.map((ship) => [ship.project, ship]));
+  const ships = projects.filter((p) => p !== UNMAPPED || orders.has(p)).map((project) => ({ project, crew: crew.filter((m) => m.project === project), order: orders.get(project) }));
+  const dinghy = orders.has(UNMAPPED) ? [] : crew.filter((m) => m.project === UNMAPPED);
+  const multi = ships.length + (dinghy.length ? 1 : 0) > 1;
+  const harbour = selected === "all" && multi;
   return (
     <section className="crew-scene" aria-label="Bosun crew activity">
       <div className="crew-harbour">
-        <span className="crew-harbour-title">THE FLEET</span>
+        <span className="crew-harbour-title">{selected === "all" ? "THE HARBOUR" : `ABOARD · ${selected.toUpperCase()}`}</span>
         <div className="crew-filters" aria-label="Choose a project ship">
-          <button type="button" aria-pressed={selected === "all"} onClick={() => setSelection("all")}>All <small>{crew.length}</small></button>
+          <button type="button" aria-pressed={selected === "all"} onClick={() => setSelection("all")}>{multi ? "Harbour" : "All"} <small>{crew.length}</small></button>
           {projects.map((project) => <button type="button" key={project} aria-pressed={selected === project} onClick={() => setSelection(project)}>{project} <small>{crew.filter((member) => member.project === project).length}</small></button>)}
         </div>
       </div>
-      <div className="crew-frame"><Ship crew={visible} /></div>
+      {harbour ? <Harbour ships={ships} dinghy={dinghy} onBoard={setSelection} /> : <div className="crew-frame"><Ship crew={visible} /></div>}
       <p className="crew-key" aria-hidden="true">
         <span>at the mast: working</span><span>at a gun: tool running</span><span>at the captain&apos;s door: needs you</span><span>at the bow: ready</span><span>asleep: signal stale</span>
       </p>
-      {fleet.length > 0 && <div className="crew-orders" aria-label="Project work summary">
+      {!harbour && fleet.length > 0 && <div className="crew-orders" aria-label="Project work summary">
         {fleet.filter((ship) => selected === "all" || ship.project === selected).map((ship) =>
           <div className="crew-order" key={ship.project}><strong>{ship.project}</strong>
             <span>{ship.inProgress} underway · {ship.todo} to do</span></div>)}

@@ -16,7 +16,7 @@ const { outputText } = ts.transpileModule(source, {
 });
 const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "crew-scene-test-")), "crew-scene.mjs");
 fs.writeFileSync(tmp, outputText);
-const { stationFor, layoutCrew, SLOTS } = await import(pathToFileURL(tmp).href);
+const { stationFor, layoutCrew, SLOTS, poseFor } = await import(pathToFileURL(tmp).href);
 
 test("each observed state has its station; finished and unknown are off deck", () => {
   assert.equal(stationFor("working"), "rigging");
@@ -70,4 +70,11 @@ test("close neighbours get alternating nameplate rows", () => {
   const { placed } = layoutCrew(Array.from({ length: 4 }, (_, i) => ({ id: String(i), state: "ready_for_prompt" })));
   const tiers = [...placed].sort((a, b) => a.x - b.x).map((p) => p.tier);
   for (let i = 1; i < tiers.length; i++) assert.notEqual(tiers[i], tiers[i - 1]);
+});
+
+test("harbour poses follow the deck's stations (BXD-82)", () => {
+  assert.equal(poseFor("working"), "haul");
+  assert.equal(poseFor("needs_approval"), "call");
+  assert.equal(poseFor("stale"), "sleep");
+  assert.equal(poseFor("finished"), null);
 });

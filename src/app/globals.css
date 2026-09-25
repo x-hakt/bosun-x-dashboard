@@ -199,3 +199,15 @@
     background-color: var(--muted-foreground);
   }
 }
+/* BXD-82: the harbour, one moored ship per project */
+.crew-harbour-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 10px; border-radius: 12px; background: linear-gradient(#123a52, #1d4a63); border-top: 6px solid #6a4630; }
+@media (min-width: 640px) { .crew-harbour-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; padding: 12px; } }
+.crew-moored { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; padding: 6px 6px 8px; border: 1px solid #346075; border-radius: 10px; background: #0b2538cc; color: #f6e8c8; cursor: pointer; font: 11px monospace; }
+.crew-moored:hover, .crew-moored:focus-visible { border-color: #f4cf83; outline: 2px solid #f4cf83; outline-offset: 1px; }
+.crew-moored-alert { border-color: #d23b3b; }
+.crew-moored-svg { display: block; width: 100%; height: auto; }
+.crew-moored-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 12px; color: #f4cf83; }
+.crew-moored-stats { text-align: center; opacity: .9; }
+.crew-moored-stats b { color: #ff8f7a; font-weight: 700; }
+.crew-moored-more { fill: #f6e8c8; font: 700 12px monospace; }
+.crew-moored-alarm { fill: #fff4d6; font: 700 9px monospace; }
