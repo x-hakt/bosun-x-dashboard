@@ -1,23 +1,41 @@
 import Link from "next/link";
-import { publicFleet, readActivity, type PublicCrew } from "@/lib/activity";
+import { readActivity, type PublicCrew, type PublicFleet } from "@/lib/activity";
+
+type Signal = { host: string; provider: string; lastAt: string; fresh: boolean; events: number; unmapped: number };
+
+// BXD-83: where signals come from, one row per host × provider, so a quiet machine is visible.
+function signalSources(events: { host: string | null; provider: string; project: string | null; at: string }[]): Signal[] {
+  const now = Date.now();
+  const rows = new Map<string, Signal>();
+  for (const e of events) {
+    const host = e.host || "unknown host";
+    const row = rows.get(`${host}\u0000${e.provider}`) ?? { host, provider: e.provider, lastAt: e.at, fresh: false, events: 0, unmapped: 0 };
+    if (e.at > row.lastAt) row.lastAt = e.at;
+    row.events += 1;
+    if (!e.project) row.unmapped += 1;
+    rows.set(`${host}\u0000${e.provider}`, row);
+  }
+  return [...rows.values()].map((r) => ({ ...r, fresh: now - Date.parse(r.lastAt) < 5 * 60_000 })).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+}
 import { ActivityRefresh } from "@/components/activity-refresh";
 import { CrewShip } from "@/components/crew-ship";
 import { getJobStatuses } from "@/lib/data/jobs";
 import { loadTasks } from "@/lib/data/tasks";
+import { listProjects } from "@/lib/data/projects";
+import { taskDisplayKey, taskPrefix } from "@/lib/data/task-key";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function ActivityPage() {
-  const tracked = [{ slug: "bosun-x", key: "BX" }, { slug: "bosun-x-dashboard", key: "BXD" }, { slug: "x-hakt", key: "XH" }];
-  const [{ crew, events }, jobInfo, fleet, boards] = await Promise.all([
-    readActivity(), getJobStatuses(), publicFleet(), Promise.all(tracked.map((project) => loadTasks(project.slug))),
-  ]);
-  const workOrders = tracked.flatMap((project, index) => boards[index]
+  const [{ crew, events }, jobInfo, projects] = await Promise.all([readActivity(), getJobStatuses(), listProjects()]);
+  // BXD-83: IDEA-20 work orders can live on any board, so scan them all.
+  const boards = await Promise.all(projects.map((project) => loadTasks(project.meta.slug).catch(() => [])));
+  const workOrders = projects.flatMap((project, index) => boards[index]
     .filter((task) => task.status !== "done" && /^IDEA-20(?:\.|:)/.test(task.title))
-    .map((task) => ({ ...task, project: project.slug, key: `${project.key}-${task.num}` })))
+    .map((task) => ({ ...task, project: project.meta.slug, key: taskDisplayKey(task, boards[index], taskPrefix(project.meta)) ?? task.id })))
     .sort((a, b) => (a.status === "in_progress" ? 0 : 1) - (b.status === "in_progress" ? 0 : 1));
-  const liveCount = crew.filter((member) => !["finished", "unknown", "stale"].includes(member.state)).length;
+  const sources = signalSources(events);
   const jobEvents = jobInfo.jobs.flatMap((job) => {
     const entries: { id: string; at: string; label: string; source: string; context: string }[] = [];
     if (job.lastRun?.startedAt) entries.push({ id: `${job.name}:start:${job.lastRun.startedAt}`, at: job.lastRun.startedAt, label: "started", source: job.label, context: "scheduled job" });
@@ -28,11 +46,20 @@ export default async function ActivityPage() {
     ...events.map((event) => ({ id: event.id, at: event.at, label: event.kind.replaceAll("_", " "), source: event.provider, context: event.project || "unmapped" })),
     ...jobEvents,
   ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 60);
-  const shipCrew: PublicCrew[] = crew.filter((member) => member.state !== "finished" && member.state !== "unknown").slice(0, 8).map((member, i) => ({
-    alias: `${member.provider === "codex" ? "Codex" : member.provider === "claude" ? "Claude" : "Crew"} ${i + 1}`,
+  const counts = new Map<string, number>();
+  const shipCrew: (PublicCrew & { href?: string; sub?: boolean })[] = crew.filter((member) => member.state !== "finished" && member.state !== "unknown").slice(0, 24).map((member) => {
+    const name = member.provider === "codex" ? "Codex" : member.provider === "claude" ? "Claude" : "Crew";
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+    return {
+    alias: `${name} ${counts.get(name)}`, sub: Boolean(member.parent),
     project: member.project || "Unmapped", state: member.state, updated: member.lastSeen,
     href: member.project ? `/projects/${encodeURIComponent(member.project)}${member.task ? `#${encodeURIComponent(member.task)}` : ""}` : undefined,
-  }));
+    };
+  });
+  // The private fleet uses real slugs (the public one uses approved aliases): every board with crew aboard.
+  const fleet: PublicFleet[] = projects.flatMap((project, index) => shipCrew.some((member) => member.project === project.meta.slug)
+    ? [{ project: project.meta.slug, todo: boards[index].filter((task) => task.status === "todo").length, inProgress: boards[index].filter((task) => task.status === "in_progress").length }]
+    : []);
   return <div className="space-y-6">
     <ActivityRefresh />
     <div><p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Bosun · watch</p>
@@ -40,15 +67,13 @@ export default async function ActivityPage() {
       <p className="text-sm text-muted-foreground mt-2">Session signals from Claude and Codex. A quiet or stale signal is never counted as active work.</p></div>
     <CrewShip crew={shipCrew} fleet={fleet} />
     <section className="rounded-lg border border-border bg-card p-4 space-y-3">
-      <h2 className="font-mono text-lg">Bring the crew online</h2>
-      <p className="text-sm">{liveCount ? `${liveCount} live agent session${liveCount === 1 ? "" : "s"} observed.` : "No live agent session is being observed. The ship stays empty when every session has ended or its signal is older than five minutes."}
-        {events[0] ? <> Last event: <time dateTime={events[0].at}>{new Date(events[0].at).toLocaleString("en-AU", { timeZone: "Australia/Sydney" })}</time>.</> : null}</p>
-      <ol className="list-decimal pl-5 space-y-2 text-sm">
-        <li>On dragonfly, open a terminal and run <code>codex</code>. At the <em>Codex prompt</em>, type <code>/hooks</code>, inspect the Bosun handlers, then choose Trust. This is not a website or a shell command. Repeat in a Codex session on Caspar after <code>ssh devserver</code>.</li>
-        <li>Start a new Codex or Claude session inside a tracked project folder. To attach it to a specific work order, launch with <code>BOSUN_PROJECT=bosun-x BOSUN_TASK=BX-10 codex</code> (change both values for another project/task).</li>
-        <li>Use the agent normally, then refresh this page. The session appears while its signal is fresh; the public crew includes only approved projects and broad status.</li>
-      </ol>
-      <p className="text-xs text-muted-foreground">Claude hooks are installed on dragonfly and Caspar. Melchior remains a separate rollout task because its SSH service is unreachable.</p>
+      <h2 className="font-mono text-lg">Signal sources</h2>
+      {sources.length ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{sources.map((src) => <article key={`${src.host}:${src.provider}`} className="rounded-md border border-border p-3 text-sm">
+        <div className="flex justify-between gap-2"><strong className="font-mono">{src.host}</strong><span className={src.fresh ? "text-emerald-400" : "text-muted-foreground"}>{src.fresh ? "fresh" : "quiet"}</span></div>
+        <p className="capitalize mt-1">{src.provider}</p>
+        <p className="text-xs text-muted-foreground mt-1">Last event <time dateTime={src.lastAt}>{new Date(src.lastAt).toLocaleString("en-AU", { timeZone: "Australia/Sydney" })}</time> · {src.events} recent{src.unmapped ? ` · ${src.unmapped} unmapped` : ""}</p>
+      </article>)}</div> : <p className="text-sm text-muted-foreground">No signals yet. Add the Claude or Codex lifecycle hook (<code>hooks/activity.mjs</code>) on each machine; see <code>docs/activity.md</code>.</p>}
+      <p className="text-xs text-muted-foreground">Fresh means an event in the last five minutes. Unmapped events have no project; start sessions inside a tracked project folder, or set <code>BOSUN_PROJECT</code> and <code>BOSUN_TASK</code>.</p>
     </section>
     <section><h2 className="font-mono text-lg mb-3">IDEA-20 work orders</h2>
       <div className="grid gap-2">{workOrders.length ? workOrders.map((task) => <Link key={`${task.project}:${task.id}`} href={`/projects/${task.project}#${task.key}`} className="rounded-lg border border-border bg-card p-3 hover:border-primary flex flex-wrap justify-between gap-2 text-sm">

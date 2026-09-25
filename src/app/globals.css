@@ -50,49 +50,47 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* IDEA-20: small original CSS ship. The list remains the accessible source. */
-.crew-scene { position: relative; overflow: hidden; min-height: 340px; border: 1px solid #346075; border-radius: 18px; background: linear-gradient(#102f49 0 54%, #164b61 54% 100%); color: #f6e8c8; padding: 16px 20px 54px; }
-.crew-harbour { position: relative; z-index: 3; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+/* IDEA-20 (BXD-81): the living deck SVG. The roster and lists remain the accessible source. */
+.crew-scene { border: 1px solid #346075; border-radius: 18px; background: #0b2538; color: #f6e8c8; padding: 12px 14px 10px; }
+.crew-harbour { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
 .crew-harbour-title { font: 700 11px monospace; letter-spacing: .2em; color: #f4cf83; white-space: nowrap; }
 .crew-filters { display: flex; gap: 6px; overflow-x: auto; max-width: 100%; padding: 2px 0 5px; }
-.crew-filters button { flex: none; border: 1px solid #6c8590; border-radius: 999px; background: #0b2538df; padding: 5px 10px; color: #f6e8c8; font: 11px monospace; cursor: pointer; }
+.crew-filters button { flex: none; border: 1px solid #6c8590; border-radius: 999px; background: #0b2538; padding: 5px 10px; color: #f6e8c8; font: 11px monospace; cursor: pointer; }
 .crew-filters button:hover, .crew-filters button:focus-visible { border-color: #f4cf83; outline-color: #f4cf83; }
 .crew-filters button[aria-pressed="true"] { background: #e4c184; border-color: #e4c184; color: #162a36; }
 .crew-filters small { font-size: 9px; opacity: .75; }
-.crew-sky { position: absolute; inset: 0 0 44%; pointer-events: none; }
-.crew-sun { position: absolute; top: 24px; right: 12%; width: 52px; height: 52px; border-radius: 50%; background: #e3ae65; box-shadow: 0 0 48px #e3ae6570; }
-.crew-cloud { position: absolute; top: 58px; left: 12%; width: 88px; height: 15px; border-radius: 100%; background: #a6bcc0; opacity: .45; }
-.crew-mast { position: absolute; left: 48%; top: 22px; bottom: 95px; width: 7px; background: #62402f; }
-.crew-sail { position: absolute; top: 35px; left: 7px; width: 62px; height: 95px; background: #ddca9e; clip-path: polygon(0 0,100% 50%,0 100%); opacity: .8; }
-.crew-flag { position: absolute; top: -10px; left: 4px; width: 35px; height: 20px; background: #a5373b; color: white; text-align: center; font-weight: bold; }
-.crew-deck { position: relative; z-index: 1; margin-top: 132px; min-height: 125px; padding: 12px; border-radius: 12px 12px 4px 4px; background: repeating-linear-gradient(0deg,#9a643c 0 17px,#73492f 18px 20px); border: 4px solid #4d3329; box-shadow: inset 0 -15px #774b31, 0 7px 0 #2f2a2b; }
-.crew-rail { position: absolute; top: -17px; left: 0; right: 0; border-top: 7px solid #bd824c; }
-.crew-stations { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: flex-start; min-height: 100px; }
-.crew-station { display: grid; justify-items: center; align-content: start; min-width: 92px; max-width: 145px; padding: 3px 6px; border-radius: 8px; background: #142d39d9; border: 1px solid #d7b887; text-align: center; font-size: 11px; }
-.crew-station[href]:hover, .crew-station[href]:focus-visible { color: inherit; border-color: #fff3c4; box-shadow: 0 0 0 2px #fff3c466; text-decoration: none; }
-.crew-avatar { position: relative; display: grid; place-items: center; width: 30px; height: 30px; margin: -15px 0 4px; border-radius: 50% 50% 8px 8px; background: #d7aa76; border: 2px solid #4b3029; color: #302a34; font-weight: bold; font-size: 18px; }
-.crew-avatar::before { content: ""; position: absolute; width: 37px; height: 13px; top: -9px; left: -5px; background: #192b35; border-bottom: 3px solid #cf9b56; clip-path: polygon(0 90%,19% 40%,25% 0,75% 0,82% 40%,100% 90%); }
-.crew-needs_approval .crew-avatar { background: #e2ad48; box-shadow: 0 0 13px #ffd46c; }
-.crew-working .crew-avatar { animation: crew-at-work 2.5s ease-in-out infinite; }
-.crew-needs_approval .crew-avatar { animation: crew-signal 1.5s ease-in-out infinite; }
-.crew-waiting_for_tool .crew-avatar { background: #97c1c2; }
-.crew-stale { opacity: .6; }
-.crew-overflow { margin-top: 8px; text-align: center; font: 10px monospace; color: #f6e8c8; }
-.crew-name { font-weight: 700; }
-.crew-project { opacity: .75; }
-.crew-empty { align-self: center; max-width: 280px; text-align: center; background: #142d39df; border-radius: 8px; padding: 10px; font-size: 13px; }
-.crew-hull { position: relative; z-index: 1; margin: 0 6%; height: 43px; border-radius: 0 0 50% 50%; background: repeating-linear-gradient(0deg,#603b2e 0 12px,#4a3029 13px 16px); border-bottom: 8px solid #382c2b; text-align: center; font: 700 13px/31px monospace; letter-spacing: .22em; }
-.crew-hull::before, .crew-hull::after { content: ""; position: absolute; top: 9px; width: 15px; height: 15px; border: 3px solid #cf9b56; border-radius: 50%; background: #194d63; box-shadow: inset 0 0 0 2px #253f4b; }
-.crew-hull::before { left: 17%; } .crew-hull::after { right: 17%; }
-.crew-orders { position: relative; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin: 10px 0 0; }
-.crew-order { display: flex; gap: 8px; align-items: center; padding: 5px 9px; border: 1px solid #7a9aa5; border-radius: 6px; background: #0b2538eb; font: 11px monospace; }
+.crew-frame { overflow-x: auto; border-radius: 12px; }
+.crew-svg { display: block; width: 100%; min-width: 680px; height: auto; }
+.crew-link { cursor: pointer; outline: none; }
+.crew-link:focus-visible .crew-plate, .crew-link:hover .crew-plate { stroke: #fff3c4; stroke-width: 2; }
+.crew-plate { fill: #0b2538e6; stroke: #d7b887; stroke-width: 1; }
+.crew-plate-text { fill: #f6e8c8; font: 700 10px monospace; }
+.crew-bubble-text { fill: #a8363a; font: 700 13px monospace; }
+.crew-zzz { fill: #cfe3ea; font: 700 11px monospace; animation: crew-zzz 3s ease-in-out infinite; }
+.crew-hull-text { fill: #e9c98b; font: 700 15px monospace; letter-spacing: .3em; }
+.crew-sail-text { fill: #6a4630; font: 700 26px monospace; }
+.crew-empty-text { fill: #2a1f1c; font: 700 14px monospace; }
+.crew-stale { opacity: .7; }
+.crew-fuse { fill: #ffb347; animation: crew-fuse .7s ease-in-out infinite alternate; }
+.crew-lantern { animation: crew-fuse 2.4s ease-in-out infinite alternate; }
+.crew-working .crew-body { animation: crew-haul 1.4s ease-in-out infinite; transform-box: fill-box; }
+.crew-waiting_for_tool .crew-body { animation: crew-bob 2.6s ease-in-out infinite; }
+.crew-wave { animation: crew-wave .9s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 100%; }
+.crew-bubble { animation: crew-bob 1.2s ease-in-out infinite; }
+.crew-sea { animation: crew-sea 9s linear infinite; }
+.crew-flag { animation: crew-flag 1.8s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 0 50%; }
+.crew-key { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 8px 0 0; font: 10px monospace; color: #cfe3ea; }
+.crew-orders { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin: 10px 0 0; }
+.crew-order { display: flex; gap: 8px; align-items: center; padding: 5px 9px; border: 1px solid #7a9aa5; border-radius: 6px; background: #0b2538; font: 11px monospace; }
 .crew-order strong { color: #f4cf83; }
-.crew-sea { position: absolute; height: 45px; bottom: 0; left: 0; right: 0; background: repeating-linear-gradient(170deg,#286d83 0 16px,#1b506c 17px 33px); animation: crew-waves 16s linear infinite; }
-.crew-caption { position: absolute; z-index: 2; bottom: 9px; left: 18px; right: 18px; text-align: center; font: 10px monospace; letter-spacing: .04em; }
-@media (max-width: 620px) { .crew-scene { min-height: 430px; } .crew-deck { margin-top: 115px; } .crew-station { min-width: 82px; } }
-@keyframes crew-at-work { 50% { transform: translateY(-3px); } }
-@keyframes crew-signal { 50% { box-shadow: 0 0 20px 6px #ffd46c; } }
-@keyframes crew-waves { to { background-position: 100px 0; } }
+.crew-caption { margin: 8px 0 0; text-align: center; font: 10px monospace; letter-spacing: .04em; opacity: .85; }
+@keyframes crew-haul { 50% { transform: translateY(-4px); } }
+@keyframes crew-bob { 50% { transform: translateY(-2px); } }
+@keyframes crew-wave { to { transform: rotate(-25deg); } }
+@keyframes crew-fuse { from { opacity: .35; } to { opacity: 1; } }
+@keyframes crew-zzz { 50% { opacity: .3; transform: translateY(-4px); } }
+@keyframes crew-sea { to { transform: translateX(-100px); } }
+@keyframes crew-flag { to { transform: scaleX(.8) skewY(4deg); } }
 @media (prefers-reduced-motion: reduce) { .crew-scene *, .crew-scene *::before, .crew-scene *::after { animation: none !important; transition: none !important; } }
 
 :root {
