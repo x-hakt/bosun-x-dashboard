@@ -8,6 +8,11 @@ that trigger a GHCR image build.
 
 ### Changed
 
+- Pirates (BXD-97): the crew are pirates with a look generated from their name and a sash
+  in their model's colour; every ship has its own colours and Jolly Roger; commits go up the
+  gangplank and down the hatch, working crew haul cargo, ready crew have an ale outside the
+  Salty Dog tavern, and finished crew walk into it.
+
 - The port, round two (BXD-89..93): every project is a ship (quiet ones at moorings in the
   bay), sailors and dockhands have generated names shown when they're busy, boarding glides
   the port's camera onto the ship with a crew card (the old single deck is gone), stale

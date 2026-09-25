@@ -186,7 +186,7 @@ export const BackupsYmlSchema = z.object({
   notes: z.string().nullish(),
 });
 
-export const PlanningTaskStatusSchema = z.enum(["idea", "planning", "ready", "graduated"]);
+export const PlanningTaskStatusSchema = z.enum(["idea", "planning", "ready", "graduated", "archived"]);
 
 export const PlanningTaskYmlSchema = z.object({
   id: z.string(),

@@ -52,7 +52,7 @@ const NAV = [
 // Status groups shown under Projects, in this order; anything else falls under "Other".
 const STATUS_ORDER = ["Live", "Development", "Paused", "Abandoned"];
 // Same idea for Planning (BXD-56): the idea lifecycle, in order.
-const PLANNING_STATUS_ORDER = ["idea", "planning", "ready", "graduated"];
+const PLANNING_STATUS_ORDER = ["idea", "planning", "ready", "graduated", "archived"];
 
 // BXD-59: which sections are expanded is independent of which one is active, so
 // Projects and Planning (say) can both stay open. Remembered per browser.

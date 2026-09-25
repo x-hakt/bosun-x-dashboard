@@ -9,7 +9,7 @@ import { planningStatusAccent } from "@/lib/status-colors";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_ORDER: PlanningTaskStatus[] = ["idea", "planning", "ready", "graduated"];
+const STATUS_ORDER: PlanningTaskStatus[] = ["idea", "planning", "ready", "graduated", "archived"];
 
 function idParts(id: string): number[] {
   return id

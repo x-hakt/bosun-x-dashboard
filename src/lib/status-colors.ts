@@ -52,13 +52,14 @@ export function projectStatusAccent(status?: string) {
   return (status && PROJECT_STATUS_ACCENT[status]) || PROJECT_STATUS_ACCENT_FALLBACK;
 }
 
-// Planning-status accents (idea/planning/ready/graduated) — the same palette as
+// Planning-status accents (idea/planning/ready/graduated/archived) — the same palette as
 // PlanningStatusBadge, for status-grouped headings on the Planning page and in the nav.
 export const PLANNING_STATUS_ACCENT: Record<string, { text: string; border: string }> = {
   idea: { text: "text-sky-400", border: "border-sky-500/40" },
   planning: { text: "text-amber-400", border: "border-amber-500/40" },
   ready: { text: "text-violet-400", border: "border-violet-500/40" },
   graduated: { text: "text-emerald-400", border: "border-emerald-500/40" },
+  archived: { text: "text-zinc-400", border: "border-zinc-500/40" },
 };
 
 export function planningStatusAccent(status?: string) {

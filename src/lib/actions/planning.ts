@@ -7,7 +7,7 @@ import { planningDir } from "@/lib/data/paths";
 import { countClientReplies } from "@/lib/notes-thread";
 
 const PLANNING_ID = /^IDEA-\d+(\.\d+)*$/;
-const STATUSES = new Set(["idea", "planning", "ready", "graduated"]);
+const STATUSES = new Set(["idea", "planning", "ready", "graduated", "archived"]);
 
 // BXD-58: a status change carries every sub-idea (at any depth) along with it, so
 // an idea moved to "ready" doesn't leave its sub-ideas stranded at "idea". A

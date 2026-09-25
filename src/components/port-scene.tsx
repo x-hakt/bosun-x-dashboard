@@ -5,10 +5,10 @@ import type { Happening, PortFeed, PortSailor, PortShip } from "@/lib/port-core"
 import { clockText, entryText, PORT_TZ, shipNameOf } from "@/lib/port-text";
 import type { Pose } from "@/lib/crew-scene";
 import {
-  assignSpots, cameraFor, DINGHY, errandRoute, HARBOUR_CAMERA, layoutBerths, OFFICE_DOOR, planWalk, pointOf, PORT_H, PORT_W, QUAY_Y, TIDE_GAUGE, WATERLINE,
+  assignSpots, cameraFor, DINGHY, errandRoute, HARBOUR_CAMERA, layoutBerths, OFFICE_DOOR, planWalk, pointOf, PORT_H, PORT_W, QUAY_Y, TAVERN_DOOR, TIDE_GAUGE, WATERLINE,
   type Berth, type Camera, type Point, type Spot,
 } from "@/lib/port-layout";
-import { coatFor, labels, Sailor } from "@/components/crew-ship";
+import { coatFor, labels, lookFor, Sailor } from "@/components/crew-ship";
 
 // IDEA-20 (BXD-85..93): the port. Every project is a ship: active ones at the quay, quiet
 // ones at moorings in the bay. Sailors are live sessions with generated names, walking
@@ -95,6 +95,55 @@ function Person({ folk, coat, pose, carry, cart }: { folk: Folk; coat: string; p
   );
 }
 
+// BXD-97: each ship's colours and flag, from the style seed in the feed.
+const HULLS = ["#6e4530", "#2b2b2e", "#7a2626", "#23395b", "#2f5a3a", "#8a6a2b", "#4d3a4f", "#1f5f63"];
+const BANDS = ["#d9b35f", "#c9c2b8", "#b8322f", "#efe7d6"];
+const SAILS = ["#e9dcb8", "#efe7d6", "#d9cfb4", "#e9dcb8", "#3a3a3f"];
+function shipLook(ship: PortShip) {
+  const s = ship.style;
+  if (ship.kind === "voyage") return { hull: "#4d3a4f", band: "#c9c2b8", sail: "#cfc6d8", flag: -1, field: "#161616" };
+  return { hull: HULLS[s % HULLS.length], band: BANDS[(s >> 3) % BANDS.length], sail: SAILS[(s >> 5) % SAILS.length], flag: (s >> 8) % 8, field: (s >> 11) % 5 === 0 ? "#7a1c1c" : "#161616" };
+}
+
+// A Jolly Roger on a 40 × 26 field (flag-local units); design -1 is a plain black flag.
+function JollyRoger({ design, field }: { design: number; field: string }) {
+  const W = "#efe7d6";
+  const skull = (cx: number, cy: number, r = 1) => (
+    <g>
+      <rect x={cx - 5 * r} y={cy - 5 * r} width={10 * r} height={7 * r} fill={W} />
+      <rect x={cx - 3 * r} y={cy + 2 * r} width={6 * r} height={3 * r} fill={W} />
+      <rect x={cx - 3 * r} y={cy - 3 * r} width={2 * r} height={2 * r} fill={field} />
+      <rect x={cx + 1 * r} y={cy - 3 * r} width={2 * r} height={2 * r} fill={field} />
+      <rect x={cx - 0.5 * r} y={cy + 3 * r} width={1 * r} height={2 * r} fill={field} />
+    </g>
+  );
+  const bones = (cx: number, cy: number) => (
+    <g fill={W}>
+      <rect x={cx - 11} y={cy - 1.2} width={22} height={2.4} transform={`rotate(28 ${cx} ${cy})`} />
+      <rect x={cx - 11} y={cy - 1.2} width={22} height={2.4} transform={`rotate(-28 ${cx} ${cy})`} />
+    </g>
+  );
+  const blade = (cx: number, cy: number, angle: number) => (
+    <g transform={`rotate(${angle} ${cx} ${cy})`}>
+      <rect x={cx - 1} y={cy - 11} width={2} height={16} fill={W} />
+      <rect x={cx - 3.5} y={cy + 4} width={7} height={1.6} fill="#d9b35f" />
+      <rect x={cx - 0.8} y={cy + 5.6} width={1.6} height={4} fill="#d9b35f" />
+    </g>
+  );
+  let emblem: React.ReactNode = null;
+  switch (design) {
+    case 0: emblem = <>{bones(20, 16)}{skull(20, 11)}</>; break;
+    case 1: emblem = <>{blade(20, 13, 35)}{blade(20, 13, -35)}</>; break;
+    case 2: emblem = <path d="M13 4 L27 4 L20 13 L27 22 L13 22 L20 13 Z" fill={W} />; break;
+    case 3: emblem = <><path d="M12 9 Q12 4 16 4 Q19 4 20 8 Q21 4 24 4 Q28 4 28 9 Q28 14 20 21 Q12 14 12 9 Z" fill="#c23b3b" />{blade(31, 13, 20)}</>; break;
+    case 4: emblem = <>{blade(20, 14, 55)}{blade(20, 14, -55)}{skull(20, 11, 0.9)}</>; break;
+    case 5: emblem = bones(20, 13); break;
+    case 6: emblem = <g fill={W}><rect x={19} y={4} width={2} height={16} /><rect x={15} y={7} width={10} height={2} /><path d="M12 15 Q20 25 28 15 L26 15 Q20 21 14 15 Z" /><rect x={18} y={2} width={4} height={3} /></g>; break;
+    case 7: emblem = <>{skull(15, 12, 0.9)}<rect x={27} y={3} width={2} height={20} fill={W} /><path d="M25 3 L28 -2 L31 3 Z" fill={W} /></>; break;
+  }
+  return <g><rect x={0} y={0} width={40} height={26} fill={field} />{emblem}</g>;
+}
+
 const boardKeys = (onBoard: () => void) => ({
   role: "button" as const,
   tabIndex: 0,
@@ -103,11 +152,11 @@ const boardKeys = (onBoard: () => void) => ({
 });
 
 // A ship at the quay: sails set, gangplank down.
-function QuayShip({ berth, ship, alarm, crates, pennant, onBoard }: {
-  berth: Berth; ship: PortShip; alarm: boolean; crates: number; pennant: boolean; onBoard: () => void;
+function QuayShip({ berth, ship, alarm, pennant, onBoard }: {
+  berth: Berth; ship: PortShip; alarm: boolean; pennant: boolean; onBoard: () => void;
 }) {
   const { cx, scale: s } = berth;
-  const hull = ship.kind === "voyage" ? "#4d3a4f" : "#6e4530";
+  const look = shipLook(ship);
   return (
     <g className="port-ship" {...boardKeys(onBoard)} aria-label={`Board ${ship.name}${alarm ? ", someone needs you" : ""}`}>
       <title>{ship.name}</title>
@@ -120,20 +169,22 @@ function QuayShip({ berth, ship, alarm, crates, pennant, onBoard }: {
           <rect x={-4} y={-270} width={8} height={224} fill="#5a3b2a" />
           <rect x={-66} y={-238} width={132} height={5} fill="#6a4630" />
           <rect x={-54} y={-160} width={108} height={5} fill="#6a4630" />
-          <path d="M-62 -233 L62 -233 L56 -166 L-56 -166 Z" fill={ship.kind === "voyage" ? "#cfc6d8" : "#e9dcb8"} className="crew-sail" />
-          <path d="M-50 -155 L50 -155 L44 -108 L-44 -108 Z" fill={ship.kind === "voyage" ? "#c2b8cc" : "#e2d2a8"} />
-          <g className="crew-flag">
-            <path d={alarm ? "M4 -268 L44 -259 L4 -248 Z" : "M4 -268 L34 -262 L4 -255 Z"} fill={alarm ? "#d23b3b" : "#a8363a"} />
-            {alarm && <text x={20} y={-254} className="port-alarm">!</text>}
-          </g>
+          <path d="M-62 -233 L62 -233 L56 -166 L-56 -166 Z" fill={look.sail} className="crew-sail" />
+          <path d="M-50 -155 L50 -155 L44 -108 L-44 -108 Z" fill={look.sail} opacity={0.92} />
+          {/* CSS animations replace an SVG transform, so the flutter lives on an inner group */}
+          <g transform="translate(4 -270)"><g className="crew-flag"><JollyRoger design={look.flag} field={look.field} /></g></g>
+          {alarm && (
+            <g transform="translate(-4 -268)"><g className="port-alarm-flag">
+              <path d="M0 0 L-34 8 L0 16 Z" fill="#d23b3b" />
+              <text x={-12} y={12} className="port-alarm">!</text>
+            </g></g>
+          )}
           {pennant && <path d="M-4 -120 L-34 -114 L-4 -108 Z" fill="#f4cf83" className="port-pennant" />}
-          <path d="M-105 -46 L105 -46 L90 -6 Q0 6 -90 -6 Z" fill={hull} />
+          <path d="M-105 -46 L105 -46 L90 -6 Q0 6 -90 -6 Z" fill={look.hull} />
           <rect x={-107} y={-50} width={214} height={6} fill="#b98050" />
-          <line x1={-96} y1={-26} x2={96} y2={-26} stroke="#5a3826" strokeWidth={2} />
+          <rect x={-100} y={-30} width={196} height={5} fill={look.band} opacity={0.85} />
           {[-60, -20, 20, 60].map((x) => <circle key={x} cx={x} cy={-16} r={4} fill="#15384a" stroke="#d9b35f" strokeWidth={1.5} />)}
-          {Array.from({ length: Math.min(4, crates) }, (_, i) => (
-            <rect key={i} x={50 + (i % 2) * 13} y={-60 - Math.floor(i / 2) * 10} width={12} height={10} fill="#a0703f" stroke="#5a3b2a" strokeWidth={1} />
-          ))}
+          <rect x={22} y={-50} width={20} height={4} fill="#3b2419" />
         </g>
       </g>
       <line x1={berth.plankTop.x} y1={berth.plankTop.y} x2={berth.plankFoot.x} y2={QUAY_Y - 1} stroke="#8a5a36" strokeWidth={5} strokeLinecap="round" />
@@ -144,7 +195,7 @@ function QuayShip({ berth, ship, alarm, crates, pennant, onBoard }: {
 // A quiet ship at its mooring in the bay: sails furled, name on the water beside it.
 function MooredShip({ berth, ship, onBoard }: { berth: Berth; ship: PortShip; onBoard: () => void }) {
   const { cx, scale: s, waterline } = berth;
-  const hull = ship.kind === "voyage" ? "#4d3a4f" : "#6e4530";
+  const look = shipLook(ship);
   // Fit the name to the gap between neighbours (7.2 units a character at 11px monospace).
   const fit = Math.max(4, Math.floor((berth.room - 12) / 7.2));
   const label = ship.name.length > fit ? `${ship.name.slice(0, fit - 1)}…` : ship.name;
@@ -158,7 +209,9 @@ function MooredShip({ berth, ship, onBoard }: { berth: Berth; ship: PortShip; on
           <rect x={-56} y={-222} width={112} height={9} rx={4} fill="#d8cba8" />
           <rect x={-48} y={-146} width={96} height={6} fill="#5f3f2b" />
           <rect x={-44} y={-154} width={88} height={9} rx={4} fill="#cfc19c" />
-          <path d="M-105 -46 L105 -46 L90 -6 Q0 6 -90 -6 Z" fill={hull} />
+          <g transform="translate(4 -252)"><JollyRoger design={look.flag} field={look.field} /></g>
+          <path d="M-105 -46 L105 -46 L90 -6 Q0 6 -90 -6 Z" fill={look.hull} />
+          <rect x={-100} y={-30} width={196} height={6} fill={look.band} opacity={0.85} />
           <rect x={-107} y={-50} width={214} height={6} fill="#b98050" />
           <line x1={0} y1={-6} x2={-150} y2={20} stroke="#caa877" strokeWidth={3} opacity={0.6} />
         </g>
@@ -254,7 +307,7 @@ function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell:
   const win = lit ? "#ffd27a" : "#2d3e4c";
   return (
     <g aria-hidden="true">
-      {[[20, 300, 70, "#8c5b4a"], [96, 310, 60, "#6f7f8c"], [300, 305, 64, "#9a7b55"], [360, 318, 56, "#7d6a8a"]].map(([x, y, w, c]) => (
+      {[[20, 300, 70, "#8c5b4a"], [96, 310, 60, "#6f7f8c"]].map(([x, y, w, c]) => (
         <g key={`${x}`}>
           <rect x={x as number} y={y as number} width={w as number} height={470 - (y as number)} fill={c as string} />
           <path d={`M${(x as number) - 6} ${y} L${(x as number) + (w as number) / 2} ${(y as number) - 26} L${(x as number) + (w as number) + 6} ${y} Z`} fill="#5a3b2a" />
@@ -280,13 +333,24 @@ function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell:
         <g className={bell ? "port-bell port-bell-ring" : "port-bell"}><path d="M-5 -22 Q0 -26 5 -22 L6 -12 L-6 -12 Z" fill="#d9b35f" /></g>
       </g>
       {bell && <text x={292} y={322} className="port-ding">ding!</text>}
-      {[[330, "#b8322f"], [380, "#2a9d8f"]].map(([x, c]) => (
-        <g key={x as number}>
-          <rect x={(x as number)} y={440} width={40} height={30} fill="#8a5a36" />
-          <path d={`M${(x as number) - 4} 440 L${(x as number) + 44} 440 L${(x as number) + 38} 426 L${(x as number) + 2} 426 Z`} fill={c as string} />
-          <rect x={(x as number) + 6} y={448} width={8} height={6} fill="#e0a23a" /><rect x={(x as number) + 20} y={448} width={8} height={6} fill="#7cb342" />
+      {/* BXD-97: the tavern. Ready crew drink outside; finished crew go in. */}
+      <g>
+        <rect x={314} y={356} width={108} height={114} fill="#6b3f2a" />
+        <rect x={314} y={356} width={108} height={8} fill="#4e2c1d" />
+        <path d="M306 358 L368 318 L430 358 Z" fill="#3e2419" />
+        <rect x={334} y={330} width={8} height={18} fill="#3e2419" />
+        <g className="port-smoke"><circle cx={338} cy={324} r={5} /><circle cx={344} cy={308} r={7} /><circle cx={338} cy={290} r={9} /></g>
+        {[326, 396].map((x) => <g key={x}><rect x={x} y={376} width={14} height={14} fill={win} /><rect x={x + 6} y={376} width={2} height={14} fill="#4e2c1d" /></g>)}
+        <rect x={326} y={416} width={14} height={12} fill={win} /><rect x={396} y={416} width={14} height={12} fill={win} />
+        <rect x={TAVERN_DOOR.x - 10} y={420} width={20} height={50} fill="#2e1a12" />
+        <rect x={TAVERN_DOOR.x - 10} y={420} width={20} height={4} fill="#d9b35f" opacity={0.5} />
+        <g transform="translate(368 392)">
+          <rect x={-30} y={-12} width={60} height={20} rx={3} fill="#e9dcb8" stroke="#3e2419" strokeWidth={2} />
+          <text x={0} y={2} textAnchor="middle" className="port-tavern-text">SALTY DOG</text>
         </g>
-      ))}
+        <rect x={306} y={458} width={124} height={4} fill="#5a3b2a" />
+        {[310, 426].map((x) => <rect key={x} x={x} y={458} width={3} height={12} fill="#5a3b2a" />)}
+      </g>
       {/* the town's ground runs down to the bay; the quay reaches out over the water */}
       <path d={`M0 470 L440 470 L440 540 Q380 600 300 ${PORT_H} L0 ${PORT_H} Z`} fill="#6b6259" />
       <rect x={420} y={470} width={PORT_W - 420} height={24} fill="#9a6a42" />
@@ -370,7 +434,6 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
   const camera = useRef<Camera>(HARBOUR_CAMERA);
   const [bellUntil, setBellUntil] = useState(0);
   const [glintUntil, setGlintUntil] = useState(0);
-  const [crates, setCrates] = useState<Record<string, number>>({});
   const [pennants, setPennants] = useState<Record<string, number>>({});
   const [clock, setClock] = useState(feed.now);
   const frame = useRef<HTMLDivElement>(null);
@@ -422,7 +485,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
         sp = { id: s.id, folk: "sailor", ...start, facing: 1, path: [], pose: t.pose, spot: reduced ? t.spot : { zone: "town" }, sailor: s, name: s.name, changedAt: now };
         map.set(s.id, sp);
       }
-      if (sp.sailor && sp.sailor.state !== s.state) sp.changedAt = now;
+      if (sp.sailor && sp.sailor.state !== s.state) { sp.changedAt = now; sp.carry = null; }
       sp.sailor = s;
       sp.name = s.name;
       sp.pose = t.pose;
@@ -441,10 +504,11 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       sp.leaving = true;
       sp.changedAt = now;
       const id = sp.id;
-      const route: Step[] = planWalk(sp.spot ?? { zone: "town" }, { zone: "town" }, berths);
+      const route: Step[] = planWalk(sp.spot ?? { zone: "town" }, { zone: "tavern", x: TAVERN_DOOR.x }, berths);
       route[route.length - 1] = { ...route[route.length - 1], then: () => { map.delete(id); bump(); } };
       sp.path = route;
-      sp.spot = { zone: "town" };
+      sp.carry = null;
+      sp.spot = { zone: "tavern", x: TAVERN_DOOR.x };
     }
     for (const h of feed.happenings) {
       if (world.seen.has(h.id)) continue;
@@ -463,13 +527,13 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       const busy = [...map.values()].filter((sp) => sp.folk === "dockhand").length;
       const h = world.queue[0];
       if (!h) return;
-      const route = (kind: "cargo" | "delivery" | "cart" | "tide") => errandRoute(kind, berthsRef.current, h.ship) as Step[];
+      const route = (kind: "cargo" | "delivery" | "cart" | "tide") => errandRoute(kind, berthsRef.current, h.ship);
       if (h.kind === "bell") { world.queue.shift(); setBellUntil(Date.now() + 3000); return; }
       if (h.kind === "tide") {
         const master = map.get("master")!;
         if (master.path.length) return;
         world.queue.shift();
-        const r = route("tide");
+        const r: Step[] = route("tide").route;
         r[1] = { ...r[1], then: () => setGlintUntil(Date.now() + 2500) };
         master.path = r.slice(1);
         bump();
@@ -478,16 +542,17 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       if (busy >= MAX_ERRANDS) return;
       world.queue.shift();
       const id = `hand-${h.id}`;
-      const r = route(h.kind === "cart" ? "cart" : h.kind === "delivery" ? "delivery" : "cargo");
+      const { route: legs, handover } = route(h.kind === "cart" ? "cart" : h.kind === "delivery" ? "delivery" : "cargo");
+      const r: Step[] = legs;
       const hand: Sprite = { id, folk: "dockhand", ...r[0], facing: 1, path: [], pose: "rest", coat: "#8f6b43", carry: h.kind === "cargo" ? "crate" : null, cart: h.kind === "cart", name: h.who };
-      const ship = h.ship;
-      r[1] = { ...r[1], then: () => {
-        if (h.kind === "cargo" && ship) { hand.carry = null; setCrates((c) => ({ ...c, [ship]: (c[ship] ?? 0) + 1 })); }
-        if (h.kind === "delivery") hand.carry = "crate";
+      r[handover] = { ...r[handover], then: () => {
+        if (h.kind === "cargo") hand.carry = null; // down the hatch
+        if (h.kind === "delivery") hand.carry = "crate"; // up from below, off to the warehouse
         if (h.kind === "cart") hand.carry = "barrels";
         bump();
       } };
-      r[2] = { ...r[2], then: () => { map.delete(id); bump(); } };
+      r[r.length - 1] = { ...r[r.length - 1], then: () => { map.delete(id); bump(); } };
+      const ship = h.ship;
       hand.path = r.slice(1);
       if (h.kind === "delivery" && ship) setPennants((p) => ({ ...p, [ship]: Date.now() + 9000 }));
       map.set(id, hand);
@@ -507,6 +572,19 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       last = now;
       let changed = false;
       for (const sp of world.sprites.values()) {
+        if (!sp.path.length && sp.folk === "sailor" && sp.sailor?.state === "working" && sp.spot?.zone === "deck" && !sp.leaving) {
+          sp.wait = (sp.wait ?? 2 + rand() * 6) - dt;
+          if (sp.wait <= 0) {
+            const b = berthsRef.current.find((x) => x.key === (sp.spot as { ship: string }).ship);
+            if (b && !b.moored) {
+              const home = pointOf(sp.spot, berthsRef.current);
+              sp.path = [{ ...b.hatch, s: b.scale, then: () => { sp.carry = sp.carry ? null : "crate"; } }, { ...home, then: () => { sp.carry = null; } }];
+              if (rand() < 0.5) sp.carry = "crate"; // taking one down, or bringing one up
+            }
+            sp.wait = 4 + rand() * 8;
+            changed = true;
+          }
+        }
         if (!sp.path.length && sp.folk === "townsfolk") {
           sp.wait = (sp.wait ?? 0) - dt;
           if (sp.wait <= 0) {
@@ -540,12 +618,6 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
     return () => cancelAnimationFrame(raf);
   }, [reduced, world]);
 
-  // Crates are unloaded after a while.
-  useEffect(() => {
-    const t = window.setInterval(() => setCrates((c) => Object.fromEntries(Object.entries(c).map(([k, v]) => [k, Math.max(0, v - 1)]).filter(([, v]) => (v as number) > 0))), 45_000);
-    return () => window.clearInterval(t);
-  }, []);
-
   // On a narrow screen the port pans; start with the first ship that needs you (or the quay) in view.
   useEffect(() => {
     const el = frame.current;
@@ -578,7 +650,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
     const pose: Pose = walking ? "walk" : sp.pose;
     const m = sp.sailor;
     const body = m
-      ? <Sailor pose={pose} coat={coatFor(m.provider)} sub={m.sub} />
+      ? <Sailor pose={pose} coat={coatFor(m.provider)} sub={m.sub} look={lookFor(m.name, m.sub)} carry={sp.carry === "crate"} />
       : <Person folk={sp.folk} coat={sp.coat ?? "#777"} pose={pose} carry={sp.carry} cart={sp.cart} />;
     const tip = m ? `${m.name} (${m.provider}) · ${labels[m.state]} · ${shipsByKey.get(m.ship)?.name ?? ""}${m.detail ? ` · ${m.detail}` : ""}`
       : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand` : sp.folk === "master" ? "Harbour master (reads the tide gauge every 5 minutes)" : "Townsfolk (scenery)";
@@ -608,7 +680,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
   const placed: { x: number; y: number; w: number }[] = [];
   for (const sp of [...named].sort((a, b) => a.x - b.x)) {
     const w = sp.name!.length * 6.4 + 10;
-    const baseY = sp.y - (sp.pose === "doze" ? 40 : 56) * sp.s;
+    const baseY = sp.y - (!sp.path.length && (sp.pose === "doze" || sp.pose === "drink") ? 40 : 56) * sp.s;
     let tier = 0;
     while (placed.some((p) => Math.abs(p.x - sp.x) < (p.w + w) / 2 + 2 && Math.abs(p.y - (baseY - tier * 16)) < 15) && tier < 4) tier++;
     lift.set(sp.id, tier * 16);
@@ -617,7 +689,8 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
   const plate = (sp: Sprite) => {
     const text = sp.name!;
     const w = text.length * 6.4 + 10;
-    const up = (sp.pose === "doze" ? 40 : 56) * sp.s + (sp.carry === "crate" && !sp.cart ? 16 : 0) + (lift.get(sp.id) ?? 0);
+    const seated = !sp.path.length && (sp.pose === "doze" || sp.pose === "drink");
+    const up = (seated ? 40 : 56) * sp.s + (sp.carry === "crate" && !sp.cart ? 16 : 0) + (lift.get(sp.id) ?? 0);
     return (
       <g key={`plate-${sp.id}`} ref={(el) => { if (el) { plates.current.set(sp.id, el); place(sp); } else plates.current.delete(sp.id); }} transform={`translate(${sp.x} ${sp.y})`} aria-hidden="true">
         <g transform={`translate(0 ${-up})`}>
@@ -635,7 +708,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
         <Scenery phase={phase} />
         {quay.map((b) => {
           const ship = shipsByKey.get(b.key)!;
-          return <QuayShip key={b.key} berth={b} ship={ship} crates={crates[b.key] ?? 0} pennant={(pennants[b.key] ?? 0) > clock}
+          return <QuayShip key={b.key} berth={b} ship={ship} pennant={(pennants[b.key] ?? 0) > clock}
             alarm={feed.sailors.some((s) => s.ship === b.key && s.state === "needs_approval")} onBoard={() => onBoard(b.key)} />;
         })}
         <g>{onDeck.map(figure)}</g>
@@ -724,7 +797,7 @@ export function PortView({ feed }: { feed: PortFeed }) {
       {ship ? <ShipCard feed={feed} ship={ship} onLeave={() => setFocus(null)} /> : (
         <>
           <p className="crew-key" aria-hidden="true">
-            <span>on deck: working</span><span>at a gun: tool running</span><span>on the quay: ready</span><span>waving on the quay: needs you</span><span>dozing: signal stale</span><span>in the bay: quiet ships</span>
+            <span>on deck, hauling cargo: working</span><span>at a gun: tool running</span><span>ale at the tavern: ready for orders</span><span>waving on the quay under a red pennant: needs you</span><span>dozing: signal stale</span><span>in the bay: quiet ships</span>
           </p>
           <p className="crew-key" aria-hidden="true">
             <span>dockhands and the harbour master run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>townsfolk, gulls and weather are scenery</span>
