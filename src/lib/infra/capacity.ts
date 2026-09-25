@@ -4,10 +4,20 @@ import { displayName } from "@/lib/data/project-display";
 import { getLocalSnapshot } from "./local";
 import { getRemoteSnapshot } from "./remote";
 import { discoverGroups } from "./discovery";
-import { applyHistory, buildDiskBar, buildHostCapacity, parseMemUsage, type CapacityInput, type HostCapacity } from "./capacity-core";
+import {
+  applyHistory,
+  buildDiskBar,
+  buildHostCapacity,
+  buildProjectUsage,
+  parseMemUsage,
+  USAGE_WINDOWS,
+  type CapacityInput,
+  type HostCapacity,
+  type ProjectUsage,
+} from "./capacity-core";
 import { getCapacityHistory, getLatestDisk } from "./capacity-history";
 
-export type { HostCapacity, CapacitySegment, CapacityBar } from "./capacity-core";
+export type { HostCapacity, CapacitySegment, CapacityBar, ProjectUsage, UsageSeries } from "./capacity-core";
 
 // BXD-64: what the move simulator warns about, per project (across all its hosts).
 export interface ProjectFacts {
@@ -103,4 +113,24 @@ export async function getCapacityOverview(): Promise<{ hosts: HostCapacity[]; pr
     hosts: results.filter((r): r is HostCapacity => r !== null),
     projects: [...facts.values()].sort((a, b) => a.name.localeCompare(b.name)),
   };
+}
+
+export type UsageRange = keyof typeof USAGE_WINDOWS;
+
+// BXD-71: per-project RAM/CPU over the last 24 h or 14 d on one host, for the server
+// page's sparklines. Cached discovery + history only, like the overview; an empty list
+// means no sampler history for this host yet.
+export async function getProjectUsage(hostId: string, range: UsageRange): Promise<ProjectUsage[]> {
+  const [groups, projects, history] = await Promise.all([
+    discoverGroups().catch(() => []),
+    listProjects(),
+    getCapacityHistory().catch(() => new Map()),
+  ]);
+  const input = {
+    groups: groups
+      .filter((g) => g.host === hostId && g.reachable)
+      .map((g) => ({ folder: g.folder, slug: g.matchedSlug, containers: g.containers.map((c) => c.name) })),
+    projects: Object.fromEntries(projects.map((p) => [p.meta.slug, { name: displayName(p.meta), status: p.meta.status }])),
+  };
+  return buildProjectUsage(input, history.get(hostId) ?? [], { end: Date.now(), ...USAGE_WINDOWS[range] });
 }

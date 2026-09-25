@@ -27,6 +27,14 @@ Containers are recorded by name and mapped to projects when the page renders, us
 the same discovery as everywhere else, so a container that joins a project later is
 counted under it for its whole history.
 
+## Per-project history on a server's page
+
+Each server's own page (**Servers → a host**) has a **Usage history** card: one RAM
+sparkline per project on that host, over the last 24 hours or 14 days, with p95
+(dashed) and peak (tick) marked and CPU p95 alongside. It uses the same history and
+the same container-to-project mapping as the bars. A stretch with no samples (the
+sampler wasn't running) is a break in the line, not a drop to zero.
+
 ## Move simulator
 
 Under the bars: pick a running project and a target server. The simulator moves the
