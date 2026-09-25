@@ -60,6 +60,12 @@ export const SLOTS: Record<Station, { x: number; y: number; pose?: Pose }[]> = {
 
 const POSE: Record<Station, Pose> = { rigging: "haul", cannons: "fire", cabin: "call", bow: "rest", berth: "sleep" };
 
+// BXD-82: the pose a state gets anywhere a sailor is drawn off the main deck (the harbour).
+export function poseFor(state: SceneState): Pose | null {
+  const station = stationFor(state);
+  return station ? POSE[station] : null;
+}
+
 // Place every member at its station's next free slot. When a station is full, the rest
 // collapse into a "+n" marker over its last slot, so the deck never becomes a pile.
 export function layoutCrew(members: SceneMember[]): { placed: Placed[]; overflow: Overflow[] } {

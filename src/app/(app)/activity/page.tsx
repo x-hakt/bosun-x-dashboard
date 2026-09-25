@@ -17,8 +17,15 @@ function signalSources(events: { host: string | null; provider: string; project:
   }
   return [...rows.values()].map((r) => ({ ...r, fresh: now - Date.parse(r.lastAt) < 5 * 60_000 })).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
 }
+// The page's one clock read, outside the component body (react-hooks/purity).
+function clockNow() {
+  const now = Date.now();
+  return { now, dayAgo: now - 24 * 3_600_000 };
+}
 import { ActivityRefresh } from "@/components/activity-refresh";
 import { CrewShip } from "@/components/crew-ship";
+import { ShipLogTimeline, type ChoreMark } from "@/components/ship-log";
+import { buildShipLog } from "@/lib/activity-state";
 import { getJobStatuses } from "@/lib/data/jobs";
 import { loadTasks } from "@/lib/data/tasks";
 import { listProjects } from "@/lib/data/projects";
@@ -36,6 +43,15 @@ export default async function ActivityPage() {
     .map((task) => ({ ...task, project: project.meta.slug, key: taskDisplayKey(task, boards[index], taskPrefix(project.meta)) ?? task.id })))
     .sort((a, b) => (a.status === "in_progress" ? 0 : 1) - (b.status === "in_progress" ? 0 : 1));
   const sources = signalSources(events);
+  // BXD-84: the last day as per-session lanes, replayed with the roster's own rules.
+  const { now, dayAgo } = clockNow();
+  const shipLog = buildShipLog(events, { start: dayAgo, end: now });
+  const oldestLoaded = events.length ? Date.parse(events[events.length - 1].at) : now;
+  const truncatedSince = events.length >= 2000 && oldestLoaded > shipLog.start ? oldestLoaded : undefined;
+  const chores: ChoreMark[] = jobInfo.jobs.flatMap((job) => [
+    ...(job.lastRun?.startedAt ? [{ id: `${job.name}:start`, at: Date.parse(job.lastRun.startedAt), label: job.label, outcome: "started" as const }] : []),
+    ...(job.lastRun?.finishedAt ? [{ id: `${job.name}:finish`, at: Date.parse(job.lastRun.finishedAt), label: job.label, outcome: job.lastRun.ok === false ? "failed" as const : "finished" as const }] : []),
+  ]);
   const jobEvents = jobInfo.jobs.flatMap((job) => {
     const entries: { id: string; at: string; label: string; source: string; context: string }[] = [];
     if (job.lastRun?.startedAt) entries.push({ id: `${job.name}:start:${job.lastRun.startedAt}`, at: job.lastRun.startedAt, label: "started", source: job.label, context: "scheduled job" });
@@ -56,8 +72,10 @@ export default async function ActivityPage() {
     href: member.project ? `/projects/${encodeURIComponent(member.project)}${member.task ? `#${encodeURIComponent(member.task)}` : ""}` : undefined,
     };
   });
-  // The private fleet uses real slugs (the public one uses approved aliases): every board with crew aboard.
-  const fleet: PublicFleet[] = projects.flatMap((project, index) => shipCrew.some((member) => member.project === project.meta.slug)
+  // The private fleet uses real slugs (the public one uses approved aliases): every board with
+  // crew aboard, or a session seen in the last 3 hours (BXD-82: moored in the harbour).
+  const recent = new Set(crew.filter((member) => member.project && now - Date.parse(member.lastSeen) < 3 * 3_600_000).map((member) => member.project));
+  const fleet: PublicFleet[] = projects.flatMap((project, index) => shipCrew.some((member) => member.project === project.meta.slug) || recent.has(project.meta.slug)
     ? [{ project: project.meta.slug, todo: boards[index].filter((task) => task.status === "todo").length, inProgress: boards[index].filter((task) => task.status === "in_progress").length }]
     : []);
   return <div className="space-y-6">
@@ -66,6 +84,7 @@ export default async function ActivityPage() {
       <h1 className="text-2xl font-semibold mt-1">Crew activity</h1>
       <p className="text-sm text-muted-foreground mt-2">Session signals from Claude and Codex. A quiet or stale signal is never counted as active work.</p></div>
     <CrewShip crew={shipCrew} fleet={fleet} />
+    <ShipLogTimeline log={shipLog} chores={chores} truncatedSince={truncatedSince} />
     <section className="rounded-lg border border-border bg-card p-4 space-y-3">
       <h2 className="font-mono text-lg">Signal sources</h2>
       {sources.length ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{sources.map((src) => <article key={`${src.host}:${src.provider}`} className="rounded-md border border-border p-3 text-sm">

@@ -6,6 +6,15 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+### Added
+
+- Harbour view on the activity ship (BXD-82): one moored ship per project, sized by open
+  tasks and flagged when someone needs approval, unmapped sessions in a dinghy; click to
+  board. Public embed: approved aliases only.
+- Ship's log (BXD-84): the last 24 hours as per-session timeline lanes by project, state
+  bars, stale hatching, job markers and a now edge, on the private activity page. The roster
+  and the log share one state machine (`src/lib/activity-state.ts`), tested to agree.
+
 ## v0.2.1 — 2026-09-25
 
 Per-project usage history, a clear story for macOS, and a clean systemd stop.
