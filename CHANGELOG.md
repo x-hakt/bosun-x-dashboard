@@ -8,9 +8,14 @@ that trigger a GHCR image build.
 
 ### Added
 
-- Harbour view on the activity ship (BXD-82): one moored ship per project, sized by open
-  tasks and flagged when someone needs approval, unmapped sessions in a dinghy; click to
-  board. Public embed: approved aliases only.
+- The port (BXD-85..88), replacing the harbour grid (BXD-82) on /activity and
+  /crew/embed alike: ships at berths, sailors (live sessions) walking between town, quay
+  and deck as their state changes, dockhands and the harbour master running errands for
+  real commits, finished tasks, backups, tide readings and approval bells, and scenery
+  (townsfolk, gulls, lighthouse, day and night by Sydney time). Reduced motion: static.
+- Public ship's log and port from one whitelisted feed (BXD-87): aliases, anonymous
+  private voyages, opaque ids, minute-rounded times; a leak test guards the JSON.
+  `/api/crew/public` now returns this feed (the old crew/fleet shape is gone).
 - Ship's log (BXD-84): the last 24 hours as per-session timeline lanes by project, state
   bars, stale hatching, job markers and a now edge, on the private activity page. The roster
   and the log share one state machine (`src/lib/activity-state.ts`), tested to agree.

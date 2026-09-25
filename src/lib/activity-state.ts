@@ -40,6 +40,30 @@ export function orderEvents(events: ActivityEvent[]): ActivityEvent[] {
 
 export const sessionKey = (event: Pick<ActivityEvent, "provider" | "session">) => `${event.provider}:${event.session}`;
 
+// The roster: every session's current observed state, most recently seen first.
+export type CrewMember = { key: string; provider: string; project: string | null; task: string | null; parent: string | null; host: string | null; state: CrewState; lastSeen: string; since: string; events: number };
+
+export function projectActivity(events: ActivityEvent[], now = Date.now()): CrewMember[] {
+  const sessions = new Map<string, CrewMember>();
+  for (const event of orderEvents(events)) {
+    const key = sessionKey(event);
+    const member = sessions.get(key) ?? { key, provider: event.provider, project: null, task: null, parent: null, host: null, state: "unknown" as CrewState, lastSeen: event.at, since: event.at, events: 0 };
+    if (event.project) member.project = event.project;
+    if (event.task) member.task = event.task;
+    if (event.parent) member.parent = event.parent;
+    if (event.host) member.host = event.host;
+    member.events++;
+    member.lastSeen = event.at;
+    const next = nextState(event.kind, member.state);
+    if (next !== member.state) member.since = event.at;
+    member.state = next;
+    sessions.set(key, member);
+  }
+  return [...sessions.values()]
+    .map((member) => ({ ...member, state: observedState(member.state, Date.parse(member.lastSeen), now) }))
+    .sort((a, b) => b.lastSeen.localeCompare(a.lastSeen));
+}
+
 // ---------------------------------------------------------------------------
 // BXD-84: the ship's log. One lane per session over a bounded window, as state segments.
 // Between two events a session holds the state the first one set, until the silence rules

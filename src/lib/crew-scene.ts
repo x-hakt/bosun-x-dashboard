@@ -7,7 +7,7 @@ export type SceneState =
   | "working" | "waiting_for_tool" | "needs_approval" | "ready_for_prompt" | "finished" | "stale" | "unknown";
 
 export type Station = "rigging" | "cannons" | "cabin" | "bow" | "berth";
-export type Pose = "haul" | "fire" | "call" | "rest" | "sleep" | "climb";
+export type Pose = "haul" | "fire" | "call" | "rest" | "sleep" | "climb" | "walk";
 
 export interface SceneMember {
   id: string;

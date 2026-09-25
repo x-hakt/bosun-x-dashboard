@@ -1,35 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { DATA_DIR } from "@/lib/data/paths";
-import { loadTasks } from "@/lib/data/tasks";
-import { nextState, observedState, orderEvents, sessionKey, type ActivityEvent, type CrewState } from "@/lib/activity-state";
+import { projectActivity, type ActivityEvent, type CrewMember, type CrewState } from "@/lib/activity-state";
 
-export type { CrewState } from "@/lib/activity-state";
+export { projectActivity } from "@/lib/activity-state";
+export type { CrewMember, CrewState } from "@/lib/activity-state";
 type Event = ActivityEvent;
-export type CrewMember = { key: string; provider: string; project: string | null; task: string | null; parent: string | null; host: string | null; state: CrewState; lastSeen: string; since: string; events: number };
 
 const directory = () => path.resolve(/* turbopackIgnore: true */ process.env.BOSUN_ACTIVITY_DIR || path.join(DATA_DIR, ".activity"));
-
-export function projectActivity(events: Event[], now = Date.now()): CrewMember[] {
-  const sessions = new Map<string, CrewMember>();
-  for (const event of orderEvents(events)) {
-    const key = sessionKey(event);
-    const member = sessions.get(key) ?? { key, provider: event.provider, project: null, task: null, parent: null, host: null, state: "unknown" as CrewState, lastSeen: event.at, since: event.at, events: 0 };
-    if (event.project) member.project = event.project;
-    if (event.task) member.task = event.task;
-    if (event.parent) member.parent = event.parent;
-    if (event.host) member.host = event.host;
-    member.events++;
-    member.lastSeen = event.at;
-    const next = nextState(event.kind, member.state);
-    if (next !== member.state) member.since = event.at;
-    member.state = next;
-    sessions.set(key, member);
-  }
-  return [...sessions.values()]
-    .map((member) => ({ ...member, state: observedState(member.state, Date.parse(member.lastSeen), now) }))
-    .sort((a, b) => b.lastSeen.localeCompare(a.lastSeen));
-}
 
 export async function readActivity(limit = 2000): Promise<{ crew: CrewMember[]; events: Event[] }> {
   const dir = directory();
@@ -49,33 +27,14 @@ export async function readActivity(limit = 2000): Promise<{ crew: CrewMember[]; 
 
 type PublicConfig = { enabled?: boolean; projects?: { slug: string; alias: string }[] };
 export type PublicCrew = { alias: string; project: string; state: CrewState; updated: string };
-export type PublicFleet = { project: string; todo: number; inProgress: number };
-async function approvedProjects(): Promise<{ slug: string; alias: string }[]> {
+// The public view's switch and allowlist. Disabled (or unreadable) means nothing is public.
+export async function publicAllowlist(): Promise<{ enabled: boolean; projects: { slug: string; alias: string }[] }> {
   let config: PublicConfig;
   try { config = JSON.parse(await fs.readFile(path.join(DATA_DIR, "activity-public.json"), "utf8")) as PublicConfig; }
-  catch { return []; }
-  if (!config.enabled || !Array.isArray(config.projects)) return [];
-  return config.projects.filter((p) => p && typeof p.slug === "string" && /^[a-z0-9][a-z0-9-]{0,63}$/.test(p.slug)
+  catch { return { enabled: false, projects: [] }; }
+  if (!config.enabled) return { enabled: false, projects: [] };
+  const projects = (Array.isArray(config.projects) ? config.projects : []).filter((p) => p && typeof p.slug === "string" && /^[a-z0-9][a-z0-9-]{0,63}$/.test(p.slug)
     && typeof p.alias === "string" && /^[\w .-]{1,40}$/.test(p.alias));
+  return { enabled: true, projects };
 }
 
-export async function publicFleet(): Promise<PublicFleet[]> {
-  const projects = await approvedProjects();
-  return Promise.all(projects.map(async ({ slug, alias }) => {
-    const tasks = await loadTasks(slug);
-    return { project: alias, todo: tasks.filter((task) => task.status === "todo").length,
-      inProgress: tasks.filter((task) => task.status === "in_progress").length };
-  }));
-}
-
-export async function publicCrew(): Promise<PublicCrew[]> {
-  const allowed = new Map((await approvedProjects()).map((p) => [p.slug, p.alias]));
-  const { crew } = await readActivity();
-  const counts = new Map<string, number>();
-  return crew.filter((member) => member.project && allowed.has(member.project) && member.state !== "finished" && member.state !== "unknown").slice(0, 30).map((member) => {
-    const group = member.provider === "codex" ? "Codex" : member.provider === "claude" ? "Claude" : "Crew";
-    const count = (counts.get(group) ?? 0) + 1;
-    counts.set(group, count);
-    return { alias: `${group} ${count}`, project: allowed.get(member.project!)!, state: member.state, updated: member.lastSeen.slice(0, 16) + "Z" };
-  });
-}
