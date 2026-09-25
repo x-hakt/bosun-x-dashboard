@@ -6,6 +6,10 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+## v0.2.1 — 2026-09-25
+
+Per-project usage history, a clear story for macOS, and a clean systemd stop.
+
 ### Added
 
 - Usage history on each server's page (BXD-71): a RAM sparkline per project for the
