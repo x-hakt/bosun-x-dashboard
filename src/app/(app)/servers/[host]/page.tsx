@@ -9,6 +9,8 @@ import { getContainerRefs, displayName } from "@/lib/data/project-display";
 import { DockerStatusTable } from "@/components/docker-status-table";
 import { StageBadge } from "@/components/stage-badge";
 import { StatTile } from "@/components/stat-tile";
+import { ProjectUsageCard } from "@/components/project-usage-card";
+import type { UsageRange } from "@/lib/infra/capacity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +19,9 @@ function fmtBytes(n: number): string {
   return `${(n / 1e9).toFixed(1)} GB`;
 }
 
-export default async function HostDetailPage(props: { params: Promise<{ host: string }> }) {
+export default async function HostDetailPage(props: { params: Promise<{ host: string }>; searchParams: Promise<{ range?: string }> }) {
   const { host: hostId } = await props.params;
+  const range: UsageRange = (await props.searchParams).range === "14d" ? "14d" : "24h";
   const host = await getHost(hostId);
   if (!host) notFound();
 
@@ -45,7 +48,7 @@ export default async function HostDetailPage(props: { params: Promise<{ host: st
       </div>
 
       {host.live_monitored ? (
-        <LiveHost host={host} projectByService={composeServiceToProject} projectsOnHost={projectsOnHost} />
+        <LiveHost host={host} projectByService={composeServiceToProject} projectsOnHost={projectsOnHost} range={range} />
       ) : (
         <Card>
           <CardContent className="pt-4 space-y-4">
@@ -81,10 +84,12 @@ async function LiveHost({
   host,
   projectByService,
   projectsOnHost,
+  range,
 }: {
   host: Host;
   projectByService: Map<string, { slug: string; name: string }>;
   projectsOnHost: Awaited<ReturnType<typeof listProjects>>;
+  range: UsageRange;
 }) {
   const snapshot: RemoteSnapshot = host.ssh_alias
     ? await getRemoteSnapshot(host.ssh_alias).catch(() => ({ containers: [], specs: null, usage: null, stats: new Map() }))
@@ -167,6 +172,8 @@ async function LiveHost({
           right now.
         </p>
       )}
+
+      <ProjectUsageCard hostId={host.id} range={range} />
 
       <Card>
         <CardHeader>

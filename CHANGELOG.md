@@ -6,6 +6,12 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+### Added
+
+- Usage history on each server's page (BXD-71): a RAM sparkline per project for the
+  last 24 h or 14 d, p95 and peak marked, CPU p95 alongside, from the capacity
+  sampler's history. Server-rendered SVG; sampler outages show as gaps, not zeros.
+
 ### Changed
 
 - macOS is supported with one documented gap (BXD-72): the local machine's memory, disk

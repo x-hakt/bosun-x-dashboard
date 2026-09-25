@@ -20,7 +20,7 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "capacity-test-"));
 const tmp = path.join(tmpDir, "capacity-core.mjs");
 fs.writeFileSync(tmp, outputText);
 fs.copyFileSync(path.join(root, "src/lib/infra/snapshot-sections.mjs"), path.join(tmpDir, "snapshot-sections.mjs"));
-const { buildHostCapacity, parseMemUsage, applyHistory, percentile, simulateMove, fitVerdict, buildDiskBar } = await import(pathToFileURL(tmp).href);
+const { buildHostCapacity, parseMemUsage, applyHistory, percentile, simulateMove, fitVerdict, buildDiskBar, buildProjectUsage } = await import(pathToFileURL(tmp).href);
 const { parseDiskSections } = await import(pathToFileURL(path.join(root, "src/lib/infra/snapshot-sections.mjs")).href);
 
 const GiB = 1024 ** 3;
@@ -317,4 +317,41 @@ test("simulator moves disk too when the source is measured, and disk can decide 
   assert.equal(tight.verdict, "over", "but disk overflows, so it doesn't fit");
   const unmeasured = simulateMove(buildHostCapacity(base), roomy, "recipes-api");
   assert.equal(unmeasured.target.disk, null, "no disk simulation without a source measurement");
+});
+
+// BXD-71: per-project series for the server page sparklines.
+test("project usage: buckets hold the highest sample, gaps stay null, absent means 0", () => {
+  const end = Date.parse("2026-09-20T12:00:00Z");
+  const at = (min) => new Date(end - 60 * 60_000 + min * 60_000).toISOString(); // within the last hour
+  const sample = (min, c) => ({ t: at(min), cores: 8, memTotal: 16 * GiB, memUsed: 4 * GiB, load1: 1, c });
+  const history = [
+    sample(0, { "recipes-web": [700 * MiB, 20], "recipes-db": [300 * MiB, 10], "photo-web": [70 * MiB, 0] }),
+    sample(5, { "recipes-web": [900 * MiB, 50], "recipes-db": [300 * MiB, 10] }), // photo-web not running
+    // 10..44: sampler down, no samples at all
+    sample(45, { "recipes-web": [600 * MiB, 10], "recipes-db": [300 * MiB, 10], "photo-web": [80 * MiB, 0], mystery: [5 * GiB, 90] }),
+    sample(-120, { "recipes-web": [8 * GiB, 800] }), // before the window: ignored
+  ];
+  const usage = buildProjectUsage(base, history, { end, windowMs: 60 * 60_000, buckets: 6 }); // 10-minute buckets
+  assert.deepEqual(usage.map((u) => u.slug), ["recipes-api", "photo-vault", "dupe", "stopped"], "busiest first, every matched project");
+  const recipes = usage[0];
+  assert.equal(recipes.name, "Recipes API");
+  assert.equal(recipes.status, "Live");
+  assert.deepEqual(recipes.mem.values, [1200 * MiB, null, null, null, 900 * MiB, null], "max per bucket, gaps null");
+  assert.equal(recipes.mem.peak, 1200 * MiB);
+  assert.equal(recipes.mem.peakIndex, 0);
+  assert.equal(recipes.mem.last, 900 * MiB);
+  assert.equal(recipes.mem.p95, 1200 * MiB, "p95 over 3 raw samples");
+  close(recipes.cpu.peak, 0.6, "cpu in cores");
+  const photo = usage[1];
+  assert.deepEqual(photo.mem.values, [70 * MiB, null, null, null, 80 * MiB, null], "not running in one sample: 0 inside the bucket max");
+  assert.equal(usage.find((u) => u.slug === "stopped").mem.peak, 0, "a project that never ran is flat zero, not missing");
+  assert.ok(!usage.some((u) => u.slug === "unregistered"), "unmatched groups aren't projects");
+});
+
+test("project usage: a lone zero sample is a real 0, and no samples at all is empty", () => {
+  const end = Date.parse("2026-09-20T12:00:00Z");
+  const t = new Date(end - 5 * 60_000).toISOString();
+  const usage = buildProjectUsage(base, [{ t, cores: 8, memTotal: 16 * GiB, memUsed: 1, load1: 0, c: {} }], { end, windowMs: 3_600_000, buckets: 4 });
+  assert.deepEqual(usage.find((u) => u.slug === "photo-vault").mem.values, [null, null, null, 0]);
+  assert.deepEqual(buildProjectUsage(base, [], { end, windowMs: 3_600_000, buckets: 4 }), []);
 });

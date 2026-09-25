@@ -228,6 +228,106 @@ export function applyHistory(input: CapacityInput, live: HostCapacity, samples: 
 }
 
 // ---------------------------------------------------------------------------
+// BXD-71: per-project usage over time, for the sparklines on a server's page. Same
+// container → project mapping as the bars. The window is cut into fixed buckets; a
+// bucket with no sample at all (sampler down) is null, drawn as a gap, while a sample
+// in which the project had nothing running is a real 0.
+
+export interface UsageSeries {
+  values: (number | null)[]; // per bucket: the highest sample in it, or null for no samples
+  p95: number; // over the raw samples, not the buckets
+  peak: number;
+  peakIndex: number; // bucket holding the peak (-1 with no samples)
+  last: number | null; // the newest sample's value
+}
+
+export interface ProjectUsage {
+  slug: string;
+  name: string;
+  status?: string;
+  mem: UsageSeries; // bytes
+  cpu: UsageSeries; // cores
+}
+
+export interface UsageWindow {
+  end: number; // ms epoch
+  windowMs: number;
+  buckets: number;
+}
+
+export const USAGE_WINDOWS = {
+  "24h": { windowMs: 24 * 3_600_000, buckets: 96 }, // 15-minute buckets
+  "14d": { windowMs: 14 * 86_400_000, buckets: 168 }, // 2-hour buckets
+} as const;
+
+function usageSeries(points: { bucket: number; value: number }[], buckets: number): UsageSeries {
+  const values: (number | null)[] = new Array(buckets).fill(null);
+  let peak = 0;
+  let peakIndex = -1;
+  for (const { bucket, value } of points) {
+    values[bucket] = Math.max(values[bucket] ?? 0, value);
+    if (peakIndex === -1 || value > peak) {
+      peak = value;
+      peakIndex = bucket;
+    }
+  }
+  return {
+    values,
+    p95: percentile(points.map((p) => p.value), PERCENTILE),
+    peak,
+    peakIndex,
+    last: points.at(-1)?.value ?? null,
+  };
+}
+
+// Every project discovery matched on the host, busiest (RAM p95) first; empty when no
+// sample falls in the window.
+export function buildProjectUsage(
+  input: Pick<CapacityInput, "groups" | "projects">,
+  samples: HistorySample[],
+  window: UsageWindow,
+): ProjectUsage[] {
+  const start = window.end - window.windowMs;
+  const bucketMs = window.windowMs / window.buckets;
+  const inWindow = samples
+    .map((s) => ({ s, t: Date.parse(s.t) }))
+    .filter(({ t }) => t >= start && t <= window.end)
+    .sort((a, b) => a.t - b.t);
+  if (inWindow.length === 0) return [];
+
+  const owner = ownership(input);
+  const slugs = [...new Set(input.groups.flatMap((g) => (g.slug ? [g.slug] : [])))];
+  const mem = new Map(slugs.map((slug) => [slug, [] as { bucket: number; value: number }[]]));
+  const cpu = new Map(slugs.map((slug) => [slug, [] as { bucket: number; value: number }[]]));
+
+  for (const { s, t } of inWindow) {
+    const bucket = Math.min(window.buckets - 1, Math.floor((t - start) / bucketMs));
+    const memSum = new Map(slugs.map((slug) => [slug, 0]));
+    const cpuSum = new Map(slugs.map((slug) => [slug, 0]));
+    for (const [name, [memBytes, cpuPercent]] of Object.entries(s.c)) {
+      const slug = owner.get(name)?.slug;
+      if (!slug || !memSum.has(slug)) continue;
+      memSum.set(slug, memSum.get(slug)! + Math.max(0, memBytes));
+      cpuSum.set(slug, cpuSum.get(slug)! + Math.max(0, cpuPercent) / 100);
+    }
+    for (const slug of slugs) {
+      mem.get(slug)!.push({ bucket, value: memSum.get(slug)! });
+      cpu.get(slug)!.push({ bucket, value: cpuSum.get(slug)! });
+    }
+  }
+
+  return slugs
+    .map((slug) => ({
+      slug,
+      name: input.projects[slug]?.name ?? slug,
+      status: input.projects[slug]?.status,
+      mem: usageSeries(mem.get(slug)!, window.buckets),
+      cpu: usageSeries(cpu.get(slug)!, window.buckets),
+    }))
+    .sort((a, b) => b.mem.p95 - a.mem.p95 || a.name.localeCompare(b.name));
+}
+
+// ---------------------------------------------------------------------------
 // BXD-64: "would project X fit on host Y?" Moves the project's segment (its p95 on a
 // history-based bar, else its live value) from the source host's bars to the
 // target's, without rescaling, so an overflow shows as an overflow.
