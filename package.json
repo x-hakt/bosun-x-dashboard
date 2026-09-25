@@ -1,6 +1,6 @@
 {
   "name": "bosun-x-dashboard",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -43,7 +43,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "bosun-x": "github:x-hakt/bosun-x#ea5ae6a36c00307bea550b86850f475cd5224884",
+    "bosun-x": "github:x-hakt/bosun-x#866a27fa0bb60d73082a4e2988999b07af9dd11f",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
