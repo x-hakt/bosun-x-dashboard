@@ -180,10 +180,19 @@ const child = spawn(process.execPath, [path.join(appDir, "server.js")], {
   },
 });
 
-for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => child.kill(sig));
+// A stop we were asked for is a clean exit, however the server reports it: Next exits
+// 130/143 (128 + signal) on SIGINT/SIGTERM, and systemd's stop signals the whole unit, so
+// passing that code through marks every `systemctl stop` as a failure.
+let stopping = false;
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, () => {
+    stopping = true;
+    child.kill(sig);
+  });
+}
 child.on("exit", (code, signal) => {
   if (demo) fs.rmSync(dataDir, { recursive: true, force: true });
-  process.exit(signal ? 0 : code ?? 0);
+  process.exit(signal || stopping || code === 130 || code === 143 ? 0 : code ?? 0);
 });
 
 if (opts.open) {
