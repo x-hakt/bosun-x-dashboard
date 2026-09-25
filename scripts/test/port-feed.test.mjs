@@ -146,3 +146,15 @@ test("ships stay in port for 3 h after their last sign of life, not longer", () 
   assert.ok(!later.ships.some((s) => s.key === "another-private"), "gone after 3 h");
   assert.equal(later.happenings.length, 0, "happenings are only the last hour");
 });
+
+test("the log leaves off finished sessions shorter than a minute, never live ones", () => {
+  const src = sources();
+  src.events.push(ev("blip", "session_start", 30, "bosun-x"), ev("blip", "session_end", 29.8, "bosun-x")); // 12 s: a hook smoke test
+  src.events.push(ev("fresh", "session_start", 0.5, "bosun-x")); // 13 s ago
+  const names = (feed) => feed.log.groups.flatMap((g) => g.lanes.map((l) => l.name));
+  const feed = buildPortFeed(src, { publicView: false });
+  const blip = feed.log.groups.flatMap((g) => g.lanes).find((l) => l.detail.startsWith("blip"));
+  assert.equal(blip, undefined, "a 0-minute finished session is not drawn");
+  assert.ok(feed.log.groups.flatMap((g) => g.lanes).some((l) => l.detail.startsWith("fresh")), "a live session shows even with a sliver of time");
+  assert.ok(names(feed).length >= 5);
+});
