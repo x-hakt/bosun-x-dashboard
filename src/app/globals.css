@@ -256,3 +256,37 @@
 @keyframes port-row { from { transform: rotate(-10deg); } to { transform: rotate(12deg); } }
 @keyframes port-hoist { from { transform: translateY(110px); } to { transform: translateY(0); } }
 @keyframes port-step { 50% { transform: translateY(-1px); } }
+/* IDEA-20 round 2 (BXD-89..93): names, moorings, ship card, rolling log */
+.port-plate { fill: #0b2538e0; stroke: #f4cf83; stroke-width: 1; }
+.port-plate-hand { stroke: #caa877; stroke-dasharray: 2 2; }
+.port-plate-text { fill: #f6e8c8; font: 700 11px monospace; }
+.port-mooring-plate { fill: #0b2538cc; stroke: #6c8590; stroke-width: 1; }
+.port-mooring-name { fill: #e8dcc0; font: 700 11px monospace; }
+.port-ship:hover .port-mooring-plate, .port-ship:focus-visible .port-mooring-plate { stroke: #f4cf83; }
+.port-moorings { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px; margin: 8px 0 0; font: 11px monospace; color: #cfe3ea; }
+.port-moorings button { color: #f4cf83; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.port-card { margin-top: 10px; border: 1px solid #346075; border-radius: 12px; background: #0b2538; padding: 12px 14px; font: 12px monospace; color: #f6e8c8; }
+.port-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+.port-card-name { display: block; font-size: 15px; color: #f4cf83; }
+.port-card-name a:hover { text-decoration: underline; }
+.port-card-meta { display: block; margin-top: 2px; color: #a9c1cc; }
+.port-card-back { border: 1px solid #6c8590; border-radius: 999px; padding: 4px 10px; color: #f6e8c8; cursor: pointer; }
+.port-card-back:hover, .port-card-back:focus-visible { border-color: #f4cf83; }
+.port-card-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 900px) { .port-card-grid { grid-template-columns: 1fr 1fr; } }
+.port-card h3 { font-size: 11px; letter-spacing: .15em; text-transform: uppercase; color: #a9c1cc; margin-bottom: 4px; }
+.port-card li { padding: 2px 0; overflow-wrap: anywhere; }
+.port-card a { text-decoration: underline; text-underline-offset: 2px; }
+.port-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.port-muted { color: #a9c1cc; }
+.port-needs { color: #ff8f7a; font-weight: 700; }
+.port-rolling { display: flex; flex-direction: column-reverse; max-height: 24rem; overflow-y: auto; border-radius: 8px; border: 1px solid color-mix(in oklab, currentColor 12%, transparent); padding: 6px 10px; }
+.port-rolling:focus-visible { outline: 2px solid #f4cf83; }
+.port-line { display: grid; grid-template-columns: 3.2rem 1.2rem 1fr; gap: 4px; padding: 3px 0; font-size: 13px; line-height: 1.35; border-bottom: 1px solid color-mix(in oklab, currentColor 7%, transparent); }
+.port-line-time { font-family: monospace; font-size: 12px; opacity: .7; }
+.port-line-mark { text-align: center; opacity: .8; }
+.port-line-text { min-width: 0; overflow-wrap: anywhere; }
+.port-line-text b { color: #e0a24a; }
+.port-line-captain .port-line-text, .port-line-captain .port-line-mark { color: #ff8f7a; }
+.port-line-delivery .port-line-mark { color: #f4cf83; }
+.port-line-detail { font-family: monospace; font-size: 11px; opacity: .6; }

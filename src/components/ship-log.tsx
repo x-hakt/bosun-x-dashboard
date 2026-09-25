@@ -3,7 +3,8 @@ import type { CrewState, LogSegment } from "@/lib/activity-state";
 import type { PortFeed, PortLane } from "@/lib/port-core";
 import { cn } from "@/lib/utils";
 
-// IDEA-20 (BXD-84, BXD-87): the ship's log. One lane per session over the last day, grouped
+// IDEA-20 (BXD-84, BXD-87, BXD-92): the watch bill (formerly the ship's log; the rolling
+// log in rolling-log.tsx took that name). One lane per session over the last day, grouped
 // by ship, bars coloured by observed state; scheduled jobs as markers; the right edge of
 // every track is now. Server-rendered from the port feed, so /activity (private) and
 // /crew/embed (public: aliases, anonymous voyages, no links) show the same thing.
@@ -67,11 +68,11 @@ export function ShipLogTimeline({ log, publicView = false }: { log: Log; publicV
   const marks = log.chores;
 
   return (
-    <section className={cn("rounded-lg border p-4 space-y-3", publicView ? "port-log-public" : "border-border bg-card")} aria-labelledby="ship-log-title">
+    <section className={cn("rounded-lg border p-4 space-y-3", publicView ? "port-log-public" : "border-border bg-card")} aria-labelledby="watch-bill-title">
       <div>
-        <h2 id="ship-log-title" className="font-mono text-lg">Ship&apos;s log</h2>
+        <h2 id="watch-bill-title" className="font-mono text-lg">Watch bill</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          Last 24 hours, one lane per session. The right edge is now. Silence turns a bar to hatched (stale) after five
+          Who stood watch when: the last 24 hours, one lane per sailor. The right edge is now. Silence turns a bar to hatched (stale) after five
           minutes and ends it after an hour. Finished sessions shorter than a minute are left off.
           {publicView && " Aliases only; work on private projects shows as anonymous voyages."}
           {log.truncatedSince !== undefined && ` Only events since ${clock(log.truncatedSince)} were loaded.`}

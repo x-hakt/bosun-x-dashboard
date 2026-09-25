@@ -25,16 +25,17 @@ export async function readActivity(limit = 2000): Promise<{ crew: CrewMember[]; 
   return { crew: projectActivity(recent), events: recent.sort((a, b) => b.at.localeCompare(a.at)) };
 }
 
-type PublicConfig = { enabled?: boolean; projects?: { slug: string; alias: string }[] };
+type PublicConfig = { enabled?: boolean; allProjects?: boolean; projects?: { slug: string; alias: string }[] };
 export type PublicCrew = { alias: string; project: string; state: CrewState; updated: string };
 // The public view's switch and allowlist. Disabled (or unreadable) means nothing is public.
-export async function publicAllowlist(): Promise<{ enabled: boolean; projects: { slug: string; alias: string }[] }> {
+// `allProjects: true` names every tracked project by its display name (listed aliases still win).
+export async function publicAllowlist(): Promise<{ enabled: boolean; allProjects: boolean; projects: { slug: string; alias: string }[] }> {
   let config: PublicConfig;
   try { config = JSON.parse(await fs.readFile(path.join(DATA_DIR, "activity-public.json"), "utf8")) as PublicConfig; }
-  catch { return { enabled: false, projects: [] }; }
-  if (!config.enabled) return { enabled: false, projects: [] };
+  catch { return { enabled: false, allProjects: false, projects: [] }; }
+  if (!config.enabled) return { enabled: false, allProjects: false, projects: [] };
   const projects = (Array.isArray(config.projects) ? config.projects : []).filter((p) => p && typeof p.slug === "string" && /^[a-z0-9][a-z0-9-]{0,63}$/.test(p.slug)
     && typeof p.alias === "string" && /^[\w .-]{1,40}$/.test(p.alias));
-  return { enabled: true, projects };
+  return { enabled: true, allProjects: config.allProjects === true, projects };
 }
 
