@@ -9,9 +9,16 @@ const PARENT = "https://x-hakt.com";
 export function EmbedHeight() {
   useEffect(() => {
     if (window.parent === window) return;
-    const post = () => window.parent.postMessage({ type: "bosun-embed-height", height: Math.ceil(document.documentElement.scrollHeight) }, PARENT);
+    // The content's own bottom, not the document's: the page fills the frame, so its height
+    // would never shrink back once the parent had made the frame taller.
+    const main = document.querySelector("main");
+    if (!main) return;
+    const post = () => {
+      const bottom = [...main.children].reduce((m, c) => Math.max(m, c.getBoundingClientRect().bottom + window.scrollY), 0);
+      window.parent.postMessage({ type: "bosun-embed-height", height: Math.ceil(bottom + 16) }, PARENT);
+    };
     const observer = new ResizeObserver(post);
-    observer.observe(document.body);
+    for (const child of main.children) observer.observe(child);
     post();
     return () => observer.disconnect();
   }, []);
