@@ -156,7 +156,7 @@ export function planWalk(from: Spot, to: Spot, berths: Berth[]): Point[] {
   return leg.filter((p, i) => i === 0 || p.x !== leg[i - 1].x || p.y !== leg[i - 1].y);
 }
 
-// Errands for real happenings, from the warehouse and back. Cargo and deliveries go up the
+// Errands for real happenings, from the whorehouse (the old warehouse) and back. Cargo and deliveries go up the
 // gangplank to the hatch (the crate goes below, or comes up); carts stop at the plank foot.
 // The waypoint where the load changes hands is returned as `handover`.
 export function errandRoute(kind: "cargo" | "delivery" | "cart" | "tide", berths: Berth[], ship?: string): { route: Point[]; handover: number } {
