@@ -1,18 +1,14 @@
 import Link from "next/link";
-import type { CrewState, LogLane, LogSegment, ShipLog } from "@/lib/activity-state";
+import type { CrewState, LogSegment } from "@/lib/activity-state";
+import type { PortFeed, PortLane } from "@/lib/port-core";
 import { cn } from "@/lib/utils";
 
-// IDEA-20 (BXD-84): the ship's log. One lane per session over the last day, grouped by
-// project, bars coloured by observed state; scheduled jobs as markers; the right edge of
-// every track is now. Server-rendered, private page only.
+// IDEA-20 (BXD-84, BXD-87): the ship's log. One lane per session over the last day, grouped
+// by ship, bars coloured by observed state; scheduled jobs as markers; the right edge of
+// every track is now. Server-rendered from the port feed, so /activity (private) and
+// /crew/embed (public: aliases, anonymous voyages, no links) show the same thing.
 
-export interface ChoreMark {
-  id: string;
-  at: number;
-  label: string; // job name
-  outcome: "started" | "finished" | "failed";
-}
-
+type Log = PortFeed["log"];
 const TZ = "Australia/Sydney";
 const HOUR = 3_600_000;
 
@@ -32,22 +28,21 @@ const STATE_TEXT: Partial<Record<CrewState, string>> = { needs_approval: "text-a
 const clock = (t: number) => new Date(t).toLocaleTimeString("en-AU", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false });
 const span = (ms: number) => (ms >= HOUR ? `${(ms / HOUR).toFixed(1)} h` : `${Math.max(1, Math.round(ms / 60_000))} min`);
 
-function Track({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <div className={cn("relative h-4 rounded-sm bg-muted/40 border-r-2 border-primary/70", className)}>{children}</div>;
+function Track({ children }: { children?: React.ReactNode }) {
+  return <div className="relative h-4 rounded-sm bg-muted/40 border-r-2 border-primary/70">{children}</div>;
 }
 
-const left = (log: ShipLog, t: number) => `${((t - log.start) / (log.end - log.start)) * 100}%`;
-const width = (log: ShipLog, a: number, b: number) => `${((b - a) / (log.end - log.start)) * 100}%`;
+const left = (log: Log, t: number) => `${((t - log.start) / (log.end - log.start)) * 100}%`;
+const width = (log: Log, a: number, b: number) => `${((b - a) / (log.end - log.start)) * 100}%`;
 
-function LaneRow({ log, lane, depth }: { log: ShipLog; lane: LogLane; depth: number }) {
-  const short = lane.session.slice(0, 12);
+function LaneRow({ log, lane }: { log: Log; lane: PortLane }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[13rem_1fr] items-center gap-x-3 gap-y-1 py-1">
-      <div className="flex min-w-0 items-baseline justify-between gap-2 text-xs" style={{ paddingLeft: `${depth * 0.9}rem` }}>
-        <span className="min-w-0 truncate" title={`${lane.provider} ${lane.session}${lane.task ? ` · ${lane.task}` : ""}`}>
-          {depth > 0 && <span className="text-muted-foreground">↳ </span>}
-          <span className="capitalize">{lane.provider}</span> <span className="font-mono text-muted-foreground">{short}</span>
-          {lane.task && <span className="font-mono"> · {lane.task}</span>}
+      <div className="flex min-w-0 items-baseline justify-between gap-2 text-xs" style={{ paddingLeft: `${lane.depth * 0.9}rem` }}>
+        <span className="min-w-0 truncate" title={lane.detail ? `${lane.name} · ${lane.detail}` : lane.name}>
+          {lane.depth > 0 && <span className="text-muted-foreground">↳ </span>}
+          {lane.name}
+          {lane.detail && <span className="font-mono text-muted-foreground"> {lane.detail}</span>}
         </span>
         <span className={cn("shrink-0", STATE_TEXT[lane.state])}>{STATE_LABEL[lane.state]}</span>
       </div>
@@ -65,24 +60,21 @@ function LaneRow({ log, lane, depth }: { log: ShipLog; lane: LogLane; depth: num
   );
 }
 
-export function ShipLogTimeline({ log, chores, truncatedSince }: { log: ShipLog; chores: ChoreMark[]; truncatedSince?: number }) {
+export function ShipLogTimeline({ log, publicView = false }: { log: Log; publicView?: boolean }) {
   const ticks: number[] = [];
   // Hour ticks every 3 h; none within ~45 min of the end, where the "now" label sits.
   for (let t = Math.ceil(log.start / (3 * HOUR)) * 3 * HOUR; t < log.end - 0.75 * HOUR; t += 3 * HOUR) ticks.push(t);
-  const marks = chores.filter((c) => c.at >= log.start && c.at <= log.end);
-  const depthOf = (lane: LogLane, lanes: LogLane[]): number => {
-    const parent = lanes.find((l) => l.session === lane.parent && l !== lane);
-    return parent ? Math.min(3, 1 + depthOf(parent, lanes.filter((l) => l !== lane))) : 0;
-  };
+  const marks = log.chores;
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4 space-y-3" aria-labelledby="ship-log-title">
+    <section className={cn("rounded-lg border p-4 space-y-3", publicView ? "port-log-public" : "border-border bg-card")} aria-labelledby="ship-log-title">
       <div>
         <h2 id="ship-log-title" className="font-mono text-lg">Ship&apos;s log</h2>
         <p className="text-xs text-muted-foreground mt-1">
           Last 24 hours, one lane per session. The right edge is now. Silence turns a bar to hatched (stale) after five
           minutes and ends it after an hour.
-          {truncatedSince !== undefined && ` Only events since ${clock(truncatedSince)} were loaded.`}
+          {publicView && " Aliases only; work on private projects shows as anonymous voyages."}
+          {log.truncatedSince !== undefined && ` Only events since ${clock(log.truncatedSince)} were loaded.`}
         </p>
       </div>
 
@@ -108,11 +100,12 @@ export function ShipLogTimeline({ log, chores, truncatedSince }: { log: ShipLog;
           </div>
 
           {log.groups.map((group) => (
-            <div key={group.project ?? "\u0000unmapped"} className="border-t border-border/50 pt-2 mt-1">
+            <div key={group.key} className="border-t border-border/50 pt-2 mt-1">
               <div className="text-sm font-mono mb-0.5">
-                {group.project ? <Link className="hover:underline" href={`/projects/${group.project}`}>{group.project}</Link> : <span className="text-muted-foreground">Unmapped</span>}
+                {group.href ? <Link className="hover:underline" href={group.href}>{group.name}</Link>
+                  : <span className={group.kind === "project" ? undefined : "text-muted-foreground"}>{group.name}</span>}
               </div>
-              {group.lanes.map((lane) => <LaneRow key={lane.key} log={log} lane={lane} depth={depthOf(lane, group.lanes)} />)}
+              {group.lanes.map((lane) => <LaneRow key={lane.id} log={log} lane={lane} />)}
             </div>
           ))}
 
@@ -135,11 +128,11 @@ export function ShipLogTimeline({ log, chores, truncatedSince }: { log: ShipLog;
       )}
 
       <ol className="sr-only">
-        {log.groups.flatMap((g) => g.lanes).map((lane) => (
-          <li key={lane.key}>
-            {lane.provider} {lane.session.slice(0, 12)} on {lane.project ?? "an unmapped project"}: {lane.segments.map((s) => `${STATE_LABEL[s.state]} ${clock(s.from)} to ${clock(s.to)}`).join(", ") || "no bars in the window"}; now {STATE_LABEL[lane.state]}.
+        {log.groups.flatMap((g) => g.lanes.map((lane) => (
+          <li key={lane.id}>
+            {lane.name} on {g.name}: {lane.segments.map((s) => `${STATE_LABEL[s.state]} ${clock(s.from)} to ${clock(s.to)}`).join(", ") || "no bars in the window"}; now {STATE_LABEL[lane.state]}.
           </li>
-        ))}
+        )))}
       </ol>
     </section>
   );

@@ -211,3 +211,48 @@
 .crew-moored-stats b { color: #ff8f7a; font-weight: 700; }
 .crew-moored-more { fill: #f6e8c8; font: 700 12px monospace; }
 .crew-moored-alarm { fill: #fff4d6; font: 700 9px monospace; }
+/* IDEA-20 (BXD-85..88): the port */
+.port-frame { overflow-x: auto; border-radius: 12px; }
+.port-svg { display: block; width: 100%; min-width: 960px; height: auto; }
+.port-ship { cursor: pointer; outline: none; }
+.port-ship:hover .port-sign, .port-ship:focus-visible .port-sign { stroke: #fff3c4; stroke-width: 2; }
+.port-sign { fill: #0b2538e6; stroke: #d7b887; stroke-width: 1; }
+.port-sign-name { fill: #f4cf83; font: 700 15px monospace; }
+.port-sign-stats { fill: #f6e8c8; font: 12px monospace; }
+.port-alarm { fill: #fff4d6; font: 700 12px monospace; }
+.port-house-text { fill: #f1dfb6; font: 700 12px monospace; letter-spacing: .15em; }
+.port-house-text-small { fill: #5a3b2a; font: 700 9px monospace; letter-spacing: .08em; }
+.port-offing-text { fill: #cfe3ea; font: 11px monospace; }
+.port-ding { fill: #ffe39a; font: 700 14px monospace; animation: port-ding 1s ease-out infinite; }
+.port-bell { transform-box: fill-box; transform-origin: 50% 0; }
+.port-bell-ring { animation: port-swing .3s ease-in-out infinite alternate; }
+.port-glint { fill: #fff6c4; animation: crew-fuse .45s ease-in-out infinite alternate; }
+.port-star { animation: crew-fuse 3s ease-in-out infinite alternate; }
+.port-smoke circle { fill: #c9c2b8; opacity: 0; animation: port-smoke 6s linear infinite; }
+.port-smoke circle:nth-child(2) { animation-delay: -2s; }
+.port-smoke circle:nth-child(3) { animation-delay: -4s; }
+.port-cloud { animation: port-drift 160s linear infinite; }
+.port-gull { animation: port-fly 26s linear infinite; }
+.port-wing { animation: port-flap .5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 100%; }
+.port-beam { transform-box: fill-box; transform-origin: 100% 50%; animation: port-sweep 7s ease-in-out infinite alternate; }
+.port-bob { animation: port-bob 4.4s ease-in-out infinite; }
+.port-oars { animation: port-row 1.6s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 0; }
+.port-pennant { animation: port-hoist 1.4s ease-out; }
+.crew-leg-a, .crew-leg-b { animation: port-step .36s steps(2) infinite; }
+.crew-leg-b { animation-delay: -.18s; }
+.port-order { cursor: pointer; color: inherit; text-align: left; flex-wrap: wrap; row-gap: 2px; }
+.port-order:hover, .port-order:focus-visible { border-color: #f4cf83; }
+.port-order b { color: #ff8f7a; font-weight: 700; }
+.port-embed { --muted-foreground: #a9c1cc; --muted: #13354a; --border: #346075; --primary: #f4cf83; --foreground: #f6e8c8; --card: #0b2538; --destructive: #ff8f7a; }
+.port-log-public { border-color: #346075; background: #0b2538; color: #f6e8c8; }
+@keyframes port-ding { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
+@keyframes port-swing { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
+@keyframes port-smoke { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: .55; } 100% { opacity: 0; transform: translate(12px, -40px); } }
+@keyframes port-drift { from { transform: translateX(-500px); } to { transform: translateX(1800px); } }
+@keyframes port-fly { from { transform: translate(-120px, 30px); } 50% { transform: translate(800px, -20px); } to { transform: translate(1750px, 20px); } }
+@keyframes port-flap { from { transform: scaleY(1); } to { transform: scaleY(-.6); } }
+@keyframes port-sweep { from { transform: rotate(-20deg); opacity: .12; } to { transform: rotate(22deg); opacity: .3; } }
+@keyframes port-bob { 50% { transform: translateY(2px); } }
+@keyframes port-row { from { transform: rotate(-10deg); } to { transform: rotate(12deg); } }
+@keyframes port-hoist { from { transform: translateY(110px); } to { transform: translateY(0); } }
+@keyframes port-step { 50% { transform: translateY(-1px); } }
