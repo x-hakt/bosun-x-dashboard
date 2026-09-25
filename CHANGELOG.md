@@ -6,6 +6,12 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+### Fixed
+
+- npm launcher: `systemctl --user stop` (and anything else that sends SIGTERM) left the
+  service `failed`, because Next exits 143 on SIGTERM and the launcher passed that code
+  through. A stop the launcher was asked for now exits 0 (BXD-70).
+
 ## v0.2.0 — 2026-09-25
 
 The dashboard is now installable from npm, and gains a capacity view for your servers.
