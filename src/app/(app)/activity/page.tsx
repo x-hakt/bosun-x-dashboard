@@ -20,6 +20,7 @@ function signalSources(events: { host: string | null; provider: string; project:
 import { ActivityRefresh } from "@/components/activity-refresh";
 import { PortView } from "@/components/port-scene";
 import { ShipLogTimeline } from "@/components/ship-log";
+import { RollingLog } from "@/components/rolling-log";
 import { privatePortFeed } from "@/lib/port-feed";
 import { getJobStatuses } from "@/lib/data/jobs";
 import { loadTasks } from "@/lib/data/tasks";
@@ -54,6 +55,7 @@ export default async function ActivityPage() {
       <h1 className="text-2xl font-semibold mt-1">Crew activity</h1>
       <p className="text-sm text-muted-foreground mt-2">Session signals from Claude and Codex. A quiet or stale signal is never counted as active work.</p></div>
     <PortView feed={feed} />
+    <RollingLog feed={feed} />
     <ShipLogTimeline log={feed.log} />
     <section className="rounded-lg border border-border bg-card p-4 space-y-3">
       <h2 className="font-mono text-lg">Signal sources</h2>

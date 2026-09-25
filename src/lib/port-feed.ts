@@ -114,8 +114,12 @@ export async function privatePortFeed(): Promise<PortFeed> {
 const fallbackSecret = randomBytes(32).toString("hex");
 
 export async function publicPortFeed(): Promise<PortFeed> {
-  const { enabled, projects } = await publicAllowlist();
-  const empty: PortFeed = { now: Date.now(), publicView: true, ships: [], sailors: [], happenings: [], log: { start: Date.now() - LOG_WINDOW_MS, end: Date.now(), groups: [], chores: [] } };
+  const { enabled, allProjects, projects } = await publicAllowlist();
+  const empty: PortFeed = { now: Date.now(), publicView: true, ships: [], sailors: [], happenings: [], entries: [], log: { start: Date.now() - LOG_WINDOW_MS, end: Date.now(), groups: [], chores: [] } };
   if (!enabled) return empty;
-  return buildPortFeed(await gatherSources(), { publicView: true, approved: projects, secret: process.env.AUTH_SECRET || fallbackSecret });
+  const sources = await gatherSources();
+  const listed = new Set(projects.map((p) => p.slug));
+  // Display names are the operator's own labels; keep them to the same safe character set.
+  const everyone = allProjects ? sources.projects.filter((p) => !listed.has(p.slug)).map((p) => ({ slug: p.slug, alias: p.name.replace(/[^\w .-]/g, " ").trim().slice(0, 40) || p.slug })) : [];
+  return buildPortFeed(sources, { publicView: true, approved: [...projects, ...everyone], secret: process.env.AUTH_SECRET || fallbackSecret });
 }

@@ -18,7 +18,7 @@ const load = (file, resolve) => {
   return mod.exports;
 };
 const state = load("activity-state.ts", require);
-const { buildPortFeed } = load("port-core.ts", (name) => (name === "@/lib/activity-state" ? state : require(name)));
+const { buildPortFeed, sailorName, dockhandName } = load("port-core.ts", (name) => (name === "@/lib/activity-state" ? state : require(name)));
 
 const NOW = Date.parse("2026-09-25T10:00:30.000Z");
 const MIN = 60_000;
@@ -63,10 +63,11 @@ const SECRETS = ["secret-client", "Secret Client", "another-private", "Another P
 
 // Every key path allowed in the public JSON (arrays collapse to []).
 const ALLOWED = new Set([
-  "now", "publicView", "ships", "sailors", "happenings", "log",
-  "ships[].key", "ships[].name", "ships[].kind", "ships[].todo", "ships[].inProgress",
+  "now", "publicView", "ships", "sailors", "happenings", "entries", "log",
+  "ships[].key", "ships[].name", "ships[].kind", "ships[].active", "ships[].todo", "ships[].inProgress",
+  "entries[].id", "entries[].at", "entries[].kind", "entries[].who", "entries[].action", "entries[].ship",
   "sailors[].id", "sailors[].name", "sailors[].provider", "sailors[].ship", "sailors[].state", "sailors[].sub", "sailors[].since",
-  "happenings[].id", "happenings[].kind", "happenings[].at", "happenings[].ship",
+  "happenings[].id", "happenings[].kind", "happenings[].at", "happenings[].ship", "happenings[].who",
   "log.start", "log.end", "log.groups", "log.chores", "log.truncatedSince",
   "log.groups[].key", "log.groups[].name", "log.groups[].kind", "log.groups[].lanes",
   "log.groups[].lanes[].id", "log.groups[].lanes[].name", "log.groups[].lanes[].depth", "log.groups[].lanes[].state", "log.groups[].lanes[].segments",
@@ -102,7 +103,7 @@ test("public feed: approved alias, anonymous voyages, a dinghy, voyage counts hi
   assert.equal(voyage.todo, null);
   assert.equal(feed.ships.find((s) => s.kind === "project").todo, 3);
   const needs = feed.sailors.find((s) => s.state === "needs_approval");
-  assert.equal(needs.ship, feed.ships.find((s) => s.name === "Private voyage 1").key, "private work still shows its state");
+  assert.equal(feed.ships.find((s) => s.key === needs.ship).kind, "voyage", "private work still shows its state, as a voyage");
   assert.ok(feed.happenings.some((h) => h.kind === "cargo" && h.ship === needs.ship), "a private commit is anonymous cargo");
   assert.deepEqual(feed.log.chores.map((c) => c.label), ["harbour chore"]);
 });
@@ -111,6 +112,7 @@ test("public feed: times rounded to the minute", () => {
   const feed = buildPortFeed(sources(), publicOpts);
   for (const s of feed.sailors) assert.match(s.since, /:00\.000Z$/);
   for (const h of feed.happenings) assert.match(h.at, /:00\.000Z$/);
+  for (const e of feed.entries) assert.match(e.at, /:00\.000Z$/);
   for (const g of feed.log.groups) for (const l of g.lanes) for (const s of l.segments) {
     assert.equal(s.from % MIN, 0);
     assert.equal(s.to % MIN, 0);
@@ -135,26 +137,66 @@ test("private feed keeps the detail the operator needs", () => {
   assert.equal(feed.ships.find((s) => s.key === "secret-client").name, "Secret Client Portal");
   assert.ok(feed.happenings.every((h) => h.detail));
   const sub = feed.sailors.find((s) => s.sub);
-  assert.equal(sub.name, "Codex 1");
-  assert.equal(feed.log.groups.find((g) => g.key === "secret-client").lanes.find((l) => l.name === "Codex 1").depth, 1);
+  assert.equal(sub.name, sailorName("codex:sess-very-secret-3"));
+  assert.equal(feed.log.groups.find((g) => g.key === "secret-client").lanes.find((l) => l.name === sub.name).depth, 1);
 });
 
-test("ships stay in port for 3 h after their last sign of life, not longer", () => {
+test("every project is a ship; active ones for 3 h after their last sign of life", () => {
   const feed = buildPortFeed(sources(), { publicView: false });
-  assert.ok(feed.ships.some((s) => s.key === "another-private"), "finished 10 min ago: still moored");
+  assert.deepEqual(feed.ships.filter((s) => s.kind === "project").map((s) => s.key).sort(), ["another-private", "bosun-x", "secret-client"]);
+  assert.equal(feed.ships.find((s) => s.key === "another-private").active, true, "finished 10 min ago: at the quay");
   const later = buildPortFeed(sources(NOW + 4 * 60 * MIN), { publicView: false });
-  assert.ok(!later.ships.some((s) => s.key === "another-private"), "gone after 3 h");
+  assert.equal(later.ships.find((s) => s.key === "another-private").active, false, "4 h later: out at the moorings, still there");
   assert.equal(later.happenings.length, 0, "happenings are only the last hour");
+  const order = (f) => f.ships.filter((s) => s.kind !== "dinghy").map((s) => s.key).join();
+  assert.equal(order(feed), order(later), "ships keep their order whether active or not");
+});
+
+test("sailors have generated names, never Claude N / Codex N, the same on both pages", () => {
+  const priv = buildPortFeed(sources(), { publicView: false });
+  const pub = buildPortFeed(sources(), publicOpts);
+  for (const s of [...priv.sailors, ...pub.sailors]) assert.doesNotMatch(s.name, /^(Claude|Codex|Crew) \d+$/);
+  assert.deepEqual(priv.sailors.map((s) => s.name).sort(), pub.sailors.map((s) => s.name).sort());
+  assert.equal(sailorName("claude:x"), sailorName("claude:x"), "stable");
+  assert.match(sailorName("claude:x"), /^[A-Z][\w-]+ [A-Z][a-z]+$/);
+});
+
+test("the rolling log tells the day: arrivals, the captain, cargo, pennants; dockhands match the scene", () => {
+  const priv = buildPortFeed(sources(), { publicView: false });
+  const kinds = priv.entries.map((e) => e.kind);
+  for (const k of ["aboard", "cabin", "captain", "cargo", "delivery", "cart", "signoff"]) assert.ok(kinds.includes(k), `has a ${k} line`);
+  const captain = priv.entries.find((e) => e.kind === "captain");
+  assert.equal(captain.who, sailorName("claude:sess-very-secret-2"));
+  assert.equal(captain.ship, "secret-client");
+  assert.match(captain.action, /\{ship\}/);
+  const cargo = priv.entries.find((e) => e.kind === "cargo" && e.ship === "secret-client");
+  const errand = priv.happenings.find((h) => h.kind === "cargo" && h.ship === "secret-client");
+  assert.equal(cargo.who, errand.who, "the log names the dockhand the scene shows");
+  assert.equal(cargo.who, dockhandName("deadbeefcafe0000secretcommit"));
+  const sorted = [...priv.entries].sort((a, b) => a.at.localeCompare(b.at));
+  assert.deepEqual(priv.entries, sorted, "oldest first, newest at the bottom");
+  const pub = buildPortFeed(sources(), publicOpts);
+  assert.equal(pub.entries.length, priv.entries.length, "the public log has the same lines");
+  assert.ok(pub.entries.every((e) => e.detail === undefined));
 });
 
 test("the log leaves off finished sessions shorter than a minute, never live ones", () => {
   const src = sources();
   src.events.push(ev("blip", "session_start", 30, "bosun-x"), ev("blip", "session_end", 29.8, "bosun-x")); // 12 s: a hook smoke test
   src.events.push(ev("fresh", "session_start", 0.5, "bosun-x")); // 13 s ago
-  const names = (feed) => feed.log.groups.flatMap((g) => g.lanes.map((l) => l.name));
   const feed = buildPortFeed(src, { publicView: false });
-  const blip = feed.log.groups.flatMap((g) => g.lanes).find((l) => l.detail.startsWith("blip"));
-  assert.equal(blip, undefined, "a 0-minute finished session is not drawn");
-  assert.ok(feed.log.groups.flatMap((g) => g.lanes).some((l) => l.detail.startsWith("fresh")), "a live session shows even with a sliver of time");
-  assert.ok(names(feed).length >= 5);
+  const lanes = feed.log.groups.flatMap((g) => g.lanes);
+  assert.equal(lanes.find((l) => l.detail.includes("blip")), undefined, "a 12-second finished session is not drawn");
+  assert.ok(!feed.entries.some((e) => e.who === sailorName("claude:blip")), "nor logged");
+  assert.ok(lanes.some((l) => l.detail.includes("fresh")), "a live session shows even with a sliver of time");
+});
+
+test("repeats in the same minute read as one line", () => {
+  const src = sources();
+  src.deliveries.push({ project: "bosun-x", at: iso(8), id: "bx#1" }, { project: "bosun-x", at: iso(8), id: "bx#2" }, { project: "bosun-x", at: iso(8), id: "bx#3" });
+  const feed = buildPortFeed(src, { publicView: false });
+  const bx = feed.entries.filter((e) => e.kind === "delivery" && e.ship === "bosun-x");
+  assert.equal(bx.length, 1);
+  assert.equal(bx[0].action, "{ship} ran up 3 pennants: 3 tasks are done");
+  assert.equal(buildPortFeed(src, publicOpts).entries.filter((e) => e.kind === "delivery").length, feed.entries.filter((e) => e.kind === "delivery").length);
 });

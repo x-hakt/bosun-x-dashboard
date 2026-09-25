@@ -6,6 +6,15 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+### Changed
+
+- The port, round two (BXD-89..93): every project is a ship (quiet ones at moorings in the
+  bay), sailors and dockhands have generated names shown when they're busy, boarding glides
+  the port's camera onto the ship with a crew card (the old single deck is gone), stale
+  sailors doze sitting up, and a squad-style rolling ship's log sits under the port on both
+  pages; the per-session lanes are now the watch bill. `allProjects: true` in
+  activity-public.json names every project publicly.
+
 ### Added
 
 - The port (BXD-85..88), replacing the harbour grid (BXD-82) on /activity and

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// BXD-85: port geometry and walks (src/lib/port-layout.ts).
+// BXD-85, BXD-89..93: port geometry, walks and the camera (src/lib/port-layout.ts).
 //   node scripts/test/port-layout.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -12,23 +12,40 @@ const source = fs.readFileSync(new URL("../../src/lib/port-layout.ts", import.me
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const mod = { exports: {} };
 new Function("require", "module", "exports", compiled)(require, mod, mod.exports);
-const { layoutBerths, assignSpots, planWalk, pointOf, errandRoute, QUAY_Y, MAX_BERTHS, PORT_W, TOWN_EXIT } = mod.exports;
+const { layoutBerths, assignSpots, planWalk, pointOf, errandRoute, cameraFor, HARBOUR_CAMERA, QUAY_Y, MAX_BERTHS, PORT_W, PORT_H, TOWN_EXIT, DINGHY, MOORING_ROWS } = mod.exports;
+const keys = (n, p = "s") => Array.from({ length: n }, (_, i) => `${p}${i}`);
 
-test("berths fit the quay and never overlap; extras ride at anchor on the horizon", () => {
-  for (let n = 1; n <= 9; n++) {
-    const berths = layoutBerths(Array.from({ length: n }, (_, i) => `s${i}`));
-    const moored = berths.filter((b) => !b.offing);
-    assert.equal(moored.length, Math.min(n, MAX_BERTHS));
-    assert.equal(berths.filter((b) => b.offing).length, Math.max(0, n - MAX_BERTHS));
-    for (const b of moored) {
+test("active ships fit the quay without overlapping; extras join the moorings", () => {
+  for (let n = 1; n <= MAX_BERTHS + 2; n++) {
+    const berths = layoutBerths(keys(n), keys(3, "q"));
+    const quay = berths.filter((b) => !b.moored);
+    assert.equal(quay.length, Math.min(n, MAX_BERTHS));
+    assert.equal(berths.filter((b) => b.moored).length, 3 + Math.max(0, n - MAX_BERTHS));
+    for (const b of quay) {
       assert.ok(b.cx - 105 * b.scale >= 440 && b.cx + 105 * b.scale <= PORT_W, `ship ${b.key} of ${n} inside the harbour`);
       assert.equal(b.plankFoot.y, QUAY_Y);
     }
-    for (let i = 1; i < moored.length; i++) assert.ok(moored[i].cx - moored[i - 1].cx >= 210 * moored[i].scale, `${n} ships: no overlap`);
+    for (let i = 1; i < quay.length; i++) assert.ok(quay[i].cx - quay[i - 1].cx >= 210 * quay[i].scale, `${n} ships: no overlap`);
   }
 });
 
-test("states map to places: work on deck, ready and needs-you on the quay, stale asleep aboard", () => {
+test("twenty quiet ships ride at moorings in the bay, apart, in the frame", () => {
+  const berths = layoutBerths(keys(2), keys(20, "q"));
+  const moored = berths.filter((b) => b.moored);
+  assert.equal(moored.length, 20);
+  for (const b of moored) {
+    assert.ok(b.cx - 105 * b.scale >= 600 && b.cx + 105 * b.scale <= PORT_W, `${b.key} inside`);
+    assert.ok(b.waterline <= PORT_H && b.waterline - 270 * b.scale > QUAY_Y + 30, `${b.key} below the quay, masts clear of it`);
+  }
+  for (const row of MOORING_ROWS) {
+    const inRow = moored.filter((b) => b.waterline === row.waterline).sort((a, b) => a.cx - b.cx);
+    for (let i = 1; i < inRow.length; i++) assert.ok(inRow[i].cx - inRow[i - 1].cx >= 214 * row.scale, "neighbours in a row don't touch");
+  }
+  const same = layoutBerths(keys(2), keys(20, "q"));
+  assert.deepEqual(same, berths, "stable");
+});
+
+test("states map to places: work on deck, ready and needs-you on the quay, stale dozing, rowing-boat crew seated", () => {
   const berths = layoutBerths(["a", "b"]);
   const spots = assignSpots([
     { id: "1", ship: "a", state: "working" },
@@ -37,21 +54,19 @@ test("states map to places: work on deck, ready and needs-you on the quay, stale
     { id: "4", ship: "a", state: "needs_approval" },
     { id: "5", ship: "b", state: "stale" },
     { id: "6", ship: "~dinghy", state: "working" },
+    { id: "7", ship: "~dinghy", state: "stale" },
   ], berths, "~dinghy");
   assert.deepEqual([spots.get("1").spot.zone, spots.get("1").pose], ["deck", "haul"]);
   assert.equal(spots.get("2").pose, "fire");
   assert.deepEqual([spots.get("3").spot.zone, spots.get("3").pose], ["quay", "rest"]);
   assert.deepEqual([spots.get("4").spot.zone, spots.get("4").pose], ["quay", "call"]);
-  assert.deepEqual([spots.get("5").spot.zone, spots.get("5").pose], ["deck", "sleep"]);
-  assert.equal(spots.get("6").spot.zone, "dinghy");
+  assert.deepEqual([spots.get("5").spot.zone, spots.get("5").pose], ["deck", "doze"]);
+  assert.deepEqual([spots.get("6").spot.zone, spots.get("7").pose], ["dinghy", "doze"]);
+  for (const p of spots.values()) assert.notEqual(p.pose, "sleep", "nobody lies on their side");
+  const seat = pointOf(spots.get("6").spot, berths);
+  assert.ok(Math.abs(seat.x - DINGHY.x) <= 30 && seat.y > DINGHY.y, "sat inside the boat");
   const again = assignSpots([{ id: "3", ship: "a", state: "ready_for_prompt" }, { id: "1", ship: "a", state: "working" }], berths, "~dinghy");
   assert.deepEqual(again.get("1"), spots.get("1"), "same crew, same places, whatever the input order");
-});
-
-test("sailors on a ship anchored out on the horizon are not drawn", () => {
-  const keys = Array.from({ length: MAX_BERTHS + 1 }, (_, i) => `s${i}`);
-  const spots = assignSpots([{ id: "x", ship: keys.at(-1), state: "working" }], layoutBerths(keys), "~dinghy");
-  assert.equal(spots.has("x"), false);
 });
 
 test("walks go down one gangplank, along the quay, and up the other", () => {
@@ -63,12 +78,10 @@ test("walks go down one gangplank, along the quay, and up the other", () => {
   ].map(([x, y]) => [Math.round(x), Math.round(y)]));
   const arrive = planWalk({ zone: "town" }, { zone: "deck", ship: "a", x: a.cx }, berths);
   assert.equal(arrive[0].x, a.plankFoot.x, "from town: straight along the quay to the plank");
-  const leave = planWalk({ zone: "quay", x: 900 }, { zone: "town" }, berths);
-  assert.deepEqual(leave, [{ ...TOWN_EXIT, s: 1 }]);
-  const same = planWalk({ zone: "deck", ship: "a", x: 1 }, { zone: "deck", ship: "a", x: 2 }, berths);
-  assert.equal(same.length, 1, "moving about the same deck is one step");
-  const gone = planWalk({ zone: "deck", ship: "gone", x: 5 }, { zone: "town" }, berths);
-  assert.deepEqual(gone, [pointOf({ zone: "town" }, berths)], "a ship that sailed: straight off");
+  assert.deepEqual(planWalk({ zone: "quay", x: 900 }, { zone: "town" }, berths), [{ ...TOWN_EXIT, s: 1 }]);
+  assert.equal(planWalk({ zone: "deck", ship: "a", x: 1 }, { zone: "deck", ship: "a", x: 2 }, berths).length, 1);
+  const toBoat = planWalk({ zone: "town" }, { zone: "dinghy", x: DINGHY.x }, berths);
+  assert.equal(toBoat[0].x, DINGHY.stairsX, "down the stairs to the rowing boat");
 });
 
 test("errands start and end at the warehouse or office", () => {
@@ -77,4 +90,19 @@ test("errands start and end at the warehouse or office", () => {
   assert.equal(cargo[0].x, cargo.at(-1).x);
   assert.equal(cargo[1].x, berths[0].plankFoot.x);
   assert.equal(errandRoute("tide", berths).length, 3);
+});
+
+test("the camera frames a ship at the port's aspect ratio, inside the port", () => {
+  const berths = layoutBerths(keys(3), keys(12, "q"));
+  const ratio = PORT_W / PORT_H;
+  assert.deepEqual(cameraFor(null, berths, "~dinghy"), HARBOUR_CAMERA);
+  for (const key of [...berths.map((b) => b.key), "~dinghy"]) {
+    const c = cameraFor(key, berths, "~dinghy");
+    assert.ok(Math.abs(c.w / c.h - ratio) < 1e-9, `${key}: same aspect`);
+    assert.ok(c.x >= 0 && c.y >= 0 && c.x + c.w <= PORT_W + 1e-9 && c.y + c.h <= PORT_H + 1e-9, `${key}: inside`);
+    assert.ok(c.w < PORT_W, `${key}: zoomed in`);
+    const b = berths.find((x) => x.key === key);
+    if (b) assert.ok(b.cx >= c.x && b.cx <= c.x + c.w, `${key}: in view`);
+  }
+  assert.deepEqual(cameraFor("gone", berths, "~dinghy"), HARBOUR_CAMERA, "a ship that left: back to the harbour");
 });
