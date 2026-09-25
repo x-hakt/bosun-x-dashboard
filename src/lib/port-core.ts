@@ -22,6 +22,7 @@ export interface PortShip {
   name: string;
   kind: ShipKind;
   active: boolean; // crew aboard or a sign of life in the last IN_PORT_MS: at the quay, sails set
+  style: number; // 0-65535: picks the ship's colours and flag (BXD-97), the same on both pages
   todo: number | null; // null: not shown (private voyages, the dinghy)
   inProgress: number | null;
   href?: string; // private only
@@ -215,11 +216,14 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     const p = projectBySlug.get(slug);
     const kind: ShipKind = pub && !approved.has(slug) ? "voyage" : "project";
     const counts = kind === "voyage" ? { todo: null, inProgress: null } : { todo: p?.todo ?? 0, inProgress: p?.inProgress ?? 0 };
-    const ship: PortShip = { key: shipKey(slug), name: shipName(slug), kind, active: active.has(slug), ...counts };
+    // Style seed: from the slug for named ships; an anonymous voyage's comes from its number,
+    // so a flag can't be matched back to a private project.
+    const style = digest(kind === "voyage" ? `voyage:${voyageNumber.get(slug)}` : `ship:${slug}`).readUInt16BE(0);
+    const ship: PortShip = { key: shipKey(slug), name: shipName(slug), kind, active: active.has(slug), style, ...counts };
     if (!pub) ship.href = `/projects/${encodeURIComponent(slug)}`;
     return ship;
   }).sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || a.key.localeCompare(b.key));
-  if (sailors.some((s) => s.ship === DINGHY_KEY)) ships.push({ key: DINGHY_KEY, name: "Rowing boat", kind: "dinghy", active: true, todo: null, inProgress: null });
+  if (sailors.some((s) => s.ship === DINGHY_KEY)) ships.push({ key: DINGHY_KEY, name: "Rowing boat", kind: "dinghy", active: true, style: 0, todo: null, inProgress: null });
 
   // ---- happenings in the last hour, oldest first (the scene's errands)
   const raw: { id: string; kind: HappeningKind; at: string; project?: string | null; detail: string }[] = [];

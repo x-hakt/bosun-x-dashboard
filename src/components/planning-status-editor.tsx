@@ -6,7 +6,7 @@ import { updatePlanningStatus } from "@/lib/actions/planning";
 import { cn } from "@/lib/utils";
 import type { PlanningTaskStatus } from "@/lib/types";
 
-const OPTIONS: PlanningTaskStatus[] = ["idea", "planning", "ready", "graduated"];
+const OPTIONS: PlanningTaskStatus[] = ["idea", "planning", "ready", "graduated", "archived"];
 
 export function PlanningStatusEditor({
   id,

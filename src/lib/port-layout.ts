@@ -19,6 +19,9 @@ export const TOWN_EXIT = { x: -30, y: QUAY_Y }; // off the left edge, into town
 export const WAREHOUSE_DOOR = { x: 128, y: QUAY_Y };
 export const OFFICE_DOOR = { x: 262, y: QUAY_Y };
 export const TIDE_GAUGE = { x: 446, y: QUAY_Y };
+// BXD-97: the tavern, where ready crew wait for orders over an ale and finished crew go in.
+export const TAVERN_DOOR = { x: 368, y: QUAY_Y };
+const TAVERN_SEATS = [334, 400, 318, 416, 350, 384];
 export const DINGHY = { x: 560, y: 612, stairsX: 486 }; // out below the quay, clear of the berth signs
 const BERTH_X0 = 470;
 const BERTH_X1 = 1560;
@@ -41,6 +44,7 @@ export interface Berth {
   moored: boolean; // out in the bay: a quiet ship, sails furled, no gangplank
   waterline: number;
   room: number; // width available for its name label
+  hatch: { x: number; y: number }; // cargo goes below here
 }
 
 // Active ships at the quay (as many as fit, smaller when crowded); the rest at moorings.
@@ -54,7 +58,7 @@ export function layoutBerths(activeKeys: string[], quietKeys: string[] = []): Be
     const cx = BERTH_X0 + pitch * (i + 0.5);
     const deckY = WATERLINE - 46 * scale;
     const top = { x: cx - 78 * scale, y: deckY };
-    return { key, cx, scale, deckY, plankTop: top, plankFoot: { x: top.x - 34 * scale, y: QUAY_Y }, moored: false, waterline: WATERLINE, room: 176 };
+    return { key, cx, scale, deckY, plankTop: top, plankFoot: { x: top.x - 34 * scale, y: QUAY_Y }, moored: false, waterline: WATERLINE, room: 176, hatch: { x: cx + 32 * scale, y: deckY } };
   });
   // Moorings: alternate rows, so neighbours in the list sit apart and names don't collide.
   const perRow = Math.max(1, Math.ceil(quiet.length / MOORING_ROWS.length));
@@ -64,7 +68,7 @@ export function layoutBerths(activeKeys: string[], quietKeys: string[] = []): Be
     const col = Math.floor(i / MOORING_ROWS.length);
     const cx = MOORING_X0 + mPitch * (col + 0.5) + (i % MOORING_ROWS.length ? mPitch / 2 : 0) - mPitch / 4;
     const deckY = row.waterline - 46 * row.scale;
-    berths.push({ key, cx, scale: row.scale, deckY, plankTop: { x: cx, y: deckY }, plankFoot: { x: cx, y: deckY }, moored: true, waterline: row.waterline, room: mPitch - 10 });
+    berths.push({ key, cx, scale: row.scale, deckY, plankTop: { x: cx, y: deckY }, plankFoot: { x: cx, y: deckY }, moored: true, waterline: row.waterline, room: mPitch - 10, hatch: { x: cx, y: deckY } });
   });
   return berths;
 }
@@ -73,6 +77,7 @@ export type Spot =
   | { zone: "deck"; ship: string; x: number }
   | { zone: "quay"; x: number }
   | { zone: "dinghy"; x: number }
+  | { zone: "tavern"; x: number }
   | { zone: "town" };
 
 export interface Point {
@@ -95,6 +100,7 @@ export function assignSpots(
   const out = new Map<string, { spot: Spot; pose: Pose }>();
   const byShip = new Map<string, typeof sailors>();
   for (const s of [...sailors].sort((a, b) => a.id.localeCompare(b.id))) byShip.set(s.ship, [...(byShip.get(s.ship) ?? []), s]);
+  let tavern = 0;
   for (const [ship, crew] of byShip) {
     if (ship === dinghyKey) {
       crew.forEach((s, i) => out.set(s.id, { spot: { zone: "dinghy", x: DINGHY.x + DINGHY_SEATS[i % DINGHY_SEATS.length] }, pose: s.state === "stale" ? "doze" : "rest" }));
@@ -105,9 +111,12 @@ export function assignSpots(
     let deck = 0;
     let quay = 0;
     for (const s of crew) {
-      if (s.state === "ready_for_prompt" || s.state === "needs_approval") {
+      if (s.state === "ready_for_prompt") {
+        // BXD-97: ready for orders means an ale at the tavern (seats shared by every ship)
+        out.set(s.id, { spot: { zone: "tavern", x: TAVERN_SEATS[tavern++ % TAVERN_SEATS.length] + Math.floor(tavern / TAVERN_SEATS.length) * 6 }, pose: "drink" });
+      } else if (s.state === "needs_approval") {
         const x = berth.plankFoot.x + QUAY_OFFSETS[quay++ % QUAY_OFFSETS.length];
-        out.set(s.id, { spot: { zone: "quay", x }, pose: s.state === "needs_approval" ? "call" : "rest" });
+        out.set(s.id, { spot: { zone: "quay", x }, pose: "call" });
       } else {
         const x = berth.cx + DECK_OFFSETS[deck++ % DECK_OFFSETS.length] * berth.scale;
         out.set(s.id, { spot: { zone: "deck", ship, x }, pose: s.state === "stale" ? "doze" : s.state === "waiting_for_tool" ? "fire" : "haul" });
@@ -121,6 +130,7 @@ export function pointOf(spot: Spot, berths: Berth[]): Point {
   switch (spot.zone) {
     case "town": return { ...TOWN_EXIT, s: 1 };
     case "quay": return { x: spot.x, y: QUAY_Y, s: 1 };
+    case "tavern": return { x: spot.x, y: QUAY_Y, s: 1 };
     case "dinghy": return { x: spot.x, y: DINGHY.y + 2, s: 0.9 }; // feet inside the boat, below the gunwale
     case "deck": {
       const b = berths.find((x) => x.key === spot.ship);
@@ -146,12 +156,18 @@ export function planWalk(from: Spot, to: Spot, berths: Berth[]): Point[] {
   return leg.filter((p, i) => i === 0 || p.x !== leg[i - 1].x || p.y !== leg[i - 1].y);
 }
 
-// Errands for real happenings: the dockhand's route out and back, from the warehouse.
-export function errandRoute(kind: "cargo" | "delivery" | "cart" | "tide", berths: Berth[], ship?: string): Point[] {
-  if (kind === "tide") return [{ ...OFFICE_DOOR, s: 1 }, { ...TIDE_GAUGE, s: 1 }, { ...OFFICE_DOOR, s: 1 }];
+// Errands for real happenings, from the warehouse and back. Cargo and deliveries go up the
+// gangplank to the hatch (the crate goes below, or comes up); carts stop at the plank foot.
+// The waypoint where the load changes hands is returned as `handover`.
+export function errandRoute(kind: "cargo" | "delivery" | "cart" | "tide", berths: Berth[], ship?: string): { route: Point[]; handover: number } {
+  if (kind === "tide") return { route: [{ ...OFFICE_DOOR, s: 1 }, { ...TIDE_GAUGE, s: 1 }, { ...OFFICE_DOOR, s: 1 }], handover: 1 };
+  const home = { ...WAREHOUSE_DOOR, s: 1 };
   const b = berths.find((x) => x.key === ship && !x.moored);
-  const target = b ? { ...b.plankFoot, s: 1 } : { x: 900, y: QUAY_Y, s: 1 };
-  return [{ ...WAREHOUSE_DOOR, s: 1 }, target, { ...WAREHOUSE_DOOR, s: 1 }];
+  if (!b) return { route: [home, { x: 900, y: QUAY_Y, s: 1 }, home], handover: 1 };
+  const foot = { ...b.plankFoot, s: 1 };
+  if (kind === "cart") return { route: [home, foot, home], handover: 1 };
+  const top = { ...b.plankTop, s: b.scale };
+  return { route: [home, foot, top, { ...b.hatch, s: b.scale }, top, foot, home], handover: 3 };
 }
 
 // BXD-89: the camera. The whole port, or a window around one ship (or the rowing boat),

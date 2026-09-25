@@ -290,3 +290,8 @@
 .port-line-captain .port-line-text, .port-line-captain .port-line-mark { color: #ff8f7a; }
 .port-line-delivery .port-line-mark { color: #f4cf83; }
 .port-line-detail { font-family: monospace; font-size: 11px; opacity: .6; }
+/* BXD-97: the tavern and drinking crew */
+.port-tavern-text { fill: #3e2419; font: 700 10px monospace; letter-spacing: .08em; }
+.crew-drink { animation: port-cheers 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes port-cheers { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(-1.5px); } }
+.port-alarm-flag { animation: crew-flag 1.2s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 100% 50%; }

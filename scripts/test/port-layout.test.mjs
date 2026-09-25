@@ -12,7 +12,7 @@ const source = fs.readFileSync(new URL("../../src/lib/port-layout.ts", import.me
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const mod = { exports: {} };
 new Function("require", "module", "exports", compiled)(require, mod, mod.exports);
-const { layoutBerths, assignSpots, planWalk, pointOf, errandRoute, cameraFor, HARBOUR_CAMERA, QUAY_Y, MAX_BERTHS, PORT_W, PORT_H, TOWN_EXIT, DINGHY, MOORING_ROWS } = mod.exports;
+const { layoutBerths, assignSpots, planWalk, pointOf, errandRoute, cameraFor, HARBOUR_CAMERA, QUAY_Y, MAX_BERTHS, PORT_W, PORT_H, TOWN_EXIT, DINGHY, MOORING_ROWS, TAVERN_DOOR, WAREHOUSE_DOOR } = mod.exports;
 const keys = (n, p = "s") => Array.from({ length: n }, (_, i) => `${p}${i}`);
 
 test("active ships fit the quay without overlapping; extras join the moorings", () => {
@@ -45,7 +45,7 @@ test("twenty quiet ships ride at moorings in the bay, apart, in the frame", () =
   assert.deepEqual(same, berths, "stable");
 });
 
-test("states map to places: work on deck, ready and needs-you on the quay, stale dozing, rowing-boat crew seated", () => {
+test("states map to places: work on deck, ready at the tavern, needs-you on the quay, stale dozing, rowing-boat crew seated", () => {
   const berths = layoutBerths(["a", "b"]);
   const spots = assignSpots([
     { id: "1", ship: "a", state: "working" },
@@ -58,7 +58,8 @@ test("states map to places: work on deck, ready and needs-you on the quay, stale
   ], berths, "~dinghy");
   assert.deepEqual([spots.get("1").spot.zone, spots.get("1").pose], ["deck", "haul"]);
   assert.equal(spots.get("2").pose, "fire");
-  assert.deepEqual([spots.get("3").spot.zone, spots.get("3").pose], ["quay", "rest"]);
+  assert.deepEqual([spots.get("3").spot.zone, spots.get("3").pose], ["tavern", "drink"]);
+  assert.ok(Math.abs(pointOf(spots.get("3").spot, berths).x - TAVERN_DOOR.x) < 70, "sat outside the tavern");
   assert.deepEqual([spots.get("4").spot.zone, spots.get("4").pose], ["quay", "call"]);
   assert.deepEqual([spots.get("5").spot.zone, spots.get("5").pose], ["deck", "doze"]);
   assert.deepEqual([spots.get("6").spot.zone, spots.get("7").pose], ["dinghy", "doze"]);
@@ -84,12 +85,24 @@ test("walks go down one gangplank, along the quay, and up the other", () => {
   assert.equal(toBoat[0].x, DINGHY.stairsX, "down the stairs to the rowing boat");
 });
 
-test("errands start and end at the warehouse or office", () => {
+test("errands start and end at the warehouse; cargo goes up the plank and down the hatch", () => {
   const berths = layoutBerths(["a"]);
-  const cargo = errandRoute("cargo", berths, "a");
-  assert.equal(cargo[0].x, cargo.at(-1).x);
-  assert.equal(cargo[1].x, berths[0].plankFoot.x);
-  assert.equal(errandRoute("tide", berths).length, 3);
+  const { route, handover } = errandRoute("cargo", berths, "a");
+  assert.equal(route[0].x, WAREHOUSE_DOOR.x);
+  assert.equal(route.at(-1).x, WAREHOUSE_DOOR.x);
+  assert.deepEqual([route[1].x, route[2].x], [berths[0].plankFoot.x, berths[0].plankTop.x], "up the gangplank");
+  assert.deepEqual([route[handover].x, route[handover].y], [berths[0].hatch.x, berths[0].hatch.y], "hands over at the hatch");
+  const cart = errandRoute("cart", berths, "a");
+  assert.equal(cart.route[cart.handover].x, berths[0].plankFoot.x, "carts wait at the foot of the plank");
+  assert.equal(errandRoute("tide", berths).route.length, 3);
+  assert.equal(errandRoute("cargo", berths, "gone").route.length, 3, "a ship that left: to the quay and back");
+});
+
+test("walking to the tavern goes down the plank and along the quay", () => {
+  const berths = layoutBerths(["a"]);
+  const walk = planWalk({ zone: "deck", ship: "a", x: berths[0].cx }, { zone: "tavern", x: TAVERN_DOOR.x }, berths);
+  assert.deepEqual(walk.map((p) => Math.round(p.x)), [berths[0].plankTop.x, berths[0].plankFoot.x, TAVERN_DOOR.x].map(Math.round));
+  assert.equal(walk.at(-1).y, QUAY_Y);
 });
 
 test("the camera frames a ship at the port's aspect ratio, inside the port", () => {

@@ -241,7 +241,7 @@ export interface GitFacts {
 // Planning — a fully separate Asana-style task/sub-task system, independent of
 // project.yml. A project.yml record should only ever describe a real, already-existing
 // thing; ideas/designs live here instead until they "graduate" into one.
-export type PlanningTaskStatus = "idea" | "planning" | "ready" | "graduated";
+export type PlanningTaskStatus = "idea" | "planning" | "ready" | "graduated" | "archived";
 
 export interface PlanningTask {
   id: string; // "IDEA-3" (top-level) or "IDEA-3.1" (sub-task of IDEA-3)

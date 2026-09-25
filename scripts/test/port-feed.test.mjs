@@ -64,7 +64,7 @@ const SECRETS = ["secret-client", "Secret Client", "another-private", "Another P
 // Every key path allowed in the public JSON (arrays collapse to []).
 const ALLOWED = new Set([
   "now", "publicView", "ships", "sailors", "happenings", "entries", "log",
-  "ships[].key", "ships[].name", "ships[].kind", "ships[].active", "ships[].todo", "ships[].inProgress",
+  "ships[].key", "ships[].name", "ships[].kind", "ships[].active", "ships[].style", "ships[].todo", "ships[].inProgress",
   "entries[].id", "entries[].at", "entries[].kind", "entries[].who", "entries[].action", "entries[].ship",
   "sailors[].id", "sailors[].name", "sailors[].provider", "sailors[].ship", "sailors[].state", "sailors[].sub", "sailors[].since",
   "happenings[].id", "happenings[].kind", "happenings[].at", "happenings[].ship", "happenings[].who",
@@ -199,4 +199,15 @@ test("repeats in the same minute read as one line", () => {
   assert.equal(bx.length, 1);
   assert.equal(bx[0].action, "{ship} ran up 3 pennants: 3 tasks are done");
   assert.equal(buildPortFeed(src, publicOpts).entries.filter((e) => e.kind === "delivery").length, feed.entries.filter((e) => e.kind === "delivery").length);
+});
+
+test("each ship has a fixed style, the same on both pages; voyages' styles don't follow their slug", () => {
+  const priv = buildPortFeed(sources(), { publicView: false });
+  const pub = buildPortFeed(sources(), publicOpts);
+  const bx = (f, name) => f.ships.find((s) => s.name === name).style;
+  assert.equal(bx(priv, "bosun-x CLI"), bx(pub, "Bosun CLI"), "an approved ship looks the same publicly");
+  assert.equal(buildPortFeed(sources(NOW + 5 * MIN), { publicView: false }).ships.find((s) => s.key === "bosun-x").style, bx(priv, "bosun-x CLI"), "stable");
+  const privSecret = priv.ships.find((s) => s.key === "secret-client").style;
+  assert.ok(!pub.ships.some((s) => s.kind === "voyage" && s.style === privSecret), "a voyage's flag isn't the private project's flag");
+  for (const s of pub.ships) assert.ok(Number.isInteger(s.style) && s.style >= 0 && s.style < 65536);
 });
