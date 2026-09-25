@@ -34,6 +34,11 @@ const portalGated = auth((req: NextAuthRequest, _event: NextFetchEvent) => {
 export function proxy(request: NextRequest, event: NextFetchEvent) {
   if (request.nextUrl.pathname === "/login") return NextResponse.next();
   if (PORTAL_MODE) return portalGated(request, event);
+  if (request.nextUrl.pathname === "/crew/embed" || request.nextUrl.pathname === "/api/crew/public") {
+    const response = NextResponse.next();
+    if (request.nextUrl.pathname === "/crew/embed") response.headers.set("Content-Security-Policy", "frame-ancestors https://x-hakt.com");
+    return response;
+  }
   if (!isAuthEnabled) return NextResponse.next();
   return gated(request, event);
 }

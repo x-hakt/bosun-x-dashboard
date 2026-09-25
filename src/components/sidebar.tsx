@@ -18,6 +18,7 @@ import {
   StickyNote,
   ChevronRight,
   MessageSquare,
+  Activity,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ const NAV = [
   { href: "/planning", label: "Planning", icon: Compass, planningNav: true as const },
   { href: "/notes", label: "Notes", icon: StickyNote },
   { href: "/messages", label: "Messages", icon: MessageSquare },
+  { href: "/activity", label: "Activity", icon: Activity },
   { href: "/servers", label: "Servers", icon: Server, hostNav: true as const },
   { href: "/backups", label: "Backups", icon: DatabaseBackup },
   {
