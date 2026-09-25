@@ -12,7 +12,7 @@ import { coatFor, labels, lookFor, Sailor } from "@/components/crew-ship";
 
 // IDEA-20 (BXD-85..93): the port. Every project is a ship: active ones at the quay, quiet
 // ones at moorings in the bay. Sailors are live sessions with generated names, walking
-// between town, quay and deck as their state changes; dockhands and the harbour master run
+// between town, quay and deck as their state changes; dockhands and the shipwright run
 // errands for real happenings (commits, finished tasks, backups, the tide reading);
 // townsfolk, gulls, clouds and the lighthouse are scenery. Boarding a ship glides the camera
 // onto it. The same component renders /activity and /crew/embed.
@@ -302,6 +302,29 @@ function Scenery({ phase }: { phase: ReturnType<typeof phaseAt> }) {
   );
 }
 
+// A painted board sized to its lines (monospace: ~0.62 em a character), with the text held
+// inside it by textLength, so a name can never run off the edge.
+function Sign({ x, y, lines, size, board = "#e9dcb8", ink = "#3e2419", maxWidth }: {
+  x: number; y: number; lines: string[]; size: number; board?: string; ink?: string; maxWidth: number;
+}) {
+  const charW = size * 0.62;
+  const inner = Math.min(maxWidth - 8, Math.max(...lines.map((l) => l.length)) * charW);
+  const w = inner + 8;
+  const h = lines.length * (size + 2) + 5;
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={2} fill={board} stroke={ink} strokeWidth={1.5} />
+      {lines.map((line, i) => {
+        const len = Math.min(inner, line.length * charW);
+        return (
+          <text key={line} x={0} y={-h / 2 + 3 + (i + 1) * (size + 2) - 2} textAnchor="middle" fill={ink}
+            style={{ font: `700 ${size}px monospace` }} textLength={len} lengthAdjust="spacingAndGlyphs">{line}</text>
+        );
+      })}
+    </g>
+  );
+}
+
 function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell: boolean; glint: boolean }) {
   const lit = phase === "night" || phase === "dusk";
   const win = lit ? "#ffd27a" : "#2d3e4c";
@@ -318,7 +341,10 @@ function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell:
       <rect x={40} y={352} width={170} height={118} fill="#7a4b2c" />
       <path d="M32 352 L125 312 L218 352 Z" fill="#4e3020" />
       <rect x={104} y={402} width={48} height={68} fill="#3b2419" />
-      <text x={125} y={386} textAnchor="middle" className="port-house-text">WAREHOUSE</text>
+      <Sign x={125} y={381} lines={["WHOREHOUSE"]} size={11} board="#4e3020" ink="#f1dfb6" maxWidth={150} />
+      {/* a red lantern by the door */}
+      <rect x={157} y={404} width={2} height={8} fill="#2a1f1c" />
+      <rect x={154} y={412} width={8} height={10} rx={2} fill="#d23b3b" className="crew-lantern" />
       <g className="port-smoke"><circle cx={70} cy={318} r={6} /><circle cx={76} cy={300} r={8} /><circle cx={70} cy={280} r={10} /></g>
       <rect x={62} y={318} width={14} height={24} fill="#4e3020" />
       <rect x={228} y={380} width={78} height={90} fill="#d9c9a3" />
@@ -326,7 +352,7 @@ function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell:
       <rect x={252} y={420} width={22} height={50} fill="#5a3b2a" />
       <rect x={236} y={394} width={12} height={12} fill={win} />
       <rect x={286} y={394} width={12} height={12} fill={win} />
-      <text x={267} y={416} textAnchor="middle" className="port-house-text-small">HARBOUR</text>
+      <Sign x={263} y={412} lines={["SHIPWRIGHT"]} size={8} maxWidth={74} />
       <g transform="translate(267 350)">
         <rect x={-10} y={-28} width={20} height={4} fill="#5a3b2a" />
         <rect x={-9} y={-24} width={2} height={20} fill="#5a3b2a" /><rect x={7} y={-24} width={2} height={20} fill="#5a3b2a" />
@@ -344,10 +370,7 @@ function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell:
         <rect x={326} y={416} width={14} height={12} fill={win} /><rect x={396} y={416} width={14} height={12} fill={win} />
         <rect x={TAVERN_DOOR.x - 10} y={420} width={20} height={50} fill="#2e1a12" />
         <rect x={TAVERN_DOOR.x - 10} y={420} width={20} height={4} fill="#d9b35f" opacity={0.5} />
-        <g transform="translate(368 392)">
-          <rect x={-30} y={-12} width={60} height={20} rx={3} fill="#e9dcb8" stroke="#3e2419" strokeWidth={2} />
-          <text x={0} y={2} textAnchor="middle" className="port-tavern-text">SALTY DOG</text>
-        </g>
+        <Sign x={368} y={397} lines={["THE PLASTERED", "BASTARD"]} size={9} maxWidth={96} />
         <rect x={306} y={458} width={124} height={4} fill="#5a3b2a" />
         {[310, 426].map((x) => <rect key={x} x={x} y={458} width={3} height={12} fill="#5a3b2a" />)}
       </g>
@@ -415,7 +438,7 @@ function initialWorld(feed: PortFeed, berths: Berth[]) {
   }
   const coats = ["#7d8a8f", "#9b7a5a", "#6f7d5a", "#8a6f86"];
   [60, 190, 318, 395].forEach((x, i) => sprites.set(`town-${i}`, { id: `town-${i}`, folk: "townsfolk", x, y: QUAY_Y, s: 0.95, facing: i % 2 ? -1 : 1, path: [], pose: "rest", wait: 1 + i * 1.7, coat: coats[i] }));
-  sprites.set("master", { id: "master", folk: "master", ...OFFICE_DOOR, s: 1, facing: 1, path: [], pose: "rest", coat: "#26456e", name: "Harbour master" });
+  sprites.set("master", { id: "master", folk: "master", ...OFFICE_DOOR, s: 1, facing: 1, path: [], pose: "rest", coat: "#26456e", name: "Shipwright" });
   // Errands older than the replay window are treated as already run.
   const seen = new Set(feed.happenings.filter((h) => feed.now - Date.parse(h.at) > REPLAY_MS).map((h) => h.id));
   return { sprites, seen, queue: [] as Happening[] };
@@ -547,7 +570,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       const hand: Sprite = { id, folk: "dockhand", ...r[0], facing: 1, path: [], pose: "rest", coat: "#8f6b43", carry: h.kind === "cargo" ? "crate" : null, cart: h.kind === "cart", name: h.who };
       r[handover] = { ...r[handover], then: () => {
         if (h.kind === "cargo") hand.carry = null; // down the hatch
-        if (h.kind === "delivery") hand.carry = "crate"; // up from below, off to the warehouse
+        if (h.kind === "delivery") hand.carry = "crate"; // up from below, off to the whorehouse
         if (h.kind === "cart") hand.carry = "barrels";
         bump();
       } };
@@ -653,7 +676,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       ? <Sailor pose={pose} coat={coatFor(m.provider)} sub={m.sub} look={lookFor(m.name, m.sub)} carry={sp.carry === "crate"} />
       : <Person folk={sp.folk} coat={sp.coat ?? "#777"} pose={pose} carry={sp.carry} cart={sp.cart} />;
     const tip = m ? `${m.name} (${m.provider}) · ${labels[m.state]} · ${shipsByKey.get(m.ship)?.name ?? ""}${m.detail ? ` · ${m.detail}` : ""}`
-      : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand` : sp.folk === "master" ? "Harbour master (reads the tide gauge every 5 minutes)" : "Townsfolk (scenery)";
+      : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand` : sp.folk === "master" ? "The shipwright (reads the tide gauge every 5 minutes)" : "Townsfolk (scenery)";
     const inner = (
       <g
         ref={(el) => { if (el) { els.current.set(sp.id, el); place(sp); } else els.current.delete(sp.id); }}
@@ -800,7 +823,7 @@ export function PortView({ feed }: { feed: PortFeed }) {
             <span>on deck, hauling cargo: working</span><span>at a gun: tool running</span><span>ale at the tavern: ready for orders</span><span>waving on the quay under a red pennant: needs you</span><span>dozing: signal stale</span><span>in the bay: quiet ships</span>
           </p>
           <p className="crew-key" aria-hidden="true">
-            <span>dockhands and the harbour master run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>townsfolk, gulls and weather are scenery</span>
+            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>townsfolk, gulls and weather are scenery</span>
           </p>
           {active.length > 0 && (
             <div className="crew-orders" aria-label="Ships at the quay">

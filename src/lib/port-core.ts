@@ -136,7 +136,7 @@ export function dockhandName(id: string): string {
 const PLURAL: Partial<Record<EntryKind, (n: number) => string>> = {
   cargo: (n) => `loaded ${n} crates onto {ship}`,
   delivery: (n) => `{ship} ran up ${n} pennants: ${n} tasks are done`,
-  cart: (n) => `carted ${n} loads of barrels from {ship} to the warehouse`,
+  cart: (n) => `carted ${n} loads of barrels from {ship} to the whorehouse`,
 };
 function mergeRepeats(entries: LogEntry[]): LogEntry[] {
   // Grouped by (minute, kind, ship) whatever the order within the minute, so the private and
@@ -290,7 +290,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   }
   for (const c of src.commits) addEntry(c.id, c.at, "cargo", dockhandName(c.id), "loaded a crate onto {ship}", c.project, `commit ${c.id.slice(0, 7)}`);
   for (const d of src.deliveries) addEntry(d.id, d.at, "delivery", "", "{ship} ran up a pennant: a task is done", d.project, `task ${d.id}`);
-  for (const c of src.carts) addEntry(c.id, c.at, "cart", dockhandName(c.id), "carted barrels from {ship} to the warehouse", c.project, `backup ${c.id}`);
+  for (const c of src.carts) addEntry(c.id, c.at, "cart", dockhandName(c.id), "carted barrels from {ship} to the whorehouse", c.project, `backup ${c.id}`);
   entries.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   const recentEntries = mergeRepeats(entries).slice(-MAX_ENTRIES);
 
