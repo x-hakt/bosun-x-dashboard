@@ -3,12 +3,12 @@ import path from "node:path";
 import { DATA_DIR } from "@/lib/data/paths";
 
 export type CrewState = "working" | "waiting_for_tool" | "needs_approval" | "ready_for_prompt" | "finished" | "stale" | "unknown";
-type Kind = "session_start" | "turn_start" | "tool_start" | "tool_end" | "approval_request" | "turn_stop" | "session_end" | "interrupt" | "subagent_start" | "subagent_stop" | "heartbeat";
+type Kind = "session_start" | "turn_start" | "tool_start" | "tool_end" | "approval_request" | "assignment" | "turn_stop" | "session_end" | "interrupt" | "subagent_start" | "subagent_stop" | "heartbeat";
 type Event = { v: 1; id: string; provider: string; session: string; parent: string | null; turn: string | null; host: string | null; kind: Kind; project: string | null; task: string | null; at: string; received: string };
 export type CrewMember = { key: string; provider: string; project: string | null; task: string | null; parent: string | null; host: string | null; state: CrewState; lastSeen: string; since: string; events: number };
 
 const directory = () => path.resolve(/* turbopackIgnore: true */ process.env.BOSUN_ACTIVITY_DIR || path.join(DATA_DIR, ".activity"));
-const knownKinds = new Set<Kind>(["session_start", "turn_start", "tool_start", "tool_end", "approval_request", "turn_stop", "session_end", "interrupt", "subagent_start", "subagent_stop", "heartbeat"]);
+const knownKinds = new Set<Kind>(["session_start", "turn_start", "tool_start", "tool_end", "approval_request", "assignment", "turn_stop", "session_end", "interrupt", "subagent_start", "subagent_stop", "heartbeat"]);
 
 export function projectActivity(events: Event[], now = Date.now()): CrewMember[] {
   const unique = new Map<string, Event>();
@@ -32,6 +32,7 @@ export function projectActivity(events: Event[], now = Date.now()): CrewMember[]
       case "turn_stop": case "interrupt": next = "ready_for_prompt"; break;
       case "session_end": case "subagent_stop": next = "finished"; break;
       case "heartbeat": break;
+      case "assignment": break;
     }
     if (next !== member.state) member.since = event.at;
     member.state = next;
