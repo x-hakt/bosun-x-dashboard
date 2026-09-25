@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { DATA_DIR } from "@/lib/data/paths";
+import { loadTasks } from "@/lib/data/tasks";
 
 export type CrewState = "working" | "waiting_for_tool" | "needs_approval" | "ready_for_prompt" | "finished" | "stale" | "unknown";
 type Kind = "session_start" | "turn_start" | "tool_start" | "tool_end" | "approval_request" | "assignment" | "turn_stop" | "session_end" | "interrupt" | "subagent_start" | "subagent_stop" | "heartbeat";
@@ -63,12 +64,27 @@ export async function readActivity(limit = 2000): Promise<{ crew: CrewMember[]; 
 
 type PublicConfig = { enabled?: boolean; projects?: { slug: string; alias: string }[] };
 export type PublicCrew = { alias: string; project: string; state: CrewState; updated: string };
-export async function publicCrew(): Promise<PublicCrew[]> {
+export type PublicFleet = { project: string; todo: number; inProgress: number };
+async function approvedProjects(): Promise<{ slug: string; alias: string }[]> {
   let config: PublicConfig;
   try { config = JSON.parse(await fs.readFile(path.join(DATA_DIR, "activity-public.json"), "utf8")) as PublicConfig; }
   catch { return []; }
   if (!config.enabled || !Array.isArray(config.projects)) return [];
-  const allowed = new Map(config.projects.filter((p) => p && typeof p.slug === "string" && typeof p.alias === "string" && /^[\w .-]{1,40}$/.test(p.alias)).map((p) => [p.slug, p.alias]));
+  return config.projects.filter((p) => p && typeof p.slug === "string" && /^[a-z0-9][a-z0-9-]{0,63}$/.test(p.slug)
+    && typeof p.alias === "string" && /^[\w .-]{1,40}$/.test(p.alias));
+}
+
+export async function publicFleet(): Promise<PublicFleet[]> {
+  const projects = await approvedProjects();
+  return Promise.all(projects.map(async ({ slug, alias }) => {
+    const tasks = await loadTasks(slug);
+    return { project: alias, todo: tasks.filter((task) => task.status === "todo").length,
+      inProgress: tasks.filter((task) => task.status === "in_progress").length };
+  }));
+}
+
+export async function publicCrew(): Promise<PublicCrew[]> {
+  const allowed = new Map((await approvedProjects()).map((p) => [p.slug, p.alias]));
   const { crew } = await readActivity();
   const counts = new Map<string, number>();
   return crew.filter((member) => member.project && allowed.has(member.project) && member.state !== "finished" && member.state !== "unknown").slice(0, 30).map((member) => {

@@ -84,6 +84,9 @@
 .crew-hull { position: relative; z-index: 1; margin: 0 6%; height: 43px; border-radius: 0 0 50% 50%; background: repeating-linear-gradient(0deg,#603b2e 0 12px,#4a3029 13px 16px); border-bottom: 8px solid #382c2b; text-align: center; font: 700 13px/31px monospace; letter-spacing: .22em; }
 .crew-hull::before, .crew-hull::after { content: ""; position: absolute; top: 9px; width: 15px; height: 15px; border: 3px solid #cf9b56; border-radius: 50%; background: #194d63; box-shadow: inset 0 0 0 2px #253f4b; }
 .crew-hull::before { left: 17%; } .crew-hull::after { right: 17%; }
+.crew-orders { position: relative; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin: 10px 0 0; }
+.crew-order { display: flex; gap: 8px; align-items: center; padding: 5px 9px; border: 1px solid #7a9aa5; border-radius: 6px; background: #0b2538eb; font: 11px monospace; }
+.crew-order strong { color: #f4cf83; }
 .crew-sea { position: absolute; height: 45px; bottom: 0; left: 0; right: 0; background: repeating-linear-gradient(170deg,#286d83 0 16px,#1b506c 17px 33px); animation: crew-waves 16s linear infinite; }
 .crew-caption { position: absolute; z-index: 2; bottom: 9px; left: 18px; right: 18px; text-align: center; font: 10px monospace; letter-spacing: .04em; }
 @media (max-width: 620px) { .crew-scene { min-height: 430px; } .crew-deck { margin-top: 115px; } .crew-station { min-width: 82px; } }
