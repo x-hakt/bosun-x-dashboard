@@ -16,7 +16,13 @@ expose a verified one for the match.
 
 The Docker socket isn't mounted, or `DOCKER_HOST` points somewhere unreachable. Check
 the `- /var/run/docker.sock:/var/run/docker.sock:ro` volume, or your `DOCKER_HOST`.
-Podman: mount the podman socket and set `DOCKER_HOST` to it.
+Podman: mount the podman socket and set `DOCKER_HOST` to it. Docker Desktop on macOS
+without the default socket enabled: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`.
+
+### Memory, disk and load are empty for the local host on macOS
+
+Expected. Those figures come from Linux tools (`free`, `df -B1`, `/proc/loadavg`), and
+the server page says so. Containers still show, and remote Linux servers are complete.
 
 ### A remote host shows "couldn't reach for discovery"
 

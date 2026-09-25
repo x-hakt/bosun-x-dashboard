@@ -58,6 +58,7 @@ export default async function InfraPage() {
                       unhealthyCount: unhealthy,
                       diskUsedGb: snapshot.usage ? snapshot.usage.diskUsedBytes / 1e9 : undefined,
                       diskTotalGb: snapshot.usage ? snapshot.usage.diskSizeBytes / 1e9 : undefined,
+                      note: snapshot.statsNote,
                     }
                   : undefined
               }

@@ -6,6 +6,14 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+### Changed
+
+- macOS is supported with one documented gap (BXD-72): the local machine's memory, disk
+  and load come from Linux tools, so on any other OS its host card and server page now
+  say so instead of showing bare dashes (and a bogus 0 cores). Containers and remote
+  Linux servers are unaffected. npm README, getting started, capacity and
+  troubleshooting docs spell out what works where, plus the Docker Desktop socket.
+
 ### Fixed
 
 - npm launcher: `systemctl --user stop` (and anything else that sends SIGTERM) left the

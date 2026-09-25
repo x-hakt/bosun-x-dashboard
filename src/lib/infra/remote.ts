@@ -43,6 +43,8 @@ export interface RemoteSnapshot {
   specs: RemoteSpecs | null;
   usage: RemoteUsage | null;
   stats: Map<string, RemoteContainerStat>;
+  /** Why specs/usage are missing when that's expected, not a failure (BXD-72: non-Linux local host). */
+  statsNote?: string;
 }
 
 const EMPTY_SNAPSHOT: RemoteSnapshot = { containers: [], specs: null, usage: null, stats: new Map() };

@@ -90,7 +90,7 @@ async function LiveHost({
     ? await getRemoteSnapshot(host.ssh_alias).catch(() => ({ containers: [], specs: null, usage: null, stats: new Map() }))
     : await getLocalSnapshot().catch(() => ({ containers: [], specs: null, usage: null, stats: new Map() }));
 
-  const { containers, specs, usage, stats } = snapshot;
+  const { containers, specs, usage, stats, statsNote } = snapshot;
 
   // Per-project resource breakdown: sum the stats of every container whose compose
   // service maps back to a tracked project on this host.
@@ -120,7 +120,7 @@ async function LiveHost({
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <StatTile label="Kernel" value={specs?.kernel ?? "—"} compact />
-        <StatTile label="Cores" value={specs?.cores ?? "—"} />
+        <StatTile label="Cores" value={specs?.cores || "—"} />
         <StatTile
           label="Memory"
           value={usage ? `${fmtBytes(usage.memUsedBytes)} / ${fmtBytes(usage.memTotalBytes)}` : "—"}
@@ -136,6 +136,7 @@ async function LiveHost({
         <StatTile label="Load (1m)" value={usage ? usage.loadAvg1.toFixed(2) : "—"} />
         <StatTile label="Containers" value={containers.length} />
       </div>
+      {statsNote && <p className="text-xs text-muted-foreground italic">{statsNote}</p>}
 
       {byProject.size > 0 && (
         <Card>

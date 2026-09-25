@@ -64,7 +64,8 @@ types and paths) with a Go template. Nothing else leaves Docker, locally or over
 
 ## Setup
 
-Both jobs are one script, run by cron on the host the dashboard runs on. They write to
+Both jobs are one script, run by cron on the host the dashboard runs on (Linux only:
+it needs bash, `flock` and GNU coreutils). They write to
 `<backup_receipts>/_capacity/` (see [configuration](configuration.md)), which the
 dashboard reads, and both report as scheduled jobs on the Backups page so a stopped
 sampler is visible.
