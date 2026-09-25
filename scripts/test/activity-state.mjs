@@ -8,7 +8,8 @@ const source = fs.readFileSync(new URL("../../src/lib/activity.ts", import.meta.
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const mod = { exports: {} };
 new Function("require", "module", "exports", compiled)(
-  (name) => name === "@/lib/data/paths" ? { DATA_DIR: "/tmp" } : require(name), mod, mod.exports,
+  (name) => name === "@/lib/data/paths" ? { DATA_DIR: "/tmp" }
+    : name === "@/lib/data/tasks" ? { loadTasks: async () => [] } : require(name), mod, mod.exports,
 );
 const { projectActivity } = mod.exports;
 const at = "2026-09-25T00:00:00.000Z";

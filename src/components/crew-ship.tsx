@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PublicCrew } from "@/lib/activity";
+import type { PublicCrew, PublicFleet } from "@/lib/activity";
 
 const labels: Record<PublicCrew["state"], string> = {
   working: "Working", waiting_for_tool: "Tool running", needs_approval: "Awaiting approval",
@@ -10,9 +10,9 @@ const labels: Record<PublicCrew["state"], string> = {
 
 type DisplayCrew = PublicCrew & { href?: string };
 
-export function CrewShip({ crew, publicView = false }: { crew: DisplayCrew[]; publicView?: boolean }) {
+export function CrewShip({ crew, fleet = [], publicView = false }: { crew: DisplayCrew[]; fleet?: PublicFleet[]; publicView?: boolean }) {
   const [selection, setSelection] = useState("all");
-  const projects = [...new Set(crew.map((member) => member.project))].sort();
+  const projects = [...new Set([...fleet.map((ship) => ship.project), ...crew.map((member) => member.project)])].sort();
   const selected = projects.includes(selection) ? selection : "all";
   const visible = selected === "all" ? crew : crew.filter((member) => member.project === selected);
   return (
@@ -39,15 +39,20 @@ export function CrewShip({ crew, publicView = false }: { crew: DisplayCrew[]; pu
             return member.href
               ? <a className={`crew-station crew-${member.state}`} href={member.href} key={`${member.alias}-${index}`} aria-label={`${member.alias}, ${labels[member.state]}, open ${member.project}`}>{contents}</a>
               : <div className={`crew-station crew-${member.state}`} key={`${member.alias}-${index}`}>{contents}</div>;
-          }) : <p className="crew-empty">The deck is quiet. No approved crew are active right now.</p>}
+          }) : <p className="crew-empty">No live agent signal right now. Select a project to see its queued work below.</p>}
         </div>
         {visible.length > 8 && <p className="crew-overflow">+{visible.length - 8} more crew in the roster below</p>}
       </div>
       <div className="crew-hull" aria-hidden="true"><span>BOSUN · X</span></div>
+      {fleet.length > 0 && <div className="crew-orders" aria-label="Project work summary">
+        {fleet.filter((ship) => selected === "all" || ship.project === selected).map((ship) =>
+          <div className="crew-order" key={ship.project}><strong>{ship.project}</strong>
+            <span>{ship.inProgress} underway · {ship.todo} to do</span></div>)}
+      </div>}
       <div className="crew-sea" aria-hidden="true" />
       <p className="crew-caption">{publicView ? "Public summary · updates every 10 seconds · details stay private" : "Live session signals · labels reflect observed events"}</p>
       <div className="sr-only" role="status">
-        {visible.length ? visible.map((member) => `${member.alias} on ${member.project}: ${labels[member.state]}`).join(". ") : "No approved crew are active right now."}
+        {visible.length ? visible.map((member) => `${member.alias} on ${member.project}: ${labels[member.state]}`).join(". ") : "No live agents right now."}
       </div>
     </section>
   );
