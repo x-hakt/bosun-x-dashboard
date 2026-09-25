@@ -9,7 +9,7 @@ export function HostCard({
   liveStats,
 }: {
   host: Host;
-  liveStats?: { containerCount: number; unhealthyCount: number; diskUsedGb?: number; diskTotalGb?: number };
+  liveStats?: { containerCount: number; unhealthyCount: number; diskUsedGb?: number; diskTotalGb?: number; note?: string };
 }) {
   return (
     <Link href={`/servers/${host.id}`}>
@@ -39,6 +39,7 @@ export function HostCard({
                     {liveStats.diskUsedGb?.toFixed(1)} / {liveStats.diskTotalGb.toFixed(1)} GB disk
                   </div>
                 )}
+                {liveStats.note && <div className="font-sans italic">{liveStats.note}</div>}
               </div>
             ) : (
               <span className="italic">reference only — not live-monitored</span>

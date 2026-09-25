@@ -134,7 +134,12 @@ capacity cron lines from [capacity](capacity.md#setup).
 
 Without Docker or SSH everything else (projects, tasks, handoff, planning, notes,
 standards that don't need Docker) works; the server panels just show nothing live.
-Live host stats (memory, load) need a Linux host.
+
+**On macOS** the dashboard runs, and shows your local containers, but this machine's
+own memory, disk and load are read with Linux tools and aren't available: its host
+tiles say so, and it has no capacity bars. The capacity sampler is Linux-only. Remote
+Linux servers show in full. With Docker Desktop, if no local containers appear, set
+`DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`. On Windows, run it inside WSL.
 
 ## 7. Before anyone else can reach it: sign-in
 

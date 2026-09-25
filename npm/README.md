@@ -77,10 +77,20 @@ otherwise. See [docs/auth.md](https://github.com/x-hakt/bosun-x-dashboard/blob/m
 ## Requirements
 
 - Node.js 20 or newer.
-- For the live server features: a Linux host, the `docker` CLI and access to the
-  Docker socket (or Podman via `DOCKER_HOST`), `git`, and `ssh` for remote servers.
-  Without them, projects, tasks, handoff, planning and notes all still work; the
-  server panels just show nothing live.
+- For the live server features: the `docker` CLI and access to the Docker socket (or
+  Podman via `DOCKER_HOST`), `git`, and `ssh` for remote servers. Without them,
+  projects, tasks, handoff, planning and notes all still work; the server panels just
+  show nothing live.
+
+### Linux, macOS
+
+Linux is the full experience. **macOS works with one gap**: everything runs, including
+your local containers, but this machine's own memory, disk and load (the host tiles
+and its capacity bars) are read with Linux tools and stay empty; the server page says
+so. The capacity sampler scripts are Linux-only too. Remote servers are unaffected:
+the dashboard on a Mac reads your Linux servers over SSH like anywhere else. With
+Docker Desktop, if no local containers show, point at its socket:
+`DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`. Windows: use WSL.
 
 Prefer containers? The same dashboard ships as an image,
 `ghcr.io/x-hakt/bosun-x-dashboard`. See
