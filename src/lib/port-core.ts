@@ -93,6 +93,7 @@ export type PortOptions = { publicView: false } | { publicView: true; approved: 
 export const LOG_WINDOW_MS = 24 * 3_600_000;
 export const IN_PORT_MS = 3 * 3_600_000; // a project stays moored this long after its last sign of life
 export const HAPPENING_WINDOW_MS = 60 * 60_000;
+export const SHORT_SESSION_MS = 60_000; // finished sessions shorter than this stay off the log
 const DINGHY = "~dinghy";
 
 const PROVIDER: Record<string, string> = { claude: "Claude", codex: "Codex" };
@@ -203,7 +204,13 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   // ---- the ship's log
   const log = buildShipLog(src.events, { start: now - LOG_WINDOW_MS, end: now });
   const round = (s: LogSegment): LogSegment => (pub ? { state: s.state, from: Date.parse(minute(s.from)), to: Date.parse(minute(s.to)) } : s);
-  const groups: PortLogGroup[] = log.groups.map((g) => {
+  // Display rule: a finished session that drew less than a minute (a hook smoke test, a
+  // one-shot command) is left off, so the log reads at a glance. Live ones always show.
+  const drawn = (lane: (typeof log.groups)[number]["lanes"][number]) => lane.segments.reduce((sum, s) => sum + s.to - s.from, 0);
+  const shown = log.groups
+    .map((g) => ({ ...g, lanes: g.lanes.filter((lane) => onDeck(lane.state) || drawn(lane) >= SHORT_SESSION_MS) }))
+    .filter((g) => g.lanes.length > 0);
+  const groups: PortLogGroup[] = shown.map((g) => {
     const ship = shipOf(g.project);
     const depth = new Map<string, number>();
     for (const lane of g.lanes) depth.set(lane.session, lane.parent && depth.has(lane.parent) ? Math.min(3, depth.get(lane.parent)! + 1) : 0);

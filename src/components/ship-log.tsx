@@ -72,7 +72,7 @@ export function ShipLogTimeline({ log, publicView = false }: { log: Log; publicV
         <h2 id="ship-log-title" className="font-mono text-lg">Ship&apos;s log</h2>
         <p className="text-xs text-muted-foreground mt-1">
           Last 24 hours, one lane per session. The right edge is now. Silence turns a bar to hatched (stale) after five
-          minutes and ends it after an hour.
+          minutes and ends it after an hour. Finished sessions shorter than a minute are left off.
           {publicView && " Aliases only; work on private projects shows as anonymous voyages."}
           {log.truncatedSince !== undefined && ` Only events since ${clock(log.truncatedSince)} were loaded.`}
         </p>
