@@ -34,6 +34,9 @@ import {
   parseStatsLines,
   section,
 } from "../src/lib/infra/snapshot-sections.mjs";
+import { diskAlertConfig, judgeDisk } from "../src/lib/infra/disk-alerts.mjs";
+import { raise, resolve } from "../src/lib/notifications-core.mjs";
+import { updateNotifications } from "../src/lib/notifications-store.mjs";
 import { resolveDataDir } from "./lib/data-dir.mjs";
 
 const run = promisify(execFile);
@@ -140,5 +143,52 @@ await fs.appendFile(file, lines.map((l) => JSON.stringify(l)).join("\n") + (line
 
 const okCount = lines.filter((l) => l.ok).length;
 for (const l of lines) if (!l.ok) console.error(`[${t}] capacity-sample: ${l.host} failed: ${l.error}`);
+
+// BXD-100: judge each sampled host's disk and raise/resolve its `disk:<host>` notification
+// (the Overview "Needs you" list). A host that failed to sample is left as it was. Never
+// fails the sample run.
+try {
+  const cfg = diskAlertConfig(config.disk_alerts);
+  if (cfg) await diskAlerts(cfg, lines.filter((l) => l.ok).map((l) => l.host));
+} catch (err) {
+  console.error(`[${t}] capacity-sample: disk alerts failed: ${err instanceof Error ? err.message : err}`);
+}
 console.error(`[${t}] capacity-sample: ${okCount}/${lines.length} hosts → ${file}`);
 process.exit(hosts.length > 0 && okCount === 0 ? 1 : 0);
+
+async function diskAlerts(cfg, hostIds) {
+  // Enough history for the climb window and the quiet period before clearing.
+  const from = Date.parse(t) - (Math.max(cfg.climb_minutes, cfg.clear_minutes) + 15) * 60_000;
+  const days = [...new Set([new Date(from).toISOString().slice(0, 10), t.slice(0, 10)])];
+  const recent = [];
+  for (const day of days) {
+    const text = await fs.readFile(path.join(outDir, `${day}.jsonl`), "utf-8").catch(() => "");
+    for (const line of text.split("\n")) {
+      if (!line) continue;
+      try {
+        const l = JSON.parse(line);
+        if (l.ok && Date.parse(l.t) >= from) recent.push(l);
+      } catch {
+        // a torn line from a concurrent append; skip it
+      }
+    }
+  }
+  const now = new Date(t);
+  await updateNotifications(dataDir, (file) => {
+    for (const host of hostIds) {
+      const key = `disk:${host}`;
+      const standing = file.notifications.find((n) => n.key === key && n.state !== "resolved") ?? null;
+      const samples = recent.filter((l) => l.host === host).sort((a, b) => a.t.localeCompare(b.t));
+      const verdict = judgeDisk(host, samples, cfg, standing);
+      if (verdict.action === "raise") {
+        const r = raise(file, { key, title: verdict.title, body: verdict.body, detail: verdict.detail, level: verdict.level, source: "disk", href: `/servers/${host}` }, now);
+        file = r.file;
+        if (r.change !== "unchanged") console.error(`[${t}] capacity-sample: disk alert ${r.change} for ${host}: ${verdict.title} (${verdict.detail})`);
+      } else if (verdict.action === "resolve") {
+        file = resolve(file, key, now).file;
+        console.error(`[${t}] capacity-sample: disk alert cleared for ${host}`);
+      }
+    }
+    return { file };
+  }, now);
+}

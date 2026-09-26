@@ -10,6 +10,7 @@ import { DockerStatusTable } from "@/components/docker-status-table";
 import { StageBadge } from "@/components/stage-badge";
 import { StatTile } from "@/components/stat-tile";
 import { ProjectUsageCard } from "@/components/project-usage-card";
+import { NeedsYou } from "@/components/needs-you";
 import type { UsageRange } from "@/lib/infra/capacity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -46,6 +47,8 @@ export default async function HostDetailPage(props: { params: Promise<{ host: st
           {host.connection}
         </p>
       </div>
+
+      <NeedsYou only={`disk:${host.id}`} />
 
       {host.live_monitored ? (
         <LiveHost host={host} projectByService={composeServiceToProject} projectsOnHost={projectsOnHost} range={range} />
