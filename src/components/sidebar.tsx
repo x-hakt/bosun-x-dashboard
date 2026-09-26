@@ -208,12 +208,14 @@ function SidebarContent({
   ideas,
   hosts,
   unreadMessages,
+  needsYou,
   nav,
 }: {
   projects: NavProject[];
   ideas: NavIdea[];
   hosts: NavHost[];
   unreadMessages: number;
+  needsYou: number;
   nav: ReturnType<typeof useNavOpen>;
 }) {
   const pathname = usePathname();
@@ -257,6 +259,11 @@ function SidebarContent({
                 >
                   <Icon className="size-4 shrink-0" strokeWidth={1.75} />
                   {item.label}
+                  {item.href === "/" && needsYou > 0 && (
+                    <span className="ml-auto rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400" title="Needs you">
+                      {needsYou}
+                    </span>
+                  )}
                   {item.href === "/messages" && unreadMessages > 0 && (
                     <span className="ml-auto rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
                       {unreadMessages}
@@ -320,7 +327,7 @@ function SidebarContent({
   );
 }
 
-function SidebarInner(props: { projects: NavProject[]; ideas: NavIdea[]; hosts: NavHost[]; unreadMessages: number }) {
+function SidebarInner(props: { projects: NavProject[]; ideas: NavIdea[]; hosts: NavHost[]; unreadMessages: number; needsYou: number }) {
   const { open, setOpen } = useMobileNav();
   const nav = useNavOpen(usePathname());
 
@@ -350,15 +357,18 @@ export function Sidebar({
   ideas = [],
   hosts,
   unreadMessages = 0,
+  needsYou = 0,
 }: {
   projects: NavProject[];
   ideas?: NavIdea[];
   hosts: NavHost[];
   unreadMessages?: number;
+  /** BXD-99: open notifications, shown as a badge on Overview */
+  needsYou?: number;
 }) {
   return (
     <Suspense fallback={<aside className="hidden md:flex w-56 shrink-0 h-full border-r border-border/60 bg-sidebar" />}>
-      <SidebarInner projects={projects} ideas={ideas} hosts={hosts} unreadMessages={unreadMessages} />
+      <SidebarInner projects={projects} ideas={ideas} hosts={hosts} unreadMessages={unreadMessages} needsYou={needsYou} />
     </Suspense>
   );
 }

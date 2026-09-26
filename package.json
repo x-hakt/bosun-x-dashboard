@@ -11,6 +11,8 @@
     "init-data": "bash scripts/init-data.sh",
     "handoff": "node scripts/handoff.mjs",
     "mcp": "node mcp/server.mjs",
+    "notify": "node scripts/notify.mjs",
+    "test:notifications": "node --test scripts/test/notifications.test.mjs",
     "build:npm": "node scripts/build-npm.mjs",
     "pack:npm": "node scripts/build-npm.mjs --pack"
   },

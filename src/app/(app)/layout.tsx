@@ -8,6 +8,7 @@ import { listPlanningTasks } from "@/lib/data/planning";
 import { loadHosts } from "@/lib/data/hosts";
 import { loadClientRegistry } from "@/lib/data/clients";
 import { unseenClientMessageTotal } from "@/lib/data/portal-messages";
+import { openNotifications } from "@/lib/data/notifications";
 import { displayName } from "@/lib/data/project-display";
 
 // Everything except /login renders inside this: the sidebar + top bar chrome.
@@ -21,6 +22,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     listPlanningTasks(),
   ]);
   const unreadMessages = await unseenClientMessageTotal(clientRegistry.clients.map((c) => c.slug));
+  // BXD-99 — count on the Overview nav item; the list itself is on the Overview.
+  const needsYou = (await openNotifications()).length;
   const projects = projectList.map((p) => ({
     slug: p.meta.slug,
     name: displayName(p.meta),
@@ -37,7 +40,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <MobileNavProvider>
       <div className="h-full flex overflow-hidden">
-        <Sidebar projects={projects} ideas={ideas} hosts={hosts} unreadMessages={unreadMessages} />
+        <Sidebar projects={projects} ideas={ideas} hosts={hosts} unreadMessages={unreadMessages} needsYou={needsYou} />
         <div className="flex-1 flex flex-col min-w-0 h-full">
           <TopBar />
           <main className="flex-1 min-w-0 overflow-y-auto px-4 py-4 md:px-8 md:py-6">
