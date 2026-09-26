@@ -226,7 +226,8 @@
 .port-ding { fill: #ffe39a; font: 700 14px monospace; animation: port-ding 1s ease-out infinite; }
 .port-bell { transform-box: fill-box; transform-origin: 50% 0; }
 .port-bell-ring { animation: port-swing .3s ease-in-out infinite alternate; }
-.port-glint { fill: #fff6c4; animation: crew-fuse .45s ease-in-out infinite alternate; }
+.port-lamp { fill: #ffe39a; animation: crew-fuse 1.6s ease-in-out infinite alternate; }
+.port-lamp-glow { fill: #ffe39a; opacity: .28; }
 .port-star { animation: crew-fuse 3s ease-in-out infinite alternate; }
 .port-smoke circle { fill: #c9c2b8; opacity: 0; animation: port-smoke 6s linear infinite; }
 .port-smoke circle:nth-child(2) { animation-delay: -2s; }

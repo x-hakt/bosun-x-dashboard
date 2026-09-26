@@ -22,7 +22,6 @@ const U = 2.3; // px per sprite unit at scale 1
 const WALK = 72; // viewBox units per second
 const REPLAY_MS = 10 * 60_000; // on first load, replay the last ten minutes of errands
 const MAX_ERRANDS = 4;
-const FRESH_MS = 8_000; // a nameplate shows this long after a sailor's state changes
 
 type Folk = "sailor" | "dockhand" | "master" | "strumpet";
 type Step = Point & { then?: () => void };
@@ -44,6 +43,7 @@ interface Sprite {
   wait?: number;
   coat?: string;
   hair?: string;
+  inside?: boolean; // the shipwright, in his shop between tide readings: not drawn
   changedAt?: number;
 }
 
@@ -415,7 +415,7 @@ function Sign({ x, y, lines, size, board = "#e9dcb8", ink = "#3e2419", maxWidth 
   );
 }
 
-function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell: boolean; glint: boolean }) {
+function Town({ phase, bell, lamp }: { phase: ReturnType<typeof phaseAt>; bell: boolean; lamp: boolean }) {
   const lit = phase === "night" || phase === "dusk";
   const win = lit ? "#ffd27a" : "#2d3e4c";
   return (
@@ -473,7 +473,7 @@ function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell:
         <rect x={-3} y={-40} width={6} height={40} fill="#efe7d6" />
         {[-34, -22, -10].map((y) => <rect key={y} x={-3} y={y} width={6} height={5} fill="#b8322f" />)}
         <rect x={-5} y={-2} width={10} height={3} fill="#4a3322" />
-        {glint && <circle cx={0} cy={-44} r={5} className="port-glint" />}
+        {lamp && <g><circle cx={0} cy={-44} r={11} className="port-lamp-glow" /><circle cx={0} cy={-44} r={5} className="port-lamp" /></g>}
       </g>
       {/* stairs down to the rowing boat */}
       <g fill="#6e4a2e">{Array.from({ length: 10 }, (_, i) => <rect key={i} x={DINGHY.stairsX - 8 + i * 7} y={494 + i * 11} width={20} height={5} />)}</g>
@@ -524,7 +524,7 @@ const STRUMPETS = [
   { name: "Velvet Moll", dress: "#6d3a78", hair: "#2a1f1c", x: 128 },
   { name: "Ruby Lou", dress: "#2f7a6a", hair: "#b5452a", x: 188 },
 ];
-const STREET = { from: 44, to: 214 };
+const STREET = { from: 44, to: 186 }; // stops short of the shipwright, so nameplates clear his sign
 
 function initialWorld(feed: PortFeed, berths: Berth[]) {
   const sprites = new Map<string, Sprite>();
@@ -535,9 +535,12 @@ function initialWorld(feed: PortFeed, berths: Berth[]) {
     sprites.set(s.id, { id: s.id, folk: "sailor", ...pointOf(t.spot, berths), facing: 1, path: [], pose: t.pose, spot: t.spot, sailor: s, name: s.name });
   }
   STRUMPETS.forEach((g, i) => sprites.set(`strumpet-${i}`, { id: `strumpet-${i}`, folk: "strumpet", x: g.x, y: QUAY_Y, s: 0.95, facing: i % 2 ? -1 : 1, path: [], pose: "rest", wait: 1 + i * 2.3, coat: g.dress, hair: g.hair, name: g.name }));
-  sprites.set("master", { id: "master", folk: "master", ...OFFICE_DOOR, s: 1, facing: 1, path: [], pose: "rest", coat: "#26456e", name: "Shipwright" });
+  sprites.set("master", { id: "master", folk: "master", ...OFFICE_DOOR, s: 1, facing: 1, path: [], pose: "rest", coat: "#26456e", name: "Shipwright", inside: true });
   // Errands older than the replay window are treated as already run.
   const seen = new Set(feed.happenings.filter((h) => feed.now - Date.parse(h.at) > REPLAY_MS).map((h) => h.id));
+  // Only the latest tide reading replays: one trip out to light the lamp, not a flurry.
+  const tides = feed.happenings.filter((h) => h.kind === "tide" && !seen.has(h.id)).sort((x, y) => Date.parse(y.at) - Date.parse(x.at));
+  for (const h of tides.slice(1)) seen.add(h.id);
   return { sprites, seen, queue: [] as Happening[] };
 }
 
@@ -553,7 +556,8 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
   const svg = useRef<SVGSVGElement>(null);
   const camera = useRef<Camera>(HARBOUR_CAMERA);
   const [bellUntil, setBellUntil] = useState(0);
-  const [glintUntil, setGlintUntil] = useState(0);
+  // The tide lamp: the shipwright lights it on one reading and takes it down on the next.
+  const [lamp, setLamp] = useState(false);
   const [pennants, setPennants] = useState<Record<string, number>>({});
   const [clock, setClock] = useState(feed.now);
   const frame = useRef<HTMLDivElement>(null);
@@ -653,9 +657,16 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
         const master = map.get("master")!;
         if (master.path.length) return;
         world.queue.shift();
-        const r: Step[] = route("tide").route;
-        r[1] = { ...r[1], then: () => setGlintUntil(Date.now() + 2500) };
-        master.path = r.slice(1);
+        // Out of the shop to the gauge, light (or take down) the lamp, a stroll along the
+        // street and the quay's end, then back inside until the next reading.
+        const [door, gauge] = route("tide").route;
+        const stroll = Array.from({ length: 1 + Math.floor(Math.random() * 3) }, () => ({ x: 170 + Math.random() * 300, y: QUAY_Y, s: 1 }));
+        master.inside = false;
+        master.path = [
+          { ...gauge, then: () => setLamp((on) => !on) },
+          ...stroll,
+          { ...door, then: () => { master.inside = true; } },
+        ];
         bump();
         return;
       }
@@ -757,16 +768,11 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
   const hasDinghy = feed.ships.some((s) => s.kind === "dinghy");
 
   // Names show when someone is doing something, and always up close.
-  const showName = (sp: Sprite) => {
-    if (!sp.name || sp.folk === "strumpet") return false;
-    if (sp.sailor && !sp.sailor.sub && lookFor(sp.sailor.name).hat === "captain") return true; // captains are always named
-    if (sp.folk === "dockhand") return true;
-    if (focus && sp.sailor?.ship === focus) return true; // up close: the boarded ship's whole crew
-    if (sp.folk === "master") return false; // his walk passes the tavern sign; the tooltip names him
-    return sp.path.length > 0 || sp.sailor?.state === "needs_approval" || clock - (sp.changedAt ?? 0) < FRESH_MS;
-  };
+  // Everyone in the port wears a name, all the time (the shipwright only while he's out).
+  const showName = (sp: Sprite) => Boolean(sp.name) && !sp.inside;
 
   const figure = (sp: Sprite) => {
+    if (sp.inside) return null;
     const walking = sp.path.length > 0;
     const pose: Pose = walking ? "walk" : sp.pose;
     const m = sp.sailor;
@@ -774,7 +780,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       ? <Sailor pose={pose} coat={coatFor(m.provider)} sub={m.sub} look={lookFor(m.name, m.sub)} carry={sp.carry === "crate"} />
       : <Person folk={sp.folk} coat={sp.coat ?? "#777"} hair={sp.hair} pose={pose} carry={sp.carry} cart={sp.cart} />;
     const tip = m ? `${m.name} (${m.provider}) · ${labels[m.state]} · ${shipsByKey.get(m.ship)?.name ?? ""}${m.detail ? ` · ${m.detail}` : ""}`
-      : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand` : sp.folk === "master" ? "The shipwright (reads the tide gauge every 5 minutes)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
+      : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand` : sp.folk === "master" ? "The shipwright (every 5-minute tide reading he lights the pole's lamp, or takes it down)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
     const inner = (
       <g
         ref={(el) => { if (el) { els.current.set(sp.id, el); place(sp); } else els.current.delete(sp.id); }}
@@ -834,7 +840,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
             alarm={feed.sailors.some((s) => s.ship === b.key && s.state === "needs_approval")} onBoard={() => onBoard(b.key)} />;
         })}
         <g>{onDeck.map(figure)}</g>
-        <Town phase={phase} bell={bellUntil > clock} glint={glintUntil > clock} />
+        <Town phase={phase} bell={bellUntil > clock} lamp={lamp} />
         {quay.map((b) => <BerthSign key={b.key} berth={b} ship={shipsByKey.get(b.key)!} onBoard={() => onBoard(b.key)} />)}
         {moored.map((b) => <MooredShip key={b.key} berth={b} ship={shipsByKey.get(b.key)!} onBoard={() => onBoard(b.key)} />)}
         {hasDinghy && <DinghyBack rowing={feed.sailors.some((s) => s.ship === DINGHY_KEY && s.state !== "stale")} />}
