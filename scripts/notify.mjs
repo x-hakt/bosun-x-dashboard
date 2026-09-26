@@ -3,7 +3,7 @@
 // agent. They show in the Overview "Needs you" list and as a badge on Overview.
 //
 //   npm run notify -- raise --key planner:x-hakt-topics --title "Pick this week's x-hakt topics" \
-//        [--body "..."] [--href https://planner.x-hakt.com/launches] [--level info|warn|urgent] [--source planner]
+//        [--body "..."] [--detail "94% used"] [--href https://planner.x-hakt.com/launches] [--level info|warn|urgent] [--source planner]
 //   npm run notify -- resolve --key planner:x-hakt-topics
 //   npm run notify -- list [--all] [--json]
 //
@@ -42,7 +42,7 @@ async function main() {
     if (!opts.key || !opts.title) throw new Error("raise needs --key and --title");
     const now = new Date();
     const { notification, change } = await updateNotifications(dataDir, (file) =>
-      raise(file, { key: opts.key, title: opts.title, body: opts.body, href: opts.href, level: opts.level, source: opts.source }, now), now);
+      raise(file, { key: opts.key, title: opts.title, body: opts.body, detail: opts.detail, href: opts.href, level: opts.level, source: opts.source }, now), now);
     console.log(`${change} ${notification.id} [${notification.level}] ${notification.key}: ${notification.title}`);
   } else if (cmd === "resolve") {
     if (!opts.key) throw new Error("resolve needs --key");

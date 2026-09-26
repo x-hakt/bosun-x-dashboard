@@ -6,6 +6,9 @@ otherwise be forgotten: "pick this week's topics", "a draft is waiting for revie
 certificate renews next week". Backup and scheduled-job problems don't go here; they
 have their own banner at the top of every page.
 
+Built-in sources: **disk** alerts from the capacity sampler (see
+[capacity](capacity.md#disk-alerts)).
+
 ## Raising one
 
 Anything that can run a command can raise a notification: a cron job, a script, an agent.
@@ -16,6 +19,7 @@ npm run notify -- raise --key planner:topics-week-40 \
   --body "7 topic cards waiting" \
   --href https://planner.example.com/launches \
   --level warn            # info (default) | warn | urgent
+  # --detail "94.8% used"  a live figure: updates every raise, never brings back a dismissed row
 npm run notify -- resolve --key planner:topics-week-40
 npm run notify -- list        # what's showing now; --all for everything, --json for scripts
 ```

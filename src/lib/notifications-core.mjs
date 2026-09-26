@@ -17,6 +17,7 @@
  * @property {Level} level
  * @property {string} title
  * @property {string} [body]
+ * @property {string} [detail]     live figure ("94.8% used"); refreshed on every raise, never reopens it
  * @property {string} [href]
  * @property {NotificationState} state
  * @property {string} created
@@ -43,7 +44,7 @@ export function normalise(raw) {
 /**
  * Raise (or update) the notification for `key`.
  * @param {NotificationsFile} file
- * @param {{ key: string, title: string, body?: string, href?: string, level?: Level, source?: string }} input
+ * @param {{ key: string, title: string, body?: string, detail?: string, href?: string, level?: Level, source?: string }} input
  * @param {Date} now
  * @returns {{ file: NotificationsFile, notification: Notification, change: "created" | "updated" | "reopened" | "unchanged" }}
  */
@@ -56,6 +57,7 @@ export function raise(file, input, now) {
   const fields = {
     title: input.title.trim(),
     ...(input.body ? { body: input.body.trim() } : {}),
+    ...(input.detail ? { detail: input.detail.trim() } : {}),
     ...(input.href ? { href: input.href } : {}),
     level,
     source: input.source || input.key.split(":")[0],
@@ -79,6 +81,7 @@ export function raise(file, input, now) {
   const notification = { ...prev, ...fields, state, updated: changed || change === "reopened" ? at : prev.updated, count: prev.count + 1 };
   if (state === "open") delete notification.closedAt;
   if (!input.body) delete notification.body;
+  if (!input.detail) delete notification.detail;
   if (!input.href) delete notification.href;
   list[i] = notification;
   return { file: { ...file, notifications: list }, notification, change };

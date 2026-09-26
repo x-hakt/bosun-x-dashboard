@@ -32,3 +32,13 @@ project_roots:
 
 # Where the backup agent writes its receipts. $BACKUP_RECEIPTS overrides this.
 # backup_receipts: ~/backup-receipts
+
+# BXD-100: disk alerts from the capacity sampler (docs/capacity.md). On by default with
+# these values; `disk_alerts: false` turns them off.
+# disk_alerts:
+#   warn: 85
+#   critical: 93
+#   climb_points: 15
+#   climb_minutes: 30
+#   clear_below: 82
+#   clear_minutes: 30

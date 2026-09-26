@@ -22,8 +22,9 @@ function ago(iso: string) {
   return hours < 48 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 }
 
-export async function NeedsYou() {
-  const items = await openNotifications();
+// `only` narrows it to one key, e.g. a server page showing just its `disk:<host>` alert.
+export async function NeedsYou({ only }: { only?: string } = {}) {
+  const items = (await openNotifications()).filter((n) => !only || n.key === only);
   if (items.length === 0) return null;
 
   return (
@@ -58,6 +59,7 @@ export async function NeedsYou() {
                 )}
                 {n.body && <p className="mt-0.5 whitespace-pre-line text-xs text-muted-foreground">{n.body}</p>}
                 <p className="mt-0.5 text-[11px] text-muted-foreground/70">
+                  {n.detail ? `${n.detail} · ` : ""}
                   {n.source} · {ago(n.updated)}
                   {n.count > 1 ? ` · raised ${n.count}×` : ""}
                 </p>

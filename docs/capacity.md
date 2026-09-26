@@ -103,3 +103,29 @@ rejected, if your script has allowlists), so the lockdown is unchanged. Verify:
 ssh -F <ssh_config> <alias> bosun-x-disk | head    # ===DISK=== ... ===END===
 ssh -F <ssh_config> <alias> id                       # still the snapshot, not `id`
 ```
+
+## Disk alerts
+
+After every sample the sampler checks each server's disk and keeps one notification per
+host (`disk:<host>`) in the Overview's **Needs you** list and on that server's page (see
+[notifications](notifications.md)):
+
+- **warn** at 85% used, **urgent** at 93%;
+- **warn** when usage jumps 15 points within 30 minutes, even below 85% (something is
+  writing a lot: staged images, a runaway log);
+- while it stands it never steps down, it just updates its live figure ("94.8% used, 3.3 GB
+  free"), which doesn't bring back a row you've marked Done. Stepping *up* does;
+- it clears itself once usage has stayed under 82% for 30 minutes, so a backup that stages
+  and unstages doesn't make it flap.
+
+A host that fails to sample is left as it was. Tune or turn it off in `config.yml`:
+
+```yaml
+disk_alerts:          # or `disk_alerts: false`
+  warn: 85
+  critical: 93
+  climb_points: 15
+  climb_minutes: 30
+  clear_below: 82
+  clear_minutes: 30
+```

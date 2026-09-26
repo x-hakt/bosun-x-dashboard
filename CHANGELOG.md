@@ -14,6 +14,11 @@ that trigger a GHCR image build.
   same key updates it. Each row has Tomorrow / Next week / Done; Done keeps it away until
   the source says something new. Stored in `notifications.yml` in the data folder. See
   docs/notifications.md.
+- Disk alerts (BXD-100): the capacity sampler raises a `disk:<host>` notification at 85%
+  (warn), 93% (urgent) or on a 15-point jump in 30 minutes, keeps it without repeating
+  while the disk stays full, and clears it after 30 minutes under 82%. Shown in Needs you
+  and on the server's page; thresholds in `config.yml` (`disk_alerts`). Notifications gain
+  a `detail` line (a live figure that updates without reopening a dismissed one).
 - Remote `files` backup stores: a `files` store can now name an `ssh_alias` whose
   forced-command key emits a tar (like remote Postgres stores already did), so media on
   another host is backed up without giving Caspar a shell there.

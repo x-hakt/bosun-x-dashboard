@@ -14,6 +14,7 @@ export interface AppNotification {
   level: NotificationLevel;
   title: string;
   body?: string;
+  detail?: string;
   href?: string;
   state: "open" | "dismissed" | "resolved";
   created: string;
