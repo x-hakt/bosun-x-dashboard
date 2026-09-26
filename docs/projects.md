@@ -107,6 +107,12 @@ For a `files` or `postgres` store, `restore_restart` lists the containers that n
 (`ssh_alias:`) postgres store the restore runs over SSH; `redis` stores are
 restore-by-hand (a live swap can't work) and carry their runbook inline.
 
+A store on another host is pulled over a dedicated forced-command SSH key: set
+`ssh_alias:` (a `Host` in the backup agent's SSH config) instead of `container:` /
+`path:` / `volume:`. The key's forced command emits the archive on stdout and nothing
+else: `pg_dump -Fc` for a `postgres` store, a tar for a `files` store. Remote `files`
+stores are backed up and restore-tested, but restored by hand.
+
 ## Planning
 
 Pre-project ideas live under `<DATA_DIR>/planning/<ID>/` with a `task.yml`

@@ -188,14 +188,18 @@ do_store() {
       ;;
     files|redis)
       ext="tar.zst"
-      if [ -n "$spath" ]; then
+      if [ -n "$ssh_alias" ]; then
+        # remote store (PLN-4): the host's forced-command key emits a tar of the
+        # one path/volume it is pinned to, and nothing else. `-n` as above.
+        producer=(ssh -n -F "$SSH_CONFIG" -o BatchMode=yes -o ConnectTimeout=30 "$ssh_alias" backup-dump)
+      elif [ -n "$spath" ]; then
         producer=(tar -C "$(dirname "$spath")" -cf - "$(basename "$spath")")
       elif [ -n "$volume" ]; then
         # throwaway_run_stream forces --rm --network none --label — a container
         # that cannot reach or affect anything, reading the volume read-only.
         producer=(throwaway_run_stream -v "$volume":/src:ro alpine tar -C /src -cf - .)
       else
-        receipt "$slug" "$store" false 0 "" "" "files store has neither path nor volume"; ((FAILURES++)); return
+        receipt "$slug" "$store" false 0 "" "" "files store has neither ssh_alias, path nor volume"; ((FAILURES++)); return
       fi
       ;;
     *) receipt "$slug" "$store" false 0 "" "" "unknown kind '$kind'"; ((FAILURES++)); return ;;

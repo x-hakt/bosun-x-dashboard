@@ -14,6 +14,9 @@ that trigger a GHCR image build.
   same key updates it. Each row has Tomorrow / Next week / Done; Done keeps it away until
   the source says something new. Stored in `notifications.yml` in the data folder. See
   docs/notifications.md.
+- Remote `files` backup stores: a `files` store can now name an `ssh_alias` whose
+  forced-command key emits a tar (like remote Postgres stores already did), so media on
+  another host is backed up without giving Caspar a shell there.
 
 ### Changed
 

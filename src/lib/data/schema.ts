@@ -151,7 +151,7 @@ export const BackupStoreSchema = z.object({
   kind: z.enum(["postgres", "files", "redis"]),
   // Where it lives — the agent needs enough of these to act, by kind:
   //   postgres  → (container | ssh_alias) + database
-  //   files/redis → path | volume
+  //   files/redis → path | volume | ssh_alias (a forced-command key that emits a tar, PLN-4)
   container: z.string().nullish(),
   ssh_alias: z.string().nullish(),
   database: z.string().nullish(),
