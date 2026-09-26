@@ -664,7 +664,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
     if (!sp.name || sp.folk === "townsfolk") return false;
     if (sp.folk === "dockhand") return true;
     if (focus && sp.sailor?.ship === focus) return true; // up close: the boarded ship's whole crew
-    if (sp.folk === "master") return sp.path.length > 0;
+    if (sp.folk === "master") return false; // his walk passes the tavern sign; the tooltip names him
     return sp.path.length > 0 || sp.sailor?.state === "needs_approval" || clock - (sp.changedAt ?? 0) < FRESH_MS;
   };
 
