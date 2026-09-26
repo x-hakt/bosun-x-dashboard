@@ -6,6 +6,15 @@ that trigger a GHCR image build.
 
 ## Unreleased
 
+### Added
+
+- Notifications (BXD-99): a "Needs you" list at the top of the Overview, with a count badge
+  on Overview in the sidebar. Anything can raise one with `npm run notify -- raise --key …
+  --title …` (a planner run asking you to pick topics, a cron job, an agent); raising the
+  same key updates it. Each row has Tomorrow / Next week / Done; Done keeps it away until
+  the source says something new. Stored in `notifications.yml` in the data folder. See
+  docs/notifications.md.
+
 ### Changed
 
 - Pirates (BXD-97): the crew are pirates with a look generated from their name and a sash

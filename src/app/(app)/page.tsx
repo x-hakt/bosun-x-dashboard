@@ -8,6 +8,7 @@ import { StatTile } from "@/components/stat-tile";
 import { HealthStatTiles } from "@/components/health-stat-tiles";
 import { UnregisteredStatTile } from "@/components/unregistered-stat-tile";
 import { BackupAlertTile } from "@/components/backup-alert-tile";
+import { NeedsYou } from "@/components/needs-you";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectStage } from "@/lib/types";
 
@@ -43,6 +44,8 @@ export default async function OverviewPage() {
         <h1 className="text-lg font-semibold tracking-tight">Overview</h1>
         <p className="text-sm text-muted-foreground mt-1">bosun-x at a glance.</p>
       </div>
+
+      <NeedsYou />
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatTile label="Total projects" value={projects.length} />

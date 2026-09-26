@@ -5,6 +5,7 @@
 - **[Projects](projects.md)** — `project.yml`, `tasks.yml`, `STATUS.md`, `backups.yml`
 - **[Discovery](discovery.md)** — how running services are found; `setup-remote.sh`; Podman
 - **[Capacity](capacity.md)** — per-server RAM/CPU/disk by project, the sampler, the move simulator
+- **[Notifications](notifications.md)** — the Overview "Needs you" list and `npm run notify`
 - **[Auth](auth.md)** — Google / GitHub / OIDC sign-in and the email allowlist
 - **[Deploying](deploying.md)** — Docker Compose, the GHCR image, updating
 - **[Client portal](portal.md)** — a per-client read-mostly view, run as a second deployment

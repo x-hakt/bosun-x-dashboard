@@ -1,0 +1,25 @@
+# bosun-x notifications (BXD-99). Written by the dashboard and `npm run notify`;
+# see docs/notifications.md. Closed ones are dropped after 30 days.
+seq: 2
+notifications:
+  - id: N-1
+    key: planner:topics-week-40
+    title: Pick this week's blog topics
+    body: 7 topic cards waiting (3 dev log, 2 recipes-api, 2 manual). Tag them Write or Skip.
+    href: https://planner.example.com/launches
+    level: warn
+    source: planner
+    state: open
+    created: '2026-09-28T08:00:00.000Z'
+    updated: '2026-09-28T08:00:00.000Z'
+    count: 1
+  - id: N-2
+    key: certs:recipes-api
+    title: TLS certificate for recipes.example.com renews in 5 days
+    level: info
+    source: certs
+    state: resolved
+    created: '2026-09-20T02:00:00.000Z'
+    updated: '2026-09-20T02:00:00.000Z'
+    count: 3
+    closedAt: '2026-09-22T02:00:00.000Z'
