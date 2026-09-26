@@ -302,6 +302,70 @@ function Scenery({ phase }: { phase: ReturnType<typeof phaseAt> }) {
   );
 }
 
+// Mermaids in the bay: pure scenery, swimming across between the moorings. Head and torso
+// ride above the surface; the tail trails below it, seen through the water. Mostly bare,
+// a couple in shell tops. Drawn under the town (the shore hides them) and the ships.
+const MERMAID_HAIR = { blonde: "#e8c66a", brown: "#6b4226", red: "#b5452a" } as const;
+const MERMAIDS: { hair: keyof typeof MERMAID_HAIR; skin: string; tail: string; top?: string; y: number; s: number; dir: 1 | -1; dur: number; delay: number; rest: number }[] = [
+  { hair: "blonde", skin: "#f0c9a0", tail: "#1f9e8f", y: 548, s: 0.85, dir: 1, dur: 96, delay: -12, rest: 820 },
+  { hair: "red", skin: "#f2cfb0", tail: "#2f8f5a", y: 604, s: 0.95, dir: -1, dur: 118, delay: -64, rest: 1180 },
+  { hair: "brown", skin: "#d9a57a", tail: "#6b4fa0", top: "#e98a7a", y: 700, s: 1.1, dir: 1, dur: 84, delay: -40, rest: 640 },
+  { hair: "brown", skin: "#e8b98a", tail: "#c0605a", y: 560, s: 0.85, dir: -1, dur: 132, delay: -20, rest: 1420 },
+  { hair: "blonde", skin: "#f2cfb0", tail: "#6b4fa0", top: "#7ec8d6", y: 690, s: 1.05, dir: -1, dur: 102, delay: -88, rest: 980 },
+  { hair: "red", skin: "#f0c9a0", tail: "#1f9e8f", y: 628, s: 1, dir: 1, dur: 110, delay: -5, rest: 300 },
+];
+
+function Mermaid({ hair, skin, tail, top }: { hair: string; skin: string; tail: string; top?: string }) {
+  const dark = "#2a1f1c";
+  return (
+    <g>
+      <g className="port-tail" opacity={0.55}>
+        <path d="M-2 0 Q-9 5 -17 3.5 Q-21 2.6 -23.5 1" fill="none" stroke={tail} strokeWidth={4.2} strokeLinecap="round" />
+        <path d="M-23.5 1 L-29 -2.8 L-27.4 1.2 L-29 5 Z" fill={tail} />
+      </g>
+      <g shapeRendering="crispEdges">
+        <rect x={-7.5} y={-13} width={4.5} height={9} fill={hair} />
+        <rect x={-10} y={-10} width={3} height={5} fill={hair} className="port-hair" />
+        <rect x={-3} y={-8} width={6} height={8} fill={skin} />
+        <rect x={-3} y={-1.4} width={6} height={1.4} fill={tail} />
+        {top ? (
+          <g><rect x={-3} y={-6.8} width={6.4} height={2.2} fill={top} /><rect x={-1} y={-8} width={0.8} height={1.2} fill={top} /></g>
+        ) : (
+          <rect x={1.6} y={-6.6} width={1.8} height={2} fill={skin} style={{ filter: "brightness(.9)" }} />
+        )}
+        <g className="port-stroke"><rect x={2} y={-7.2} width={5} height={1.6} fill={skin} /></g>
+        <rect x={-2.5} y={-14} width={5.5} height={5.5} fill={skin} />
+        <rect x={-3.2} y={-15.2} width={6.4} height={2} fill={hair} />
+        <rect x={-3.6} y={-14} width={2.2} height={6} fill={hair} />
+        <rect x={1.6} y={-12} width={0.9} height={0.9} fill={dark} />
+      </g>
+      <path d="M-8 0.4 q2 -1.2 4 0 t4 0 t4 0 t4 0" fill="none" stroke="#d6eef4" strokeWidth={0.8} opacity={0.8} />
+    </g>
+  );
+}
+
+function Mermaids({ reduced }: { reduced: boolean }) {
+  return (
+    <g aria-hidden="true" pointerEvents="none">
+      {MERMAIDS.map((m, i) => {
+        const body = <g transform={`scale(${m.s * U})`}><Mermaid hair={MERMAID_HAIR[m.hair]} skin={m.skin} tail={m.tail} top={m.top} /></g>;
+        if (reduced) {
+          return <g key={i} transform={`translate(${m.rest} ${m.y}) scale(${m.dir} 1)`}>{body}</g>;
+        }
+        return (
+          <g key={i} transform={m.dir === 1 ? undefined : `translate(${PORT_W} 0) scale(-1 1)`}>
+            <g className="port-swim" style={{ animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}>
+              <g transform={`translate(0 ${m.y})`}>
+                <g className="port-dive" style={{ animationDuration: `${m.dur / 3}s`, animationDelay: `${m.delay * 0.7}s` }}>{body}</g>
+              </g>
+            </g>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 // A painted board sized to its lines (monospace: ~0.62 em a character), with the text held
 // inside it by textLength, so a name can never run off the edge.
 function Sign({ x, y, lines, size, board = "#e9dcb8", ink = "#3e2419", maxWidth }: {
@@ -729,6 +793,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       <svg ref={svg} className="port-svg" viewBox={`0 0 ${PORT_W} ${PORT_H}`} role="img"
         aria-label="The port: every project is a ship; each live agent session is a named sailor on or beside its ship">
         <Scenery phase={phase} />
+        <Mermaids reduced={reduced} />
         {quay.map((b) => {
           const ship = shipsByKey.get(b.key)!;
           return <QuayShip key={b.key} berth={b} ship={ship} pennant={(pennants[b.key] ?? 0) > clock}

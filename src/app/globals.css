@@ -238,6 +238,11 @@
 .port-bob { animation: port-bob 4.4s ease-in-out infinite; }
 .port-oars { animation: port-row 1.6s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 0; }
 .port-pennant { animation: port-hoist 1.4s ease-out; }
+.port-swim { animation: port-swim 100s linear infinite; }
+.port-dive { animation: port-dive 34s ease-in-out infinite; }
+.port-tail { animation: port-tail 1.4s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 100% 0; }
+.port-stroke { animation: port-tail 1.1s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 0 50%; }
+.port-hair { animation: port-flap 1.3s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 100% 0; }
 .crew-leg-a, .crew-leg-b { animation: port-step .36s steps(2) infinite; }
 .crew-leg-b { animation-delay: -.18s; }
 .port-order { cursor: pointer; color: inherit; text-align: left; flex-wrap: wrap; row-gap: 2px; }
@@ -255,6 +260,9 @@
 @keyframes port-bob { 50% { transform: translateY(2px); } }
 @keyframes port-row { from { transform: rotate(-10deg); } to { transform: rotate(12deg); } }
 @keyframes port-hoist { from { transform: translateY(110px); } to { transform: translateY(0); } }
+@keyframes port-swim { from { transform: translateX(-90px); } to { transform: translateX(1690px); } }
+@keyframes port-dive { 0%, 70%, 100% { transform: translateY(0); opacity: 1; } 78%, 86% { transform: translateY(22px); opacity: 0; } 76% { opacity: .6; } }
+@keyframes port-tail { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
 @keyframes port-step { 50% { transform: translateY(-1px); } }
 /* IDEA-20 round 2 (BXD-89..93): names, moorings, ship card, rolling log */
 .port-plate { fill: #0b2538e0; stroke: #f4cf83; stroke-width: 1; }
