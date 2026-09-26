@@ -18,7 +18,7 @@ const load = (file, resolve) => {
   return mod.exports;
 };
 const state = load("activity-state.ts", require);
-const { buildPortFeed, sailorName, dockhandName } = load("port-core.ts", (name) => (name === "@/lib/activity-state" ? state : require(name)));
+const { buildPortFeed, sailorName, dockhandName, nameWatch } = load("port-core.ts", (name) => (name === "@/lib/activity-state" ? state : require(name)));
 
 const NOW = Date.parse("2026-09-25T10:00:30.000Z");
 const MIN = 60_000;
@@ -137,7 +137,7 @@ test("private feed keeps the detail the operator needs", () => {
   assert.equal(feed.ships.find((s) => s.key === "secret-client").name, "Secret Client Portal");
   assert.ok(feed.happenings.every((h) => h.detail));
   const sub = feed.sailors.find((s) => s.sub);
-  assert.equal(sub.name, sailorName("codex:sess-very-secret-3"));
+  assert.equal(sub.name, sailorName("codex:sess-very-secret-3", nameWatch(NOW)));
   assert.equal(feed.log.groups.find((g) => g.key === "secret-client").lanes.find((l) => l.name === sub.name).depth, 1);
 });
 
@@ -161,12 +161,23 @@ test("sailors have generated names, never Claude N / Codex N, the same on both p
   assert.match(sailorName("claude:x"), /^[A-Z][\w-]+ [A-Z][a-z]+$/);
 });
 
+test("pirate names are re-drawn every 4-hour watch, and the log uses the same names", () => {
+  const keys = Array.from({ length: 12 }, (_, i) => `claude:rotate-${i}`);
+  const w = nameWatch(NOW);
+  assert.ok(keys.some((k) => sailorName(k, w) !== sailorName(k, w + 1)), "a new watch deals new names");
+  assert.equal(nameWatch(NOW + 4 * 60 * MIN), w + 1);
+  const feed = buildPortFeed(sources(), { publicView: false });
+  const names = new Set(feed.sailors.map((s) => s.name));
+  assert.ok(feed.entries.some((e) => names.has(e.who)), "log lines carry this watch's names");
+  assert.match(sailorName("claude:x", w), /^[A-Z][\w-]+ [A-Z][a-z]+$/);
+});
+
 test("the rolling log tells the day: arrivals, the captain, cargo, pennants; dockhands match the scene", () => {
   const priv = buildPortFeed(sources(), { publicView: false });
   const kinds = priv.entries.map((e) => e.kind);
   for (const k of ["aboard", "cabin", "captain", "cargo", "delivery", "cart", "signoff"]) assert.ok(kinds.includes(k), `has a ${k} line`);
   const captain = priv.entries.find((e) => e.kind === "captain");
-  assert.equal(captain.who, sailorName("claude:sess-very-secret-2"));
+  assert.equal(captain.who, sailorName("claude:sess-very-secret-2", nameWatch(NOW)));
   assert.equal(captain.ship, "secret-client");
   assert.match(captain.action, /\{ship\}/);
   const cargo = priv.entries.find((e) => e.kind === "cargo" && e.ship === "secret-client");
@@ -187,7 +198,7 @@ test("the log leaves off finished sessions shorter than a minute, never live one
   const feed = buildPortFeed(src, { publicView: false });
   const lanes = feed.log.groups.flatMap((g) => g.lanes);
   assert.equal(lanes.find((l) => l.detail.includes("blip")), undefined, "a 12-second finished session is not drawn");
-  assert.ok(!feed.entries.some((e) => e.who === sailorName("claude:blip")), "nor logged");
+  assert.ok(!feed.entries.some((e) => e.who === sailorName("claude:blip", nameWatch(NOW))), "nor logged");
   assert.ok(lanes.some((l) => l.detail.includes("fresh")), "a live session shows even with a sliver of time");
 });
 

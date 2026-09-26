@@ -14,7 +14,7 @@ import { coatFor, labels, lookFor, Sailor } from "@/components/crew-ship";
 // ones at moorings in the bay. Sailors are live sessions with generated names, walking
 // between town, quay and deck as their state changes; dockhands and the shipwright run
 // errands for real happenings (commits, finished tasks, backups, the tide reading);
-// townsfolk, gulls, clouds and the lighthouse are scenery. Boarding a ship glides the camera
+// strumpets outside the whorehouse, gulls, clouds and the lighthouse are scenery. Boarding a ship glides the camera
 // onto it. The same component renders /activity and /crew/embed.
 
 const DINGHY_KEY = "~dinghy"; // port-core's DINGHY_KEY (not imported: that module is server-side)
@@ -24,7 +24,7 @@ const REPLAY_MS = 10 * 60_000; // on first load, replay the last ten minutes of 
 const MAX_ERRANDS = 4;
 const FRESH_MS = 8_000; // a nameplate shows this long after a sailor's state changes
 
-type Folk = "sailor" | "dockhand" | "master" | "townsfolk";
+type Folk = "sailor" | "dockhand" | "master" | "strumpet";
 type Step = Point & { then?: () => void };
 interface Sprite {
   id: string;
@@ -43,6 +43,7 @@ interface Sprite {
   leaving?: boolean;
   wait?: number;
   coat?: string;
+  hair?: string;
   changedAt?: number;
 }
 
@@ -63,12 +64,38 @@ function mulberry(seed: number) {
   };
 }
 
+// The whorehouse's working girls: long hair, corset and a full skirt that sways as they stroll.
+function Strumpet({ dress, hair, walking }: { dress: string; hair: string; walking: boolean }) {
+  const skin = "#efc39c";
+  return (
+    <g shapeRendering="crispEdges">
+      <rect x={-3.6} y={-17.4} width={7.2} height={9} fill={hair} />
+      <g className={walking ? "port-sway" : undefined}>
+        <path d="M-3.4 -7 L3.4 -7 L5.6 -0.6 L-5.6 -0.6 Z" fill={dress} />
+        <rect x={-5.6} y={-1.6} width={11.2} height={1} fill="#f2eee4" opacity={0.8} />
+      </g>
+      <rect x={-2} y={-0.6} width={1.6} height={0.6} fill="#2a1f1c" /><rect x={0.6} y={-0.6} width={1.6} height={0.6} fill="#2a1f1c" />
+      <rect x={-3} y={-11} width={6} height={4} fill={dress} />
+      <rect x={-3} y={-9.4} width={6} height={0.7} fill="#2a1f1c" opacity={0.5} />
+      <rect x={-3} y={-12.4} width={6} height={1.4} fill={skin} />
+      <rect x={-4.4} y={-12} width={1.4} height={5} fill={skin} />
+      <rect x={3} y={-12} width={1.4} height={5} fill={skin} />
+      <rect x={-2.6} y={-17} width={5.4} height={4.8} fill={skin} />
+      <rect x={-3} y={-18} width={6.2} height={1.8} fill={hair} />
+      <rect x={1.2} y={-15.4} width={0.9} height={0.9} fill="#2a1f1c" />
+      <rect x={1.4} y={-13.4} width={1.2} height={0.6} fill="#b8322f" />
+      <rect x={-3.4} y={-18.6} width={1.8} height={1.8} fill="#b8322f" />
+    </g>
+  );
+}
+
 // Non-sailor people, on the same 1-unit grid as the Sailor (feet at 0,0).
-function Person({ folk, coat, pose, carry, cart }: { folk: Folk; coat: string; pose: Pose; carry?: Sprite["carry"]; cart?: boolean }) {
-  const skin = folk === "townsfolk" ? "#d9a57a" : "#e8b98a";
+function Person({ folk, coat, hair, pose, carry, cart }: { folk: Folk; coat: string; hair?: string; pose: Pose; carry?: Sprite["carry"]; cart?: boolean }) {
+  const skin = "#e8b98a";
   const dark = "#2a1f1c";
   const walking = pose === "walk";
   const lifting = carry === "crate" && !cart;
+  if (folk === "strumpet") return <Strumpet dress={coat} hair={hair ?? dark} walking={walking} />;
   return (
     <g shapeRendering="crispEdges">
       {cart && (
@@ -89,7 +116,6 @@ function Person({ folk, coat, pose, carry, cart }: { folk: Folk; coat: string; p
       <rect x={1} y={-15.4} width={1} height={1} fill={dark} />
       {folk === "dockhand" && <rect x={-3.2} y={-17.6} width={6.4} height={1.6} fill="#b8322f" />}
       {folk === "master" && <g><rect x={-3.6} y={-19} width={7.2} height={2.2} fill="#1d2d44" /><rect x={-1} y={-18.6} width={2} height={1} fill="#d9b35f" /></g>}
-      {folk === "townsfolk" && <rect x={-3} y={-18} width={6} height={1.4} fill="#5b4636" />}
       {lifting && <rect x={-5} y={-25} width={10} height={7} fill="#a0703f" stroke="#5a3b2a" strokeWidth={0.6} />}
     </g>
   );
@@ -414,9 +440,9 @@ function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell:
       <rect x={228} y={380} width={78} height={90} fill="#d9c9a3" />
       <path d="M222 380 L267 350 L312 380 Z" fill="#8a3b33" />
       <rect x={252} y={420} width={22} height={50} fill="#5a3b2a" />
-      <rect x={236} y={394} width={12} height={12} fill={win} />
-      <rect x={286} y={394} width={12} height={12} fill={win} />
-      <Sign x={263} y={412} lines={["SHIPWRIGHT"]} size={8} maxWidth={74} />
+      <rect x={283} y={430} width={12} height={12} fill={win} />
+      <rect x={288.5} y={430} width={1} height={12} fill="#5a3b2a" />
+      <Sign x={265} y={396} lines={["SHIPWRIGHT"]} size={8} maxWidth={74} />
       <g transform="translate(267 350)">
         <rect x={-10} y={-28} width={20} height={4} fill="#5a3b2a" />
         <rect x={-9} y={-24} width={2} height={20} fill="#5a3b2a" /><rect x={7} y={-24} width={2} height={20} fill="#5a3b2a" />
@@ -430,8 +456,7 @@ function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell:
         <path d="M306 358 L368 318 L430 358 Z" fill="#3e2419" />
         <rect x={334} y={330} width={8} height={18} fill="#3e2419" />
         <g className="port-smoke"><circle cx={338} cy={324} r={5} /><circle cx={344} cy={308} r={7} /><circle cx={338} cy={290} r={9} /></g>
-        {[326, 396].map((x) => <g key={x}><rect x={x} y={376} width={14} height={14} fill={win} /><rect x={x + 6} y={376} width={2} height={14} fill="#4e2c1d" /></g>)}
-        <rect x={326} y={416} width={14} height={12} fill={win} /><rect x={396} y={416} width={14} height={12} fill={win} />
+        {[320, 339, 383, 402].map((x) => <g key={x}><rect x={x} y={420} width={13} height={13} fill={win} /><rect x={x + 5.5} y={420} width={2} height={13} fill="#4e2c1d" /></g>)}
         <rect x={TAVERN_DOOR.x - 10} y={420} width={20} height={50} fill="#2e1a12" />
         <rect x={TAVERN_DOOR.x - 10} y={420} width={20} height={4} fill="#d9b35f" opacity={0.5} />
         <Sign x={368} y={397} lines={["THE PLASTERED", "BASTARD"]} size={9} maxWidth={96} />
@@ -445,8 +470,9 @@ function Town({ phase, bell, glint }: { phase: ReturnType<typeof phaseAt>; bell:
       {Array.from({ length: 15 }, (_, i) => <rect key={i} x={452 + i * 80} y={494} width={10} height={70} fill="#4a3322" />)}
       {Array.from({ length: 10 }, (_, i) => <rect key={i} x={500 + i * 112} y={460} width={9} height={10} rx={2} fill="#2f2f2f" />)}
       <g transform={`translate(${TIDE_GAUGE.x + 14} 470)`}>
-        <rect x={-3} y={-40} width={6} height={100} fill="#efe7d6" />
-        {[-34, -22, -10, 2, 14, 26, 38].map((y) => <rect key={y} x={-3} y={y} width={6} height={5} fill="#b8322f" />)}
+        <rect x={-3} y={-40} width={6} height={40} fill="#efe7d6" />
+        {[-34, -22, -10].map((y) => <rect key={y} x={-3} y={y} width={6} height={5} fill="#b8322f" />)}
+        <rect x={-5} y={-2} width={10} height={3} fill="#4a3322" />
         {glint && <circle cx={0} cy={-44} r={5} className="port-glint" />}
       </g>
       {/* stairs down to the rowing boat */}
@@ -492,6 +518,14 @@ function berthsOf(feed: PortFeed) {
 }
 
 // Everyone already at their place on the first render, server and client alike: no parade.
+// Scenery, strolling the street outside the whorehouse (its front runs x 40..210).
+const STRUMPETS = [
+  { name: "Scarlet Sal", dress: "#b8322f", hair: "#d9c07a", x: 70 },
+  { name: "Velvet Moll", dress: "#6d3a78", hair: "#2a1f1c", x: 128 },
+  { name: "Ruby Lou", dress: "#2f7a6a", hair: "#b5452a", x: 188 },
+];
+const STREET = { from: 44, to: 214 };
+
 function initialWorld(feed: PortFeed, berths: Berth[]) {
   const sprites = new Map<string, Sprite>();
   const targets = assignSpots(feed.sailors, berths, DINGHY_KEY);
@@ -500,8 +534,7 @@ function initialWorld(feed: PortFeed, berths: Berth[]) {
     if (!t) continue;
     sprites.set(s.id, { id: s.id, folk: "sailor", ...pointOf(t.spot, berths), facing: 1, path: [], pose: t.pose, spot: t.spot, sailor: s, name: s.name });
   }
-  const coats = ["#7d8a8f", "#9b7a5a", "#6f7d5a", "#8a6f86"];
-  [60, 190, 318, 395].forEach((x, i) => sprites.set(`town-${i}`, { id: `town-${i}`, folk: "townsfolk", x, y: QUAY_Y, s: 0.95, facing: i % 2 ? -1 : 1, path: [], pose: "rest", wait: 1 + i * 1.7, coat: coats[i] }));
+  STRUMPETS.forEach((g, i) => sprites.set(`strumpet-${i}`, { id: `strumpet-${i}`, folk: "strumpet", x: g.x, y: QUAY_Y, s: 0.95, facing: i % 2 ? -1 : 1, path: [], pose: "rest", wait: 1 + i * 2.3, coat: g.dress, hair: g.hair, name: g.name }));
   sprites.set("master", { id: "master", folk: "master", ...OFFICE_DOOR, s: 1, facing: 1, path: [], pose: "rest", coat: "#26456e", name: "Shipwright" });
   // Errands older than the replay window are treated as already run.
   const seen = new Set(feed.happenings.filter((h) => feed.now - Date.parse(h.at) > REPLAY_MS).map((h) => h.id));
@@ -672,10 +705,10 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
             changed = true;
           }
         }
-        if (!sp.path.length && sp.folk === "townsfolk") {
+        if (!sp.path.length && sp.folk === "strumpet") {
           sp.wait = (sp.wait ?? 0) - dt;
           if (sp.wait <= 0) {
-            sp.path = [{ x: 24 + rand() * 390, y: QUAY_Y, s: 0.95 }];
+            sp.path = [{ x: STREET.from + rand() * (STREET.to - STREET.from), y: QUAY_Y, s: 0.95 }];
             sp.wait = 2 + rand() * 5;
             changed = true;
           }
@@ -685,7 +718,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
         const dx = next.x - sp.x;
         const dy = next.y - sp.y;
         const dist = Math.hypot(dx, dy);
-        const speed = WALK * (sp.folk === "townsfolk" ? 0.45 : sp.cart ? 0.7 : sp.sailor?.sub ? 1.35 : 1) * Math.max(0.5, sp.s);
+        const speed = WALK * (sp.folk === "strumpet" ? 0.4 : sp.cart ? 0.7 : sp.sailor?.sub ? 1.35 : 1) * Math.max(0.5, sp.s);
         if (Math.abs(dx) > 0.5) sp.facing = dx > 0 ? 1 : -1;
         if (dist <= speed * dt) {
           sp.x = next.x; sp.y = next.y; sp.s = next.s;
@@ -725,7 +758,8 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
 
   // Names show when someone is doing something, and always up close.
   const showName = (sp: Sprite) => {
-    if (!sp.name || sp.folk === "townsfolk") return false;
+    if (!sp.name || sp.folk === "strumpet") return false;
+    if (sp.sailor && !sp.sailor.sub && lookFor(sp.sailor.name).hat === "captain") return true; // captains are always named
     if (sp.folk === "dockhand") return true;
     if (focus && sp.sailor?.ship === focus) return true; // up close: the boarded ship's whole crew
     if (sp.folk === "master") return false; // his walk passes the tavern sign; the tooltip names him
@@ -738,9 +772,9 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
     const m = sp.sailor;
     const body = m
       ? <Sailor pose={pose} coat={coatFor(m.provider)} sub={m.sub} look={lookFor(m.name, m.sub)} carry={sp.carry === "crate"} />
-      : <Person folk={sp.folk} coat={sp.coat ?? "#777"} pose={pose} carry={sp.carry} cart={sp.cart} />;
+      : <Person folk={sp.folk} coat={sp.coat ?? "#777"} hair={sp.hair} pose={pose} carry={sp.carry} cart={sp.cart} />;
     const tip = m ? `${m.name} (${m.provider}) · ${labels[m.state]} · ${shipsByKey.get(m.ship)?.name ?? ""}${m.detail ? ` · ${m.detail}` : ""}`
-      : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand` : sp.folk === "master" ? "The shipwright (reads the tide gauge every 5 minutes)" : "Townsfolk (scenery)";
+      : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand` : sp.folk === "master" ? "The shipwright (reads the tide gauge every 5 minutes)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
     const inner = (
       <g
         ref={(el) => { if (el) { els.current.set(sp.id, el); place(sp); } else els.current.delete(sp.id); }}
@@ -888,7 +922,7 @@ export function PortView({ feed }: { feed: PortFeed }) {
             <span>on deck, hauling cargo: working</span><span>at a gun: tool running</span><span>ale at the tavern: ready for orders</span><span>waving on the quay under a red pennant: needs you</span><span>dozing: signal stale</span><span>in the bay: quiet ships</span>
           </p>
           <p className="crew-key" aria-hidden="true">
-            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>townsfolk, gulls and weather are scenery</span>
+            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>strumpets, gulls and weather are scenery; pirate names are re-drawn every 4 hours</span>
           </p>
           {active.length > 0 && (
             <div className="crew-orders" aria-label="Ships at the quay">

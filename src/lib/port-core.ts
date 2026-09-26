@@ -124,8 +124,12 @@ const onDeck = (s: CrewState) => s !== "finished" && s !== "unknown";
 const FIRST = ["Meg", "Bill", "Jack", "Anne", "Tom", "Nell", "Finn", "Rosa", "Kit", "Ned", "Moll", "Sam", "Bess", "Jonah", "Ivy", "Cal", "Wren", "Dot", "Hal", "Pip", "Mae", "Rory", "Gus", "Lou", "Tess", "Abe", "June", "Olly", "Kip", "Nan", "Bo", "Flo"];
 const EPITHET = ["Salty", "Barnacle", "Stormy", "Lucky", "Quick", "Red", "Tidy", "Briny", "Squall", "Foggy", "Pickle", "Rusty", "Sunny", "Whistling", "Compass", "Lantern", "Gull", "Anchor", "Driftwood", "Kelp", "Starboard", "Port-side", "Bilge", "Sextant"];
 const digest = (s: string) => createHash("sha256").update(s).digest();
-export function sailorName(key: string): string {
-  const d = digest(`sailor:${key}`);
+// Names are re-drawn every watch (4 hours) so the crew stays fresh; within a watch a
+// session keeps one name on both pages and in the log.
+export const NAME_WATCH_MS = 4 * 60 * 60_000;
+export const nameWatch = (now: number) => Math.floor(now / NAME_WATCH_MS);
+export function sailorName(key: string, watch = 0): string {
+  const d = digest(watch ? `sailor:${key}:${watch}` : `sailor:${key}`);
   return `${EPITHET[d.readUInt16BE(0) % EPITHET.length]} ${FIRST[d.readUInt16BE(2) % FIRST.length]}`;
 }
 export function dockhandName(id: string): string {
@@ -162,6 +166,7 @@ function mergeRepeats(entries: LogEntry[]): LogEntry[] {
 export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   const now = src.now;
   const pub = opts.publicView;
+  const watch = nameWatch(now);
   const hmac = (value: string) => (pub ? createHmac("sha256", opts.secret).update(value).digest("hex").slice(0, 12) : value);
   const time = (iso: string) => (pub ? minute(Date.parse(iso)) : iso);
   const approved = new Map(pub ? opts.approved.map((a) => [a.slug, a.alias]) : []);
@@ -200,7 +205,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   // ---- sessions
   const roster = projectActivity(src.events, now);
   const sailors: PortSailor[] = roster.filter((m) => onDeck(m.state)).map((m) => {
-    const base = { id: hmac(m.key), name: sailorName(m.key), provider: pub ? providerName(m.provider).toLowerCase() : m.provider, ship: shipKey(m.project), state: m.state, sub: Boolean(m.parent), since: time(m.since) };
+    const base = { id: hmac(m.key), name: sailorName(m.key, watch), provider: pub ? providerName(m.provider).toLowerCase() : m.provider, ship: shipKey(m.project), state: m.state, sub: Boolean(m.parent), since: time(m.since) };
     if (pub) return base;
     return {
       ...base,
@@ -268,7 +273,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   };
   for (const [key, list] of bySession) {
     if (blip.has(key)) continue;
-    const who = sailorName(key);
+    const who = sailorName(key, watch);
     let state: CrewState = "unknown";
     let project: string | null = null;
     let task: string | null = null;
@@ -310,7 +315,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
       name: shipName(g.project),
       kind,
       lanes: g.lanes.map((lane) => {
-        const out: PortLane = { id: hmac(lane.key), name: sailorName(lane.key), depth: depth.get(lane.session) ?? 0, state: lane.state, segments: lane.segments.map(round).filter((s) => s.to > s.from) };
+        const out: PortLane = { id: hmac(lane.key), name: sailorName(lane.key, watch), depth: depth.get(lane.session) ?? 0, state: lane.state, segments: lane.segments.map(round).filter((s) => s.to > s.from) };
         if (!pub) out.detail = `${providerName(lane.provider)} · ${lane.session.slice(0, 12)}${lane.task ? ` · ${lane.task}` : ""}`;
         return out;
       }),
