@@ -176,7 +176,9 @@ export async function readScheduleSnapshot(): Promise<ScheduleSnapshot | null> {
     path.join(jobsDir(), "schedule.json"),
   );
   if (!raw) return null;
-  return { capturedAt: raw.captured_at, cron: raw.cron ?? [], timers: raw.timers ?? [] };
+  // Variable lines (BACKUP_RECEIPTS=..., MAILTO=...) set the environment; they aren't jobs.
+  const cron = (raw.cron ?? []).filter((l) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(l.trim()));
+  return { capturedAt: raw.captured_at, cron, timers: raw.timers ?? [] };
 }
 
 export async function getJobStatuses(): Promise<{
