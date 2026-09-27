@@ -14,8 +14,8 @@ import { createHash, createHmac } from "node:crypto";
 import { buildShipLog, nextState, orderEvents, projectActivity, sessionKey, type ActivityEvent, type CrewState, type LogSegment } from "@/lib/activity-state";
 
 export type ShipKind = "project" | "voyage" | "dinghy";
-export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand";
-export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand";
+export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand" | "refit" | "leak";
+export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand" | "logbook" | "refit" | "leak";
 
 export interface PortShip {
   key: string;
@@ -109,6 +109,10 @@ export interface PortSources {
   chores: { id: string; at: string; outcome: PortChore["outcome"]; label: string; job?: string; family?: string }[];
   // BXD-94: scheduled job runs (every crontab line), each a town errand.
   errands: { id: string; at: string; job: string; label: string; family?: string; ok: boolean }[];
+  // BXD-104: handoff starts, checkpoints and finishes from each project's HANDOFF.yml trail.
+  logbook: { project: string; at: string; id: string; kind: "start" | "checkpoint" | "finish"; agent: string; work: string }[];
+  // BXD-105: container starts and crashes, already mapped to projects.
+  refits: { project: string; at: string; id: string; action: "start" | "crash"; container: string }[];
 }
 
 export type PortOptions = { publicView: false } | { publicView: true; approved: { slug: string; alias: string }[]; secret: string };
@@ -179,7 +183,11 @@ const PLURAL: Partial<Record<EntryKind, (n: number) => string>> = {
   cargo: (n) => `loaded ${n} crates onto {ship}`,
   delivery: (n) => `{ship} ran up ${n} pennants: ${n} tasks are done`,
   cart: (n) => `carted ${n} loads of barrels from {ship} to the whorehouse`,
+  refit: (n) => `{ship} took on fresh timber: ${n} services redeployed`,
+  leak: (n) => `{ship} sprang ${n} leaks: services fell over and were restarted`,
 };
+const LOGBOOK: Record<string, string> = { start: "opened {ship}'s log for a new watch", checkpoint: "signed {ship}'s log", finish: "closed {ship}'s log for the watch" };
+const AGENT = (a: string) => (/^claude/i.test(a) ? "Claude" : /^codex/i.test(a) ? "Codex" : "The crew");
 function mergeRepeats(entries: LogEntry[]): LogEntry[] {
   // Grouped by (minute, kind, ship) whatever the order within the minute, so the private and
   // public feeds (ordered by different ids) merge the same way.
@@ -222,7 +230,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     if (t <= now) lastSeen.set(slug, Math.max(lastSeen.get(slug) ?? t, t));
   };
   for (const e of src.events) touch(e.project, e.at);
-  for (const list of [src.commits, src.deliveries, src.carts]) for (const h of list) touch(h.project, h.at);
+  for (const list of [src.commits, src.deliveries, src.carts, src.logbook, src.refits]) for (const h of list) touch(h.project, h.at);
 
   // ---- every project is a ship (BXD-90); private = slug, public = alias or numbered voyage.
   // Voyages are numbered in an order that reveals nothing (by keyed hash of the slug).
@@ -274,6 +282,15 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   for (const c of src.carts) if (inWindow(c.at, HAPPENING_WINDOW_MS)) raw.push({ id: c.id, kind: "cart", at: c.at, project: c.project, detail: `backup ${c.id}` });
   for (const c of src.commits) if (inWindow(c.at, HAPPENING_WINDOW_MS)) raw.push({ id: c.id, kind: "cargo", at: c.at, project: c.project, detail: `commit ${c.id.slice(0, 7)}` });
   for (const d of src.deliveries) if (inWindow(d.at, HAPPENING_WINDOW_MS)) raw.push({ id: d.id, kind: "delivery", at: d.at, project: d.project, detail: `task ${d.id} done` });
+  // BXD-105: one walk per ship per minute however many of its containers came up together.
+  const refitSeen = new Set<string>();
+  for (const r of src.refits) {
+    if (!inWindow(r.at, HAPPENING_WINDOW_MS)) continue;
+    const key = `${r.project}|${r.action}|${minute(Date.parse(r.at))}`;
+    if (refitSeen.has(key)) continue;
+    refitSeen.add(key);
+    raw.push({ id: r.id, kind: r.action === "crash" ? "leak" : "refit", at: r.at, project: r.project, detail: `${r.container} ${r.action === "crash" ? "crashed" : "started"}` });
+  }
   const errandFor = new Map<string, PortSources["errands"][number]>();
   for (const e of thinRuns(src.errands.filter((x) => inWindow(x.at, HAPPENING_WINDOW_MS)), ERRAND_WALK_GAP_MS)) errandFor.set(e.job, e); // oldest first: the latest wins
   for (const e of errandFor.values()) raw.push({ id: e.id, kind: "errand", at: e.at, detail: `${e.label}${e.ok ? "" : " failed"}`, errand: e });
@@ -289,7 +306,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     .map((h) => {
       const out: Happening = { id: hmac(h.id), kind: h.kind, at: time(h.at) };
       if (h.kind !== "tide" && h.kind !== "errand") out.ship = shipKey(h.project ?? null);
-      if (h.kind === "cargo" || h.kind === "cart" || h.kind === "delivery") out.who = dockhandName(h.id);
+      if (h.kind === "cargo" || h.kind === "cart" || h.kind === "delivery" || h.kind === "refit") out.who = dockhandName(h.id);
       if (h.errand) {
         out.who = errandName(h.errand.job, h.errand.family, watch);
         if (h.errand.family && TRADE[h.errand.family]) out.family = h.errand.family;
@@ -342,6 +359,11 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   for (const c of src.commits) addEntry(c.id, c.at, "cargo", dockhandName(c.id), "loaded a crate onto {ship}", c.project, `commit ${c.id.slice(0, 7)}`);
   for (const d of src.deliveries) addEntry(d.id, d.at, "delivery", "", "{ship} ran up a pennant: a task is done", d.project, `task ${d.id}`);
   for (const c of src.carts) addEntry(c.id, c.at, "cart", dockhandName(c.id), "carted barrels from {ship} to the whorehouse", c.project, `backup ${c.id}`);
+  for (const l of src.logbook) addEntry(l.id, l.at, "logbook", AGENT(l.agent), LOGBOOK[l.kind] ?? LOGBOOK.checkpoint, l.project, l.work.slice(0, 140));
+  for (const r of src.refits) {
+    if (r.action === "crash") addEntry(r.id, r.at, "leak", "", "{ship} sprang a leak: a service fell over and was restarted", r.project, `${r.container} crashed`);
+    else addEntry(r.id, r.at, "refit", "", "{ship} took on fresh timber: a service redeployed", r.project, `${r.container} started`);
+  }
   for (const e of thinRuns(src.errands, ERRAND_LOG_GAP_MS)) {
     const t = trade(e.family);
     addEntry(e.id, e.at, "errand", errandName(e.job, e.family, watch), e.ok ? t.ok : t.failed, null, `${e.label}${e.ok ? "" : " failed"}`);

@@ -67,6 +67,31 @@ async function recentCarts(): Promise<PortSources["carts"]> {
   });
 }
 
+// BXD-105: container starts and crashes on this host (scripts/container-events.sh), mapped to
+// projects through project.yml `containers`. Containers no project claims are left out.
+async function recentRefits(owners: Map<string, string>, since: number): Promise<PortSources["refits"]> {
+  const lines = await cached("port:containers", 60_000, async () => {
+    try {
+      return (await fs.readFile(path.join(receiptsDir(), "_events", "containers.jsonl"), "utf8")).split("\n");
+    } catch {
+      return [];
+    }
+  });
+  const out: PortSources["refits"] = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const e = JSON.parse(line) as { at?: string; container?: string; action?: string; exit?: number | null };
+      const project = e.container ? owners.get(e.container) : undefined;
+      if (!project || !e.at || !(Date.parse(e.at) >= since) || (e.action !== "start" && e.action !== "crash")) continue;
+      out.push({ project, at: new Date(e.at).toISOString(), id: `${e.container}:${e.action}:${e.at}`, action: e.action, container: e.container! });
+    } catch {
+      /* a torn line is skipped */
+    }
+  }
+  return out;
+}
+
 async function gatherSources(): Promise<PortSources> {
   const now = Date.now();
   const [{ events }, projects, jobs, runs, history, carts, local] = await Promise.all([
@@ -79,6 +104,13 @@ async function gatherSources(): Promise<PortSources> {
     localHostId().catch(() => undefined),
   ]);
   const boards = await Promise.all(projects.map((p) => loadTasks(p.meta.slug).catch(() => [])));
+  // BXD-104: every start / checkpoint / finish already sits in each project's HANDOFF.yml trail.
+  const logbook: PortSources["logbook"] = projects.flatMap((p) => (p.handoffState?.trail ?? [])
+    .filter((t) => t.at && Date.parse(t.at) >= now - LOG_WINDOW_MS && Date.parse(t.at) <= now)
+    .map((t) => ({ project: p.meta.slug, at: new Date(t.at!).toISOString(), id: `${p.meta.slug}:handoff:${t.at}`, kind: t.kind ?? "checkpoint", agent: t.agent ?? "", work: t.work ?? "" })));
+  const owners = new Map<string, string>();
+  for (const p of projects) for (const c of [p.meta.container, ...(p.meta.containers ?? [])]) if (c?.compose_service && !owners.has(c.compose_service)) owners.set(c.compose_service, p.meta.slug);
+  const refits = await recentRefits(owners, now - LOG_WINDOW_MS);
   const commits = await recentCommits(projects.map((p) => ({ slug: p.meta.slug, path: p.meta.path, host: p.meta.host })), local, now - IN_PORT_MS);
   const deliveries: PortSources["deliveries"] = projects.flatMap((p, i) => boards[i]
     .filter((t) => t.status === "done" && Date.parse(t.updated) >= now - LOG_WINDOW_MS)
@@ -117,6 +149,8 @@ async function gatherSources(): Promise<PortSources> {
     tides,
     chores,
     errands,
+    logbook,
+    refits,
   };
 }
 

@@ -52,3 +52,9 @@ Every run of every scheduled job lands in `<receipts>/_jobs/runs.jsonl` (one lin
 ```
 
 `--family` picks the trade that walks it in the port (lamplighter, courier, warehouse, watchman, sweeper, clerk); `--every` gives the Backups page a cadence to call it overdue against. Wrapped lines count as monitored, so they drop off the "not monitored" list. Publicly, a job is its trade and a generic line ("the courier ran the post between the offices"); its name and label stay private.
+
+## Handoffs and containers in the port (BXD-104, BXD-105)
+
+**Handoffs.** Every `bosun start`, `checkpoint` and `finish` is already in the project's `HANDOFF.yml` trail, so the port reads it with no extra emitter: a ship's-log line ("Claude signed Planner's log", "opened … for a new watch", "closed … for the watch"), and it counts as a sign of life for the ship. The private log carries the checkpoint's one-line work summary; the public one only says which kind of agent signed.
+
+**Containers.** `scripts/container-events.sh` (cron every couple of minutes, wrapped by `job-run.sh`) compares container state between runs, because Docker's own event history is too short to poll: a new start time is a start (a deploy, restart or recreate) and a higher restart count is a crash that the restart policy picked up. Lines go to `<receipts>/_events/containers.jsonl` (name, time, action, exit code only; bounded). The port maps container names to projects through each `project.yml`'s `containers`; containers no project claims are left out. A start is a dockhand carrying fresh timber up that ship's gangplank ("took on fresh timber: 3 services redeployed", merged per ship and minute); a crash rings the office bell and logs a leak.

@@ -60,12 +60,21 @@ const sources = (now = NOW) => ({
     { id: "secret-sync:run:1", at: iso(12), job: "secret-sync", label: "Secret user sync", family: "courier", ok: true },
     { id: "secret-sync:run:2", at: iso(7), job: "secret-sync", label: "Secret user sync", family: "courier", ok: false },
   ],
+  logbook: [
+    { project: "secret-client", at: iso(25), id: "secret-client:handoff:x", kind: "checkpoint", agent: "Claude", work: "secret checkpoint work summary" },
+    { project: "bosun-x", at: iso(40), id: "bosun-x:handoff:y", kind: "start", agent: "Codex", work: "public-ish work" },
+  ],
+  refits: [
+    { project: "secret-client", at: iso(6, 1), id: "secret-web:start:1", action: "start", container: "secret-web" },
+    { project: "secret-client", at: iso(6, 20), id: "secret-worker:start:1", action: "start", container: "secret-worker" },
+    { project: "bosun-x", at: iso(3), id: "bosunx-app:crash:1", action: "crash", container: "bosunx-app" },
+  ],
 });
 const publicOpts = { publicView: true, approved: [{ slug: "bosun-x", alias: "Bosun CLI" }], secret: "test-secret" };
 
 const SECRETS = ["secret-client", "Secret Client", "another-private", "Another Private", "sess-very-secret", "main-secret-host", "SC-4", "BX-12",
   "deadbeef", "0123456789abcdef", "task-uuid-secret", "secret-db", "evt-secret", "fleet-backup", "/projects/", "bosun-x CLI",
-  "jellyfin", "Jellyfin", "secret-sync", "Secret user sync"];
+  "jellyfin", "Jellyfin", "secret-sync", "Secret user sync", "secret checkpoint", "public-ish", "secret-web", "secret-worker", "bosunx-app"];
 
 // Every key path allowed in the public JSON (arrays collapse to []).
 const ALLOWED = new Set([
@@ -253,4 +262,20 @@ test("errands: frequent runs are thinned to one per bucket, failures always kept
   assert.ok(kept.some((r) => !r.ok), "the failure survives");
   assert.deepEqual(thinRuns(runs.slice(3), 30 * MIN).filter((r) => r.ok && Date.parse(r.at) >= base + 30 * MIN).map((r) => r.at),
     kept.filter((r) => r.ok && Date.parse(r.at) >= base + 30 * MIN).map((r) => r.at), "a later window keeps the same runs");
+});
+
+// ---- BXD-104 / BXD-105: handoffs and containers
+test("handoff checkpoints are signed log lines; containers are refits and leaks, merged per ship and minute", () => {
+  const feed = buildPortFeed(sources(), publicOpts);
+  const text = (e) => `${e.who ? `${e.who} ` : ""}${e.action}`;
+  const logbook = feed.entries.filter((e) => e.kind === "logbook");
+  assert.deepEqual(logbook.map((e) => [e.who, e.action]).sort(), [["Claude", "signed {ship}'s log"], ["Codex", "opened {ship}'s log for a new watch"]]);
+  const refit = feed.entries.filter((e) => e.kind === "refit");
+  assert.equal(refit.length, 1, "two containers of one ship in one minute read as one line");
+  assert.match(text(refit[0]), /2 services redeployed/);
+  assert.equal(feed.entries.filter((e) => e.kind === "leak").length, 1);
+  assert.deepEqual(feed.happenings.filter((h) => h.kind === "refit" || h.kind === "leak").map((h) => h.kind).sort(), ["leak", "refit"]);
+  const priv = buildPortFeed(sources(), { publicView: false });
+  assert.ok(priv.entries.some((e) => e.kind === "logbook" && e.detail === "secret checkpoint work summary"));
+  assert.ok(priv.entries.some((e) => e.kind === "leak" && e.detail === "bosunx-app crashed"));
 });

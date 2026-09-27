@@ -654,7 +654,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       const h = world.queue[0];
       if (!h) return;
       const route = (kind: "cargo" | "delivery" | "cart" | "tide") => errandRoute(kind, berthsRef.current, h.ship);
-      if (h.kind === "bell") { world.queue.shift(); setBellUntil(Date.now() + 3000); return; }
+      if (h.kind === "bell" || h.kind === "leak") { world.queue.shift(); setBellUntil(Date.now() + 3000); return; } // BXD-105: a crash rings the bell too
       if (h.kind === "tide") {
         const master = map.get("master")!;
         if (master.path.length) return;
@@ -693,9 +693,9 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       const id = `hand-${h.id}`;
       const { route: legs, handover } = route(h.kind === "cart" ? "cart" : h.kind === "delivery" ? "delivery" : "cargo");
       const r: Step[] = legs;
-      const hand: Sprite = { id, folk: "dockhand", ...r[0], facing: 1, path: [], pose: "rest", coat: "#8f6b43", carry: h.kind === "cargo" ? "crate" : null, cart: h.kind === "cart", name: h.who };
+      const hand: Sprite = { id, folk: "dockhand", ...r[0], facing: 1, path: [], pose: "rest", coat: "#8f6b43", carry: h.kind === "cargo" || h.kind === "refit" ? "crate" : null, cart: h.kind === "cart", name: h.who };
       r[handover] = { ...r[handover], then: () => {
-        if (h.kind === "cargo") hand.carry = null; // down the hatch
+        if (h.kind === "cargo" || h.kind === "refit") hand.carry = null; // down the hatch (a refit: fresh timber)
         if (h.kind === "delivery") hand.carry = "crate"; // up from below, off to the whorehouse
         if (h.kind === "cart") hand.carry = "barrels";
         bump();
@@ -946,7 +946,7 @@ export function PortView({ feed }: { feed: PortFeed }) {
             <span>on deck, hauling cargo: working</span><span>at a gun: tool running</span><span>ale at the tavern: ready for orders</span><span>waving on the quay under a red pennant: needs you</span><span>dozing: signal stale</span><span>in the bay: quiet ships</span>
           </p>
           <p className="crew-key" aria-hidden="true">
-            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>lamplighters, couriers, watchmen, sweepers and clerks: the server&apos;s scheduled jobs, one walk per run</span><span>strumpets, gulls and weather are scenery; pirate names are re-drawn every 4 hours</span>
+            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>lamplighters, couriers, watchmen, sweepers and clerks: the server&apos;s scheduled jobs, one walk per run</span><span>timber up the gangplank: a redeploy; the bell: a crashed service (or a question for you)</span><span>strumpets, gulls and weather are scenery; pirate names are re-drawn every 4 hours</span>
           </p>
           {active.length > 0 && (
             <div className="crew-orders" aria-label="Ships at the quay">
