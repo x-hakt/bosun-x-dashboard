@@ -170,6 +170,24 @@ export function errandRoute(kind: "cargo" | "delivery" | "cart" | "tide", berths
   return { route: [home, foot, top, { ...b.hatch, s: b.scale }, top, foot, home], handover: 3 };
 }
 
+// BXD-94: scheduled jobs are errands run by townsfolk, one trade per job family. Each trail
+// starts and ends off to the side of the action (a doorway or the town road).
+export const ERRAND_COAT: Record<string, string> = {
+  lamplighter: "#c9a227", courier: "#2f6d8f", warehouse: "#8f6b43", watchman: "#3a3f58", sweeper: "#6b7a3a", clerk: "#5a4a6e",
+};
+export function errandTrail(family: string | undefined): Point[] {
+  const at = (x: number) => ({ x, y: QUAY_Y, s: 1 });
+  switch (family) {
+    case "lamplighter": return [{ ...TAVERN_DOOR, s: 1 }, at(760), at(1180), { ...TAVERN_DOOR, s: 1 }]; // down the quay lighting lamps
+    case "courier": return [at(8), { ...OFFICE_DOOR, s: 1 }, at(8)]; // in off the town road to the office and away
+    case "warehouse": return [{ ...WAREHOUSE_DOOR, s: 1 }, at(620), { ...WAREHOUSE_DOOR, s: 1 }];
+    case "watchman": return [{ ...OFFICE_DOOR, s: 1 }, at(1380), { ...OFFICE_DOOR, s: 1 }]; // the length of the quay and back
+    case "sweeper": return [at(52), at(210), at(52)];
+    case "clerk": return [{ ...OFFICE_DOOR, s: 1 }, { ...WAREHOUSE_DOOR, s: 1 }, { ...OFFICE_DOOR, s: 1 }];
+    default: return [{ ...OFFICE_DOOR, s: 1 }, at(560), { ...OFFICE_DOOR, s: 1 }];
+  }
+}
+
 // BXD-89: the camera. The whole port, or a window around one ship (or the rowing boat),
 // always at the port's aspect ratio so the frame never changes height.
 export type Camera = { x: number; y: number; w: number; h: number };

@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { publicAllowlist, readActivity } from "@/lib/activity";
 import { receiptsDir } from "@/lib/data/config";
 import { localHostId } from "@/lib/data/hosts";
-import { getJobStatuses } from "@/lib/data/jobs";
+import { getJobRuns, getJobStatuses } from "@/lib/data/jobs";
 import { displayName } from "@/lib/data/project-display";
 import { listProjects } from "@/lib/data/projects";
 import { loadTasks } from "@/lib/data/tasks";
@@ -69,10 +69,11 @@ async function recentCarts(): Promise<PortSources["carts"]> {
 
 async function gatherSources(): Promise<PortSources> {
   const now = Date.now();
-  const [{ events }, projects, jobs, history, carts, local] = await Promise.all([
+  const [{ events }, projects, jobs, runs, history, carts, local] = await Promise.all([
     readActivity(EVENT_LIMIT),
     listProjects(),
     getJobStatuses().catch(() => ({ jobs: [] })),
+    cached("port:job-runs", 30_000, () => getJobRuns(now - LOG_WINDOW_MS)).catch(() => []),
     getCapacityHistory().catch(() => new Map()),
     recentCarts(),
     localHostId().catch(() => undefined),
@@ -84,10 +85,22 @@ async function gatherSources(): Promise<PortSources> {
     .map((t) => ({ project: p.meta.slug, at: new Date(t.updated).toISOString(), id: `${p.meta.slug}#${t.id}` })));
   const tides = [...history.values()].flat().map((s: { t: string }) => s.t).filter((t: string) => Date.parse(t) >= now - HAPPENING_WINDOW_MS)
     .map((t: string) => new Date(Math.floor(Date.parse(t) / 60_000) * 60_000).toISOString());
-  const chores: PortSources["chores"] = jobs.jobs.flatMap((job) => [
-    ...(job.lastRun?.startedAt ? [{ id: `${job.name}:start:${job.lastRun.startedAt}`, at: job.lastRun.startedAt, outcome: "started" as const, label: job.label }] : []),
-    ...(job.lastRun?.finishedAt ? [{ id: `${job.name}:finish:${job.lastRun.finishedAt}`, at: job.lastRun.finishedAt, outcome: job.lastRun.ok === false ? "failed" as const : "finished" as const, label: job.label }] : []),
-  ]);
+  // BXD-94: every run from the run history; a job's last-run marker fills in for jobs whose
+  // runs predate the history, and a job running right now adds its start.
+  const chores: PortSources["chores"] = runs.map((r) => ({ id: `${r.job}:finish:${r.finishedAt}`, at: r.finishedAt, outcome: r.ok ? "finished" as const : "failed" as const, label: r.label, job: r.job, family: r.family }));
+  const logged = new Set(chores.map((c) => c.id));
+  for (const job of jobs.jobs) {
+    const last = job.lastRun;
+    if (last?.finishedAt && !logged.has(`${job.name}:finish:${last.finishedAt}`)) chores.push({ id: `${job.name}:finish:${last.finishedAt}`, at: last.finishedAt, outcome: last.ok === false ? "failed" : "finished", label: job.label, job: job.name, family: job.family });
+    if (job.state === "running" && job.runningForHours !== undefined) {
+      const at = new Date(now - job.runningForHours * 3_600_000).toISOString();
+      chores.push({ id: `${job.name}:start:${at}`, at, outcome: "started", label: job.label, job: job.name, family: job.family });
+    }
+  }
+  // The capacity sampler is already the shipwright's tide reading; everything else is an errand.
+  const errands: PortSources["errands"] = runs
+    .filter((r) => r.job !== "capacity-sample")
+    .map((r) => ({ id: `${r.job}:run:${r.finishedAt}`, at: r.finishedAt, job: r.job, label: r.label, family: r.family, ok: r.ok }));
   return {
     now,
     events,
@@ -103,6 +116,7 @@ async function gatherSources(): Promise<PortSources> {
     carts,
     tides,
     chores,
+    errands,
   };
 }
 

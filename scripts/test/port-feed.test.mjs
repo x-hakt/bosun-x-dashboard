@@ -54,12 +54,18 @@ const sources = (now = NOW) => ({
   deliveries: [{ project: "secret-client", at: iso(8), id: "secret-client#task-uuid-secret" }],
   carts: [{ project: "secret-client", at: iso(15), id: "secret-client/secret-db@2026" }],
   tides: [iso(4, 0), iso(9, 0)],
-  chores: [{ id: "fleet-backup:finish:x", at: iso(300), outcome: "finished", label: "fleet-backup (secret label)" }],
+  chores: [{ id: "fleet-backup:finish:x", at: iso(300), outcome: "finished", label: "fleet-backup (secret label)", job: "fleet-backup", family: "warehouse" }],
+  errands: [
+    { id: "jellyfin-secret-cert:run:1", at: iso(30), job: "jellyfin-secret-cert", label: "Jellyfin secret cert", family: "lamplighter", ok: true },
+    { id: "secret-sync:run:1", at: iso(12), job: "secret-sync", label: "Secret user sync", family: "courier", ok: true },
+    { id: "secret-sync:run:2", at: iso(7), job: "secret-sync", label: "Secret user sync", family: "courier", ok: false },
+  ],
 });
 const publicOpts = { publicView: true, approved: [{ slug: "bosun-x", alias: "Bosun CLI" }], secret: "test-secret" };
 
 const SECRETS = ["secret-client", "Secret Client", "another-private", "Another Private", "sess-very-secret", "main-secret-host", "SC-4", "BX-12",
-  "deadbeef", "0123456789abcdef", "task-uuid-secret", "secret-db", "evt-secret", "fleet-backup", "/projects/", "bosun-x CLI"];
+  "deadbeef", "0123456789abcdef", "task-uuid-secret", "secret-db", "evt-secret", "fleet-backup", "/projects/", "bosun-x CLI",
+  "jellyfin", "Jellyfin", "secret-sync", "Secret user sync"];
 
 // Every key path allowed in the public JSON (arrays collapse to []).
 const ALLOWED = new Set([
@@ -67,12 +73,12 @@ const ALLOWED = new Set([
   "ships[].key", "ships[].name", "ships[].kind", "ships[].active", "ships[].style", "ships[].todo", "ships[].inProgress",
   "entries[].id", "entries[].at", "entries[].kind", "entries[].who", "entries[].action", "entries[].ship",
   "sailors[].id", "sailors[].name", "sailors[].provider", "sailors[].ship", "sailors[].state", "sailors[].sub", "sailors[].since",
-  "happenings[].id", "happenings[].kind", "happenings[].at", "happenings[].ship", "happenings[].who",
+  "happenings[].id", "happenings[].kind", "happenings[].at", "happenings[].ship", "happenings[].who", "happenings[].family", "happenings[].ok",
   "log.start", "log.end", "log.groups", "log.chores", "log.truncatedSince",
   "log.groups[].key", "log.groups[].name", "log.groups[].kind", "log.groups[].lanes",
   "log.groups[].lanes[].id", "log.groups[].lanes[].name", "log.groups[].lanes[].depth", "log.groups[].lanes[].state", "log.groups[].lanes[].segments",
   "log.groups[].lanes[].segments[].state", "log.groups[].lanes[].segments[].from", "log.groups[].lanes[].segments[].to",
-  "log.chores[].id", "log.chores[].at", "log.chores[].outcome", "log.chores[].label",
+  "log.chores[].id", "log.chores[].at", "log.chores[].outcome", "log.chores[].label", "log.chores[].family",
 ]);
 function keyPaths(value, prefix = "", out = new Set()) {
   if (Array.isArray(value)) for (const v of value) keyPaths(v, `${prefix}[]`, out);
@@ -221,4 +227,30 @@ test("each ship has a fixed style, the same on both pages; voyages' styles don't
   const privSecret = priv.ships.find((s) => s.key === "secret-client").style;
   assert.ok(!pub.ships.some((s) => s.kind === "voyage" && s.style === privSecret), "a voyage's flag isn't the private project's flag");
   for (const s of pub.ships) assert.ok(Number.isInteger(s.style) && s.style >= 0 && s.style < 65536);
+});
+
+// ---- BXD-94: scheduled jobs as errands
+const { thinRuns, errandName } = load("port-core.ts", (name) => (name === "@/lib/activity-state" ? state : require(name)));
+
+test("errands: the latest run per job walks, the log says what the trade did, failures say so", () => {
+  const feed = buildPortFeed(sources(), publicOpts);
+  const walks = feed.happenings.filter((h) => h.kind === "errand");
+  assert.deepEqual(walks.map((h) => [h.family, h.ok]).sort(), [["courier", false], ["lamplighter", true]]);
+  assert.ok(walks.every((h) => h.ship === undefined && h.who.includes(" the ")));
+  const lines = feed.entries.filter((e) => e.kind === "errand").map((e) => `${e.who} ${e.action}`);
+  assert.ok(lines.some((l) => /the lamplighter trimmed the harbour lamps$/.test(l)), lines.join(" / "));
+  assert.ok(lines.some((l) => /the courier came back with the post undelivered$/.test(l)), lines.join(" / "));
+  const priv = buildPortFeed(sources(), { publicView: false });
+  assert.ok(priv.entries.some((e) => e.kind === "errand" && e.detail === "Secret user sync failed"), "the private log names the job");
+  assert.equal(errandName("secret-sync", "courier", 7), errandName("secret-sync", "courier", 7), "one worker per job per watch");
+});
+
+test("errands: frequent runs are thinned to one per bucket, failures always kept, stable across refreshes", () => {
+  const base = Date.parse("2026-09-25T00:00:00.000Z");
+  const runs = Array.from({ length: 36 }, (_, i) => ({ job: "every-5m", at: new Date(base + i * 5 * MIN).toISOString(), ok: i !== 13 }));
+  const kept = thinRuns(runs, 30 * MIN);
+  assert.equal(kept.filter((r) => r.ok).length, 6, "one ok run per half hour");
+  assert.ok(kept.some((r) => !r.ok), "the failure survives");
+  assert.deepEqual(thinRuns(runs.slice(3), 30 * MIN).filter((r) => r.ok && Date.parse(r.at) >= base + 30 * MIN).map((r) => r.at),
+    kept.filter((r) => r.ok && Date.parse(r.at) >= base + 30 * MIN).map((r) => r.at), "a later window keeps the same runs");
 });

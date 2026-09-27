@@ -61,6 +61,16 @@ function LaneRow({ log, lane }: { log: Log; lane: PortLane }) {
   );
 }
 
+// BXD-94: one chores row per trade (who runs that family of scheduled job), then the rest.
+const CHORE_ROWS: [string, string][] = [
+  ["lamplighter", "Lamplighter"], ["courier", "Courier"], ["warehouse", "Warehouse"], ["watchman", "Watchman"], ["sweeper", "Sweeper"], ["clerk", "Clerk"],
+];
+function choreRows(marks: Log["chores"]): [string, Log["chores"]][] {
+  const rows: [string, Log["chores"]][] = CHORE_ROWS.map(([family, label]) => [`Chores · ${label}`, marks.filter((m) => m.family === family)]);
+  rows.push(["Ship's chores", marks.filter((m) => !m.family || !CHORE_ROWS.some(([f]) => f === m.family))]);
+  return rows.filter(([, list]) => list.length > 0);
+}
+
 export function ShipLogTimeline({ log, publicView = false }: { log: Log; publicView?: boolean }) {
   const ticks: number[] = [];
   // Hour ticks every 3 h; none within ~45 min of the end, where the "now" label sits.
@@ -110,11 +120,11 @@ export function ShipLogTimeline({ log, publicView = false }: { log: Log; publicV
             </div>
           ))}
 
-          {marks.length > 0 && (
-            <div className="border-t border-border/50 pt-2 mt-1 grid grid-cols-1 sm:grid-cols-[13rem_1fr] items-center gap-x-3 gap-y-1">
-              <span className="text-xs text-muted-foreground">Ship&apos;s chores</span>
+          {choreRows(marks).map(([rowLabel, rowMarks]) => (
+            <div key={rowLabel} className="border-t border-border/50 pt-2 mt-1 grid grid-cols-1 sm:grid-cols-[13rem_1fr] items-center gap-x-3 gap-y-1">
+              <span className="text-xs text-muted-foreground">{rowLabel}</span>
               <Track>
-                {marks.map((m) => (
+                {rowMarks.map((m) => (
                   <span
                     key={m.id}
                     title={`${m.label} ${m.outcome} ${clock(m.at)}`}
@@ -124,7 +134,7 @@ export function ShipLogTimeline({ log, publicView = false }: { log: Log; publicV
                 ))}
               </Track>
             </div>
-          )}
+          ))}
         </div>
       )}
 

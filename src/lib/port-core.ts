@@ -14,8 +14,8 @@ import { createHash, createHmac } from "node:crypto";
 import { buildShipLog, nextState, orderEvents, projectActivity, sessionKey, type ActivityEvent, type CrewState, type LogSegment } from "@/lib/activity-state";
 
 export type ShipKind = "project" | "voyage" | "dinghy";
-export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure";
-export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart";
+export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand";
+export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand";
 
 export interface PortShip {
   key: string;
@@ -46,6 +46,8 @@ export interface Happening {
   at: string;
   ship?: string;
   who?: string; // the dockhand running the errand
+  family?: string; // errands (BXD-94): lamplighter, courier, warehouse, watchman, sweeper, clerk
+  ok?: boolean; // errands: false when the job failed
   detail?: string; // private only
 }
 
@@ -82,6 +84,7 @@ export interface PortChore {
   at: number;
   outcome: "started" | "finished" | "failed";
   label: string; // private: the job's name; public: "harbour chore"
+  family?: string; // the watch bill groups chores by who runs them
 }
 
 export interface PortFeed {
@@ -103,7 +106,9 @@ export interface PortSources {
   deliveries: { project: string; at: string; id: string }[]; // tasks moved to done
   carts: { project: string; at: string; id: string }[]; // backup runs finished
   tides: string[]; // capacity sampler runs
-  chores: { id: string; at: string; outcome: PortChore["outcome"]; label: string }[];
+  chores: { id: string; at: string; outcome: PortChore["outcome"]; label: string; job?: string; family?: string }[];
+  // BXD-94: scheduled job runs (every crontab line), each a town errand.
+  errands: { id: string; at: string; job: string; label: string; family?: string; ok: boolean }[];
 }
 
 export type PortOptions = { publicView: false } | { publicView: true; approved: { slug: string; alias: string }[]; secret: string };
@@ -134,6 +139,39 @@ export function sailorName(key: string, watch = 0): string {
 }
 export function dockhandName(id: string): string {
   return `Dockhand ${FIRST[digest(`dock:${id}`).readUInt16BE(0) % FIRST.length]}`;
+}
+
+// ---- errands (BXD-94): who runs each family of scheduled job, and what the log says.
+const TRADE: Record<string, { title: string; ok: string; failed: string }> = {
+  lamplighter: { title: "the lamplighter", ok: "trimmed the harbour lamps", failed: "came back with the lamps still dark" },
+  courier: { title: "the courier", ok: "ran the post between the offices", failed: "came back with the post undelivered" },
+  warehouse: { title: "the warehouse hand", ok: "stacked the warehouse", failed: "found the warehouse door jammed" },
+  watchman: { title: "the watchman", ok: "walked the watch round the harbour", failed: "raised a shout on the watch" },
+  sweeper: { title: "the sweeper", ok: "swept the quay", failed: "left the quay half swept" },
+  clerk: { title: "the clerk", ok: "wrote up the harbour books", failed: "blotted the harbour books" },
+};
+const ODD_JOBS = { title: "the odd-job hand", ok: "ran a harbour chore", failed: "botched a harbour chore" };
+export const trade = (family?: string) => (family && TRADE[family]) || ODD_JOBS;
+/** One worker per job per watch: "Rosa the lamplighter". */
+export function errandName(job: string, family: string | undefined, watch = 0): string {
+  return `${FIRST[digest(`errand:${job}:${watch}`).readUInt16BE(0) % FIRST.length]} ${trade(family).title}`;
+}
+export const CHORE_GAP_MS = 30 * 60_000; // watch bill: at most one ok mark per job per half hour
+export const ERRAND_LOG_GAP_MS = 3 * 3_600_000; // rolling log: at most one ok line per job per 3 hours
+export const ERRAND_WALK_GAP_MS = 20 * 60_000; // the scene: a 5-minute job sends someone out every 20 minutes
+/** Frequent jobs would bury everything: keep every failure and start, and one ok run per job
+ *  per fixed `gapMs` bucket of the clock, so the same runs survive every refresh. Input and
+ *  output oldest first. */
+export function thinRuns<T extends { at: string; job?: string; ok?: boolean; outcome?: string }>(runs: T[], gapMs: number): T[] {
+  const taken = new Set<string>();
+  return runs.filter((r) => {
+    const job = r.job ?? "";
+    if (r.ok === false || r.outcome === "failed" || r.outcome === "started") return true;
+    const bucket = `${job}|${Math.floor(Date.parse(r.at) / gapMs)}`;
+    const first = !taken.has(bucket);
+    taken.add(bucket);
+    return first;
+  });
 }
 
 // Several crates, pennants or carts for one ship in the same minute read as one line.
@@ -231,11 +269,14 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   if (sailors.some((s) => s.ship === DINGHY_KEY)) ships.push({ key: DINGHY_KEY, name: "Rowing boat", kind: "dinghy", active: true, style: 0, todo: null, inProgress: null });
 
   // ---- happenings in the last hour, oldest first (the scene's errands)
-  const raw: { id: string; kind: HappeningKind; at: string; project?: string | null; detail: string }[] = [];
+  const raw: { id: string; kind: HappeningKind; at: string; project?: string | null; detail: string; errand?: PortSources["errands"][number] }[] = [];
   for (const t of new Set(src.tides)) if (inWindow(t, HAPPENING_WINDOW_MS)) raw.push({ id: `tide:${t}`, kind: "tide", at: t, detail: "capacity sample" });
   for (const c of src.carts) if (inWindow(c.at, HAPPENING_WINDOW_MS)) raw.push({ id: c.id, kind: "cart", at: c.at, project: c.project, detail: `backup ${c.id}` });
   for (const c of src.commits) if (inWindow(c.at, HAPPENING_WINDOW_MS)) raw.push({ id: c.id, kind: "cargo", at: c.at, project: c.project, detail: `commit ${c.id.slice(0, 7)}` });
   for (const d of src.deliveries) if (inWindow(d.at, HAPPENING_WINDOW_MS)) raw.push({ id: d.id, kind: "delivery", at: d.at, project: d.project, detail: `task ${d.id} done` });
+  const errandFor = new Map<string, PortSources["errands"][number]>();
+  for (const e of thinRuns(src.errands.filter((x) => inWindow(x.at, HAPPENING_WINDOW_MS)), ERRAND_WALK_GAP_MS)) errandFor.set(e.job, e); // oldest first: the latest wins
+  for (const e of errandFor.values()) raw.push({ id: e.id, kind: "errand", at: e.at, detail: `${e.label}${e.ok ? "" : " failed"}`, errand: e });
   for (const e of src.events) {
     if (!inWindow(e.at, HAPPENING_WINDOW_MS)) continue;
     const kind: HappeningKind | null = e.kind === "approval_request" ? "bell"
@@ -247,8 +288,13 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
     .map((h) => {
       const out: Happening = { id: hmac(h.id), kind: h.kind, at: time(h.at) };
-      if (h.kind !== "tide") out.ship = shipKey(h.project ?? null);
+      if (h.kind !== "tide" && h.kind !== "errand") out.ship = shipKey(h.project ?? null);
       if (h.kind === "cargo" || h.kind === "cart" || h.kind === "delivery") out.who = dockhandName(h.id);
+      if (h.errand) {
+        out.who = errandName(h.errand.job, h.errand.family, watch);
+        if (h.errand.family && TRADE[h.errand.family]) out.family = h.errand.family;
+        out.ok = h.errand.ok;
+      }
       if (!pub) out.detail = h.detail;
       return out;
     });
@@ -296,6 +342,10 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   for (const c of src.commits) addEntry(c.id, c.at, "cargo", dockhandName(c.id), "loaded a crate onto {ship}", c.project, `commit ${c.id.slice(0, 7)}`);
   for (const d of src.deliveries) addEntry(d.id, d.at, "delivery", "", "{ship} ran up a pennant: a task is done", d.project, `task ${d.id}`);
   for (const c of src.carts) addEntry(c.id, c.at, "cart", dockhandName(c.id), "carted barrels from {ship} to the whorehouse", c.project, `backup ${c.id}`);
+  for (const e of thinRuns(src.errands, ERRAND_LOG_GAP_MS)) {
+    const t = trade(e.family);
+    addEntry(e.id, e.at, "errand", errandName(e.job, e.family, watch), e.ok ? t.ok : t.failed, null, `${e.label}${e.ok ? "" : " failed"}`);
+  }
   entries.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   const recentEntries = mergeRepeats(entries).slice(-MAX_ENTRIES);
 
@@ -323,9 +373,13 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     if (!pub && g.project) group.href = `/projects/${encodeURIComponent(g.project)}`;
     return group;
   });
-  const chores: PortChore[] = src.chores
+  const chores: PortChore[] = thinRuns([...src.chores].sort((a, b) => a.at.localeCompare(b.at)), CHORE_GAP_MS)
     .filter((c) => inWindow(c.at, LOG_WINDOW_MS))
-    .map((c) => ({ id: hmac(c.id), at: Date.parse(time(c.at)), outcome: c.outcome, label: pub ? "harbour chore" : c.label }));
+    .map((c) => {
+      const out: PortChore = { id: hmac(c.id), at: Date.parse(time(c.at)), outcome: c.outcome, label: pub ? "harbour chore" : c.label };
+      if (c.family && TRADE[c.family]) out.family = c.family;
+      return out;
+    });
   const oldest = src.events.reduce((m, e) => Math.min(m, Date.parse(e.at)), now);
   const truncatedSince = src.eventsTruncated && oldest > now - LOG_WINDOW_MS ? Date.parse(time(new Date(oldest).toISOString())) : undefined;
 

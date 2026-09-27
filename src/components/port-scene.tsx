@@ -7,6 +7,7 @@ import type { Pose } from "@/lib/crew-scene";
 import {
   assignSpots, cameraFor, DINGHY, errandRoute, HARBOUR_CAMERA, layoutBerths, OFFICE_DOOR, planWalk, pointOf, PORT_H, PORT_W, QUAY_Y, TAVERN_DOOR, TIDE_GAUGE, WATERLINE,
   type Berth, type Camera, type Point, type Spot,
+  errandTrail, ERRAND_COAT,
 } from "@/lib/port-layout";
 import { coatFor, labels, lookFor, Sailor } from "@/components/crew-ship";
 
@@ -44,6 +45,7 @@ interface Sprite {
   coat?: string;
   hair?: string;
   inside?: boolean; // the shipwright, in his shop between tide readings: not drawn
+  errand?: string; // BXD-94: what a scheduled-job errand runner is out doing
   changedAt?: number;
 }
 
@@ -672,6 +674,22 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       }
       if (busy >= MAX_ERRANDS) return;
       world.queue.shift();
+      if (h.kind === "errand") {
+        // BXD-94: a scheduled job's run, walked by its trade (lamplighter, courier, ...).
+        const trail = errandTrail(h.family);
+        const id = `errand-${h.id}`;
+        const walker: Sprite = {
+          id, folk: "dockhand", ...trail[0], facing: 1, path: [], pose: "rest", coat: ERRAND_COAT[h.family ?? ""] ?? "#6f6f6f",
+          carry: h.family === "courier" ? "crate" : null, cart: h.family === "warehouse", name: h.who,
+          errand: `${h.detail ?? "a scheduled job"}${h.ok === false && !h.detail ? " (it went wrong)" : ""}`,
+        };
+        const legs: Step[] = trail.slice(1);
+        legs[legs.length - 1] = { ...legs[legs.length - 1], then: () => { map.delete(id); bump(); } };
+        walker.path = legs;
+        map.set(id, walker);
+        bump();
+        return;
+      }
       const id = `hand-${h.id}`;
       const { route: legs, handover } = route(h.kind === "cart" ? "cart" : h.kind === "delivery" ? "delivery" : "cargo");
       const r: Step[] = legs;
@@ -780,7 +798,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       ? <Sailor pose={pose} coat={coatFor(m.provider)} sub={m.sub} look={lookFor(m.name, m.sub)} carry={sp.carry === "crate"} />
       : <Person folk={sp.folk} coat={sp.coat ?? "#777"} hair={sp.hair} pose={pose} carry={sp.carry} cart={sp.cart} />;
     const tip = m ? `${m.name} (${m.provider}) · ${labels[m.state]} · ${shipsByKey.get(m.ship)?.name ?? ""}${m.detail ? ` · ${m.detail}` : ""}`
-      : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand` : sp.folk === "master" ? "The shipwright (every 5-minute tide reading he lights the pole's lamp, or takes it down)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
+      : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand${sp.errand ? `: ${sp.errand}` : ""}` : sp.folk === "master" ? "The shipwright (every 5-minute tide reading he lights the pole's lamp, or takes it down)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
     const inner = (
       <g
         ref={(el) => { if (el) { els.current.set(sp.id, el); place(sp); } else els.current.delete(sp.id); }}
@@ -928,7 +946,7 @@ export function PortView({ feed }: { feed: PortFeed }) {
             <span>on deck, hauling cargo: working</span><span>at a gun: tool running</span><span>ale at the tavern: ready for orders</span><span>waving on the quay under a red pennant: needs you</span><span>dozing: signal stale</span><span>in the bay: quiet ships</span>
           </p>
           <p className="crew-key" aria-hidden="true">
-            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>strumpets, gulls and weather are scenery; pirate names are re-drawn every 4 hours</span>
+            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>lamplighters, couriers, watchmen, sweepers and clerks: the server&apos;s scheduled jobs, one walk per run</span><span>strumpets, gulls and weather are scenery; pirate names are re-drawn every 4 hours</span>
           </p>
           {active.length > 0 && (
             <div className="crew-orders" aria-label="Ships at the quay">
