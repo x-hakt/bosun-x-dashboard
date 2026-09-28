@@ -439,7 +439,7 @@ function Crier({ crier, index }: { crier: PortCrier; index: number }) {
           </g>
         </g>
       </g>
-      {crier.count > 0 && <text x={x + 12} y={506} className="port-ding">hear ye!</text>}
+      {crier.count > 0 && <text x={x - 8} y={500} textAnchor="end" className="port-ding">hear ye!</text>}
     </g>
   );
   return crier.href ? <a href={crier.href} target="_blank" rel="noreferrer" aria-label={tip}>{body}</a> : body;
