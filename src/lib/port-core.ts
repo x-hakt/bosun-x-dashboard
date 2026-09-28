@@ -15,7 +15,7 @@ import { buildShipLog, nextState, orderEvents, projectActivity, sessionKey, type
 
 export type ShipKind = "project" | "voyage" | "dinghy";
 export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand" | "refit" | "leak";
-export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand" | "logbook" | "refit" | "leak";
+export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand" | "logbook" | "refit" | "leak" | "crier";
 
 export interface PortShip {
   key: string;
@@ -87,11 +87,25 @@ export interface PortChore {
   family?: string; // the watch bill groups chores by who runs them
 }
 
+// BXD-111: the town crier. A project can publish a notice (projects/<slug>/crier.json, see
+// docs/crier.md): a label, a count of new items, the top headline. The crier stands in the town
+// square with the notice board; the public page shows only notices marked public.
+export interface PortCrier {
+  id: string;
+  label: string; // "Gaming news"
+  count: number;
+  headline?: string;
+  href?: string; // private only
+  ship: string; // the PortShip key of the project it came from
+  at: string; // when the notice was last updated
+}
+
 export interface PortFeed {
   now: number;
   publicView: boolean;
   ships: PortShip[];
   sailors: PortSailor[];
+  criers: PortCrier[];
   happenings: Happening[];
   entries: LogEntry[];
   log: { start: number; end: number; groups: PortLogGroup[]; chores: PortChore[]; truncatedSince?: number };
@@ -113,6 +127,8 @@ export interface PortSources {
   logbook: { project: string; at: string; id: string; kind: "start" | "checkpoint" | "finish"; agent: string; work: string }[];
   // BXD-105: container starts and crashes, already mapped to projects.
   refits: { project: string; at: string; id: string; action: "start" | "crash"; container: string }[];
+  // BXD-111: each project's crier.json, as published (already validated by port-feed.ts).
+  criers: { project: string; label: string; public: boolean; updated: string; count: number; headline?: string; url?: string; calls: { id: string; at: string; text: string }[] }[];
 }
 
 export type PortOptions = { publicView: false } | { publicView: true; approved: { slug: string; alias: string }[]; secret: string };
@@ -368,6 +384,12 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     const t = trade(e.family);
     addEntry(e.id, e.at, "errand", errandName(e.job, e.family, watch), e.ok ? t.ok : t.failed, null, `${e.label}${e.ok ? "" : " failed"}`);
   }
+  // BXD-111: what the crier called out. The text is the notice's own public line ({ } stripped so
+  // it can't reach the {ship} placeholder); private notices never reach the public log.
+  for (const c of src.criers ?? []) {
+    if (pub && !c.public) continue;
+    for (const call of c.calls) addEntry(call.id, call.at, "crier", "The town crier", `cried ${c.label.toLowerCase().replace(/[{}]/g, "")} for {ship}: ${call.text.replace(/[{}]/g, "")}`, c.project, call.text);
+  }
   entries.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   const recentEntries = mergeRepeats(entries).slice(-MAX_ENTRIES);
 
@@ -405,7 +427,16 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   const oldest = src.events.reduce((m, e) => Math.min(m, Date.parse(e.at)), now);
   const truncatedSince = src.eventsTruncated && oldest > now - LOG_WINDOW_MS ? Date.parse(time(new Date(oldest).toISOString())) : undefined;
 
-  const feed: PortFeed = { now, publicView: pub, ships, sailors, happenings, entries: recentEntries, log: { start: log.start, end: log.end, groups, chores } };
+  // ---- the town crier (BXD-111): notices from the last day; the public page shows only public ones.
+  const criers: PortCrier[] = (src.criers ?? [])
+    .filter((c) => (!pub || c.public) && inWindow(c.updated, LOG_WINDOW_MS))
+    .map((c) => {
+      const out: PortCrier = { id: hmac(`crier:${c.project}:${c.label}`), label: c.label, count: c.count, ship: shipKey(c.project), at: time(c.updated) };
+      if (c.headline) out.headline = c.headline;
+      if (!pub && c.url) out.href = c.url;
+      return out;
+    });
+  const feed: PortFeed = { now, publicView: pub, ships, sailors, criers, happenings, entries: recentEntries, log: { start: log.start, end: log.end, groups, chores } };
   if (truncatedSince !== undefined) feed.log.truncatedSince = truncatedSince;
   return feed;
 }

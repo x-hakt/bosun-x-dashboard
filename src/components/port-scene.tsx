@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import type { Happening, PortFeed, PortSailor, PortShip } from "@/lib/port-core";
+import type { Happening, PortCrier, PortFeed, PortSailor, PortShip } from "@/lib/port-core";
 import { clockText, entryText, PORT_TZ, shipNameOf } from "@/lib/port-text";
 import type { Pose } from "@/lib/crew-scene";
 import {
@@ -415,6 +415,34 @@ function Sign({ x, y, lines, size, board = "#e9dcb8", ink = "#3e2419", maxWidth 
       })}
     </g>
   );
+}
+
+// BXD-111: the town crier and the notice board in the square, one pair per published notice
+// (projects/<slug>/crier.json). The board says what and how many; the crier's bell rings while
+// there is news; the headline is in the tooltip (and the crier links to it on the private page).
+const CRIER_X = 190;
+function Crier({ crier, index }: { crier: PortCrier; index: number }) {
+  const x = CRIER_X + index * 120;
+  const lines = [crier.label.toUpperCase().slice(0, 18), crier.count ? `${crier.count} NEW` : "NOTHING NEW"];
+  const tip = `The town crier: ${crier.label}, ${crier.count} new${crier.headline ? `. Latest: ${crier.headline}` : ""}`;
+  const body = (
+    <g className="port-folk">
+      <title>{tip}</title>
+      <rect x={x + 30} y={506} width={3} height={36} fill="#5a3b2a" />
+      <Sign x={x + 31.5} y={500} lines={lines} size={8} maxWidth={104} />
+      <g transform={`translate(${x} 546)`}>
+        <g transform={`scale(${U * 1.1} ${U * 1.1})`}>
+          <Person folk="master" coat="#8a1f1f" pose="rest" />
+          <g className={crier.count ? "port-bell port-bell-ring" : "port-bell"} transform="translate(5.6 -14)">
+            <rect x={-0.4} y={-2.4} width={0.8} height={2} fill="#5a3b2a" />
+            <path d="M-1.8 -0.6 Q0 -2 1.8 -0.6 L2.2 2.4 L-2.2 2.4 Z" fill="#d9b35f" />
+          </g>
+        </g>
+      </g>
+      {crier.count > 0 && <text x={x + 12} y={506} className="port-ding">hear ye!</text>}
+    </g>
+  );
+  return crier.href ? <a href={crier.href} target="_blank" rel="noreferrer" aria-label={tip}>{body}</a> : body;
 }
 
 function Town({ phase, bell, lamp }: { phase: ReturnType<typeof phaseAt>; bell: boolean; lamp: boolean }) {
@@ -859,6 +887,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
         })}
         <g>{onDeck.map(figure)}</g>
         <Town phase={phase} bell={bellUntil > clock} lamp={lamp} />
+        {(feed.criers ?? []).slice(0, 2).map((c, i) => <Crier key={c.id} crier={c} index={i} />)}
         {quay.map((b) => <BerthSign key={b.key} berth={b} ship={shipsByKey.get(b.key)!} onBoard={() => onBoard(b.key)} />)}
         {moored.map((b) => <MooredShip key={b.key} berth={b} ship={shipsByKey.get(b.key)!} onBoard={() => onBoard(b.key)} />)}
         {hasDinghy && <DinghyBack rowing={feed.sailors.some((s) => s.ship === DINGHY_KEY && s.state !== "stale")} />}
@@ -946,7 +975,7 @@ export function PortView({ feed }: { feed: PortFeed }) {
             <span>on deck, hauling cargo: working</span><span>at a gun: tool running</span><span>ale at the tavern: ready for orders</span><span>waving on the quay under a red pennant: needs you</span><span>dozing: signal stale</span><span>in the bay: quiet ships</span>
           </p>
           <p className="crew-key" aria-hidden="true">
-            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>lamplighters, couriers, watchmen, sweepers and clerks: the server&apos;s scheduled jobs, one walk per run</span><span>timber up the gangplank: a redeploy; the bell: a crashed service (or a question for you)</span><span>strumpets, gulls and weather are scenery; pirate names are re-drawn every 4 hours</span>
+            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>lamplighters, couriers, watchmen, sweepers and clerks: the server&apos;s scheduled jobs, one walk per run</span><span>timber up the gangplank: a redeploy; the bell: a crashed service (or a question for you)</span><span>the town crier by the notice board: a project&apos;s news, how many new items, the latest in the tooltip</span><span>strumpets, gulls and weather are scenery; pirate names are re-drawn every 4 hours</span>
           </p>
           {active.length > 0 && (
             <div className="crew-orders" aria-label="Ships at the quay">

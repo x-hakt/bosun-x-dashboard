@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 // the public version carries no links or detail.
 
 const KIND_MARK: Record<string, string> = {
-  aboard: "⚓", cabin: "⚓", work: "⚒", nod: "✓", captain: "!", ashore: "⛵", signoff: "·", cargo: "▣", delivery: "⚑", cart: "⛁", errand: "✦", logbook: "✎", refit: "⚙", leak: "☂",
+  aboard: "⚓", cabin: "⚓", work: "⚒", nod: "✓", captain: "!", ashore: "⛵", signoff: "·", cargo: "▣", delivery: "⚑", cart: "⛁", errand: "✦", logbook: "✎", refit: "⚙", leak: "☂", crier: "❝",
 };
 
 export function RollingLog({ feed }: { feed: PortFeed }) {

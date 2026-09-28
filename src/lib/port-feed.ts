@@ -6,6 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { publicAllowlist, readActivity } from "@/lib/activity";
 import { receiptsDir } from "@/lib/data/config";
+import { DATA_DIR } from "@/lib/data/paths";
 import { localHostId } from "@/lib/data/hosts";
 import { getJobRuns, getJobStatuses } from "@/lib/data/jobs";
 import { displayName } from "@/lib/data/project-display";
@@ -94,6 +95,41 @@ async function recentRefits(owners: Map<string, string>, since: number): Promise
   return out;
 }
 
+// BXD-111: projects/<slug>/crier.json, written by whatever gathers that project's news (see
+// docs/crier.md). Read defensively: every field is checked and clipped here, so a bad file shows
+// nothing rather than breaking the port.
+const clip = (v: unknown, n: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, n) : "");
+async function readCriers(slugs: string[]): Promise<PortSources["criers"]> {
+  return cached("port:criers", 30_000, async () => {
+    const out: PortSources["criers"] = [];
+    for (const slug of slugs) {
+      let raw: Record<string, unknown>;
+      try {
+        raw = JSON.parse(await fs.readFile(path.join(DATA_DIR, "projects", slug, "crier.json"), "utf8"));
+      } catch {
+        continue;
+      }
+      const updated = Date.parse(String(raw.updated ?? ""));
+      const label = clip(raw.label, 40);
+      if (!label || Number.isNaN(updated)) continue;
+      const url = clip(raw.url, 400);
+      const calls = (Array.isArray(raw.calls) ? raw.calls : []).slice(-50).flatMap((c: { id?: unknown; at?: unknown; text?: unknown }) => {
+        const at = Date.parse(String(c?.at ?? ""));
+        const text = clip(c?.text, 160);
+        return Number.isNaN(at) || !text ? [] : [{ id: `${slug}:crier:${clip(c?.id, 80) || at}`, at: new Date(at).toISOString(), text }];
+      });
+      out.push({
+        project: slug, label, public: raw.public === true, updated: new Date(updated).toISOString(),
+        count: Math.max(0, Math.min(9999, Math.floor(Number(raw.count) || 0))),
+        ...(clip(raw.headline, 160) ? { headline: clip(raw.headline, 160) } : {}),
+        ...(/^https:\/\//.test(url) ? { url } : {}),
+        calls,
+      });
+    }
+    return out;
+  });
+}
+
 async function gatherSources(): Promise<PortSources> {
   const now = Date.now();
   const [{ events }, projects, jobs, runs, history, carts, local] = await Promise.all([
@@ -113,6 +149,7 @@ async function gatherSources(): Promise<PortSources> {
   const owners = new Map<string, string>();
   for (const p of projects) for (const c of [p.meta.container, ...(p.meta.containers ?? [])]) if (c?.compose_service && !owners.has(c.compose_service)) owners.set(c.compose_service, p.meta.slug);
   const refits = await recentRefits(owners, now - LOG_WINDOW_MS);
+  const criers = await readCriers(projects.map((p) => p.meta.slug));
   const commits = await recentCommits(projects.map((p) => ({ slug: p.meta.slug, path: p.meta.path, host: p.meta.host })), local, now - IN_PORT_MS);
   const deliveries: PortSources["deliveries"] = projects.flatMap((p, i) => boards[i]
     .filter((t) => t.status === "done" && Date.parse(t.updated) >= now - LOG_WINDOW_MS)
@@ -153,6 +190,7 @@ async function gatherSources(): Promise<PortSources> {
     errands,
     logbook,
     refits,
+    criers,
   };
 }
 
@@ -165,7 +203,7 @@ const fallbackSecret = randomBytes(32).toString("hex");
 
 export async function publicPortFeed(): Promise<PortFeed> {
   const { enabled, allProjects, projects } = await publicAllowlist();
-  const empty: PortFeed = { now: Date.now(), publicView: true, ships: [], sailors: [], happenings: [], entries: [], log: { start: Date.now() - LOG_WINDOW_MS, end: Date.now(), groups: [], chores: [] } };
+  const empty: PortFeed = { now: Date.now(), publicView: true, ships: [], sailors: [], criers: [], happenings: [], entries: [], log: { start: Date.now() - LOG_WINDOW_MS, end: Date.now(), groups: [], chores: [] } };
   if (!enabled) return empty;
   const sources = await gatherSources();
   const listed = new Set(projects.map((p) => p.slug));

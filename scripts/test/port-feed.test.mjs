@@ -69,16 +69,25 @@ const sources = (now = NOW) => ({
     { project: "secret-client", at: iso(6, 20), id: "secret-worker:start:1", action: "start", container: "secret-worker" },
     { project: "bosun-x", at: iso(3), id: "bosunx-app:crash:1", action: "crash", container: "bosunx-app" },
   ],
+  // BXD-111: one public notice, one private one (its label, headline, link and calls are secret).
+  criers: [
+    { project: "bosun-x", label: "Gaming news", public: true, updated: iso(7), count: 12, headline: "A free game this week", url: "https://secret-news-link.example/a",
+      calls: [{ id: "bosun-x:crier:1", at: iso(6), text: "drafted a free-games post" }] },
+    { project: "secret-client", label: "Secret Client Alerts", public: false, updated: iso(4), count: 3, headline: "secret headline",
+      calls: [{ id: "secret-client:crier:1", at: iso(4), text: "secret call text" }] },
+  ],
 });
 const publicOpts = { publicView: true, approved: [{ slug: "bosun-x", alias: "Bosun CLI" }], secret: "test-secret" };
 
 const SECRETS = ["secret-client", "Secret Client", "another-private", "Another Private", "sess-very-secret", "home-secret-host", "SC-4", "BX-12",
   "deadbeef", "0123456789abcdef", "task-uuid-secret", "secret-db", "evt-secret", "fleet-backup", "/projects/", "bosun-x CLI",
-  "jellyfin", "Jellyfin", "secret-sync", "Secret user sync", "secret checkpoint", "public-ish", "secret-web", "secret-worker", "bosunx-app"];
+  "jellyfin", "Jellyfin", "secret-sync", "Secret user sync", "secret checkpoint", "public-ish", "secret-web", "secret-worker", "bosunx-app",
+  "Secret Client Alerts", "secret headline", "secret call text", "secret-news-link"];
 
 // Every key path allowed in the public JSON (arrays collapse to []).
 const ALLOWED = new Set([
-  "now", "publicView", "ships", "sailors", "happenings", "entries", "log",
+  "now", "publicView", "ships", "sailors", "criers", "happenings", "entries", "log",
+  "criers[].id", "criers[].label", "criers[].count", "criers[].headline", "criers[].ship", "criers[].at",
   "ships[].key", "ships[].name", "ships[].kind", "ships[].active", "ships[].style", "ships[].todo", "ships[].inProgress",
   "entries[].id", "entries[].at", "entries[].kind", "entries[].who", "entries[].action", "entries[].ship",
   "sailors[].id", "sailors[].name", "sailors[].provider", "sailors[].ship", "sailors[].state", "sailors[].sub", "sailors[].since",
@@ -202,7 +211,9 @@ test("the rolling log tells the day: arrivals, the captain, cargo, pennants; doc
   const sorted = [...priv.entries].sort((a, b) => a.at.localeCompare(b.at));
   assert.deepEqual(priv.entries, sorted, "oldest first, newest at the bottom");
   const pub = buildPortFeed(sources(), publicOpts);
-  assert.equal(pub.entries.length, priv.entries.length, "the public log has the same lines");
+  // Crier calls from private notices are the one deliberate difference (tested below).
+  const noCrier = (list) => list.filter((e) => e.kind !== "crier");
+  assert.equal(noCrier(pub.entries).length, noCrier(priv.entries).length, "the public log has the same lines");
   assert.ok(pub.entries.every((e) => e.detail === undefined));
 });
 
@@ -278,4 +289,17 @@ test("handoff checkpoints are signed log lines; containers are refits and leaks,
   const priv = buildPortFeed(sources(), { publicView: false });
   assert.ok(priv.entries.some((e) => e.kind === "logbook" && e.detail === "secret checkpoint work summary"));
   assert.ok(priv.entries.some((e) => e.kind === "leak" && e.detail === "bosunx-app crashed"));
+});
+
+test("the town crier (BXD-111): public notices only, no link; private view keeps both", () => {
+  const pub = buildPortFeed(sources(), publicOpts);
+  assert.deepEqual(pub.criers.map((c) => [c.label, c.count, c.headline, c.href]), [["Gaming news", 12, "A free game this week", undefined]]);
+  assert.equal(pub.ships.find((s) => s.key === pub.criers[0].ship).name, "Bosun CLI", "the notice sits with its (aliased) ship");
+  assert.ok(pub.entries.some((e) => e.kind === "crier" && e.action.includes("drafted a free-games post")));
+  assert.ok(!pub.entries.some((e) => e.kind === "crier" && e.action.includes("secret")));
+  const priv = buildPortFeed(sources(), { publicView: false });
+  assert.equal(priv.criers.length, 2);
+  assert.equal(priv.criers.find((c) => c.label === "Gaming news").href, "https://secret-news-link.example/a");
+  const stale = buildPortFeed({ ...sources(), criers: [{ ...sources().criers[0], updated: iso(60 * 25) }] }, { publicView: false });
+  assert.equal(stale.criers.length, 0, "a notice not updated for a day is taken down");
 });

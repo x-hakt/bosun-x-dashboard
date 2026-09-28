@@ -4,6 +4,16 @@ All notable changes to the bosun-x dashboard. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions are the `vX.Y.Z` tags
 that trigger a GHCR image build.
 
+## Unreleased
+
+### Added
+
+- The town crier (BXD-111): a project can publish a notice (`projects/<slug>/crier.json`: a label,
+  a count of new items, the latest headline, log lines). The crier stands by a notice board in the
+  port's town square, ringing his bell while there is news, and his calls go in the rolling log.
+  Public notices show on the public crew page (headline, no link); the rest stay private. Format:
+  `docs/crier.md`.
+
 ## v0.4.1 — 2026-09-28
 
 ### Fixed
