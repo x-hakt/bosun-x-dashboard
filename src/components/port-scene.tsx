@@ -427,8 +427,8 @@ function Crier({ count }: { count: number }) {
   return (
     <g className="port-folk">
       <title>{tip}</title>
-      <rect x={x + 30} y={506} width={3} height={36} fill="#5a3b2a" />
-      <Sign x={x + 31.5} y={500} lines={["HEAR YE!", count ? `${count} NEED${count === 1 ? "S" : ""} YOU` : "ALL QUIET"]} size={8} maxWidth={104} />
+      <rect x={x + 44} y={506} width={3} height={36} fill="#5a3b2a" />
+      <Sign x={x + 45.5} y={500} lines={["HEAR YE!", count ? `${count} NEED${count === 1 ? "S" : ""} YOU` : "ALL QUIET"]} size={8} maxWidth={104} />
       <g transform={`translate(${x} 546)`}>
         <g transform={`scale(${U * 1.1} ${U * 1.1})`}>
           <Person folk="master" coat="#8a1f1f" pose="rest" />
