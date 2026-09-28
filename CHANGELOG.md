@@ -4,7 +4,7 @@ All notable changes to the bosun-x dashboard. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions are the `vX.Y.Z` tags
 that trigger a GHCR image build.
 
-## Unreleased
+## v0.4.1 — 2026-09-28
 
 ### Fixed
 
