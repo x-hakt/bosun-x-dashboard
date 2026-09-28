@@ -45,7 +45,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "bosun-x": "github:x-hakt/bosun-x#866a27fa0bb60d73082a4e2988999b07af9dd11f",
+    "bosun-x": "github:x-hakt/bosun-x#e6f1ddc5430202126b4d29c0a9ffb94e4eda289a",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
