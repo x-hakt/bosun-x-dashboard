@@ -11,6 +11,9 @@ that trigger a GHCR image build.
 - The town crier (BXD-111): he stands by a notice board in the port's town square calling out how
   many Needs-you alerts are open ("HEAR YE! 2 NEED YOU"), ringing his bell while any are. A count
   only, the same on the public crew page.
+- More life on the street (BXD-108): the girls outside the whorehouse are a fresh line-up every
+  4-hour watch, from a pool of names (Zoe, Rose and two dozen more) and looks: skin, hair colour, four
+  hairstyles, dress and trim, a bow, a flower or a feathered hat.
 
 ## v0.4.1 — 2026-09-28
 

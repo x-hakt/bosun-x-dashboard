@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Happening, PortFeed, PortSailor, PortShip } from "@/lib/port-core";
+import { strumpetsFor, type StrumpetLook } from "@/lib/port-folk";
 import { clockText, entryText, PORT_TZ, shipNameOf } from "@/lib/port-text";
 import type { Pose } from "@/lib/crew-scene";
 import {
@@ -46,6 +47,7 @@ interface Sprite {
   hair?: string;
   inside?: boolean; // the shipwright, in his shop between tide readings: not drawn
   errand?: string; // BXD-94: what a scheduled-job errand runner is out doing
+  look?: StrumpetLook; // BXD-108
   changedAt?: number;
 }
 
@@ -66,15 +68,20 @@ function mulberry(seed: number) {
   };
 }
 
-// The whorehouse's working girls: long hair, corset and a full skirt that sways as they stroll.
-function Strumpet({ dress, hair, walking }: { dress: string; hair: string; walking: boolean }) {
-  const skin = "#efc39c";
+// The whorehouse's working girls: corset and a full skirt that sways as they stroll. BXD-108: each
+// has her own look (lib/port-folk.ts): skin, hair colour and style, dress and trim, and a bow, a
+// flower or a feathered hat.
+function Strumpet({ look, walking }: { look: StrumpetLook; walking: boolean }) {
+  const { dress, trim, hair, skin, style, accent, accentColour } = look;
   return (
     <g shapeRendering="crispEdges">
-      <rect x={-3.6} y={-17.4} width={7.2} height={9} fill={hair} />
+      {/* hair behind the head: long and loose, or a mass of curls */}
+      {style === 0 && <rect x={-3.6} y={-17.4} width={7.2} height={9} fill={hair} />}
+      {style === 2 && <g fill={hair}><rect x={-4.4} y={-17.6} width={8.8} height={6.6} /><rect x={-5} y={-15} width={1.4} height={3} /><rect x={3.6} y={-15} width={1.4} height={3} /></g>}
+      {style === 3 && <rect x={-4.8} y={-16.4} width={1.6} height={7} fill={hair} />}
       <g className={walking ? "port-sway" : undefined}>
         <path d="M-3.4 -7 L3.4 -7 L5.6 -0.6 L-5.6 -0.6 Z" fill={dress} />
-        <rect x={-5.6} y={-1.6} width={11.2} height={1} fill="#f2eee4" opacity={0.8} />
+        <rect x={-5.6} y={-1.6} width={11.2} height={1} fill={trim} opacity={0.85} />
       </g>
       <rect x={-2} y={-0.6} width={1.6} height={0.6} fill="#2a1f1c" /><rect x={0.6} y={-0.6} width={1.6} height={0.6} fill="#2a1f1c" />
       <rect x={-3} y={-11} width={6} height={4} fill={dress} />
@@ -84,20 +91,23 @@ function Strumpet({ dress, hair, walking }: { dress: string; hair: string; walki
       <rect x={3} y={-12} width={1.4} height={5} fill={skin} />
       <rect x={-2.6} y={-17} width={5.4} height={4.8} fill={skin} />
       <rect x={-3} y={-18} width={6.2} height={1.8} fill={hair} />
+      {style === 1 && <rect x={-1.6} y={-20.4} width={3.2} height={2.6} fill={hair} />}
       <rect x={1.2} y={-15.4} width={0.9} height={0.9} fill="#2a1f1c" />
       <rect x={1.4} y={-13.4} width={1.2} height={0.6} fill="#b8322f" />
-      <rect x={-3.4} y={-18.6} width={1.8} height={1.8} fill="#b8322f" />
+      {accent === "bow" && <rect x={-3.4} y={-18.6} width={1.8} height={1.8} fill={accentColour} />}
+      {accent === "flower" && <g><rect x={-3.8} y={-18.8} width={2.2} height={2.2} fill={accentColour} /><rect x={-3.1} y={-18.1} width={0.8} height={0.8} fill="#d9b35f" /></g>}
+      {accent === "hat" && <g><rect x={-4.6} y={-18.8} width={9.4} height={1.2} fill={accentColour} /><rect x={-2.6} y={-21} width={5.4} height={2.4} fill={accentColour} /><rect x={2.8} y={-23.4} width={1} height={3.2} fill="#efe7d6" /></g>}
     </g>
   );
 }
 
 // Non-sailor people, on the same 1-unit grid as the Sailor (feet at 0,0).
-function Person({ folk, coat, hair, pose, carry, cart }: { folk: Folk; coat: string; hair?: string; pose: Pose; carry?: Sprite["carry"]; cart?: boolean }) {
+function Person({ folk, coat, pose, carry, cart, look }: { folk: Folk; coat: string; hair?: string; pose: Pose; carry?: Sprite["carry"]; cart?: boolean; look?: StrumpetLook }) {
   const skin = "#e8b98a";
   const dark = "#2a1f1c";
   const walking = pose === "walk";
   const lifting = carry === "crate" && !cart;
-  if (folk === "strumpet") return <Strumpet dress={coat} hair={hair ?? dark} walking={walking} />;
+  if (folk === "strumpet" && look) return <Strumpet look={look} walking={walking} />;
   return (
     <g shapeRendering="crispEdges">
       {cart && (
@@ -549,12 +559,8 @@ function berthsOf(feed: PortFeed) {
 }
 
 // Everyone already at their place on the first render, server and client alike: no parade.
-// Scenery, strolling the street outside the whorehouse (its front runs x 40..210).
-const STRUMPETS = [
-  { name: "Scarlet Sal", dress: "#b8322f", hair: "#d9c07a", x: 70 },
-  { name: "Velvet Moll", dress: "#6d3a78", hair: "#2a1f1c", x: 128 },
-  { name: "Ruby Lou", dress: "#2f7a6a", hair: "#b5452a", x: 188 },
-];
+// Scenery, strolling the street outside the whorehouse (its front runs x 40..210): who's out
+// this watch comes from lib/port-folk.ts.
 const STREET = { from: 44, to: 186 }; // stops short of the shipwright, so nameplates clear his sign
 
 function initialWorld(feed: PortFeed, berths: Berth[]) {
@@ -565,7 +571,7 @@ function initialWorld(feed: PortFeed, berths: Berth[]) {
     if (!t) continue;
     sprites.set(s.id, { id: s.id, folk: "sailor", ...pointOf(t.spot, berths), facing: 1, path: [], pose: t.pose, spot: t.spot, sailor: s, name: s.name });
   }
-  STRUMPETS.forEach((g, i) => sprites.set(`strumpet-${i}`, { id: `strumpet-${i}`, folk: "strumpet", x: g.x, y: QUAY_Y, s: 0.95, facing: i % 2 ? -1 : 1, path: [], pose: "rest", wait: 1 + i * 2.3, coat: g.dress, hair: g.hair, name: g.name }));
+  strumpetsFor(feed.now).forEach((g, i) => sprites.set(`strumpet-${i}`, { id: `strumpet-${i}`, folk: "strumpet", x: g.x, y: QUAY_Y, s: 0.95, facing: i % 2 ? -1 : 1, path: [], pose: "rest", wait: 1 + i * 2.3, coat: g.look.dress, look: g.look, name: g.name }));
   sprites.set("master", { id: "master", folk: "master", ...OFFICE_DOOR, s: 1, facing: 1, path: [], pose: "rest", coat: "#26456e", name: "Shipwright", inside: true });
   // Errands older than the replay window are treated as already run.
   const seen = new Set(feed.happenings.filter((h) => feed.now - Date.parse(h.at) > REPLAY_MS).map((h) => h.id));
@@ -825,7 +831,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
     const m = sp.sailor;
     const body = m
       ? <Sailor pose={pose} coat={coatFor(m.provider)} sub={m.sub} look={lookFor(m.name, m.sub)} carry={sp.carry === "crate"} />
-      : <Person folk={sp.folk} coat={sp.coat ?? "#777"} hair={sp.hair} pose={pose} carry={sp.carry} cart={sp.cart} />;
+      : <Person folk={sp.folk} coat={sp.coat ?? "#777"} hair={sp.hair} pose={pose} carry={sp.carry} cart={sp.cart} look={sp.look} />;
     const tip = m ? `${m.name} (${m.provider}) · ${labels[m.state]} · ${shipsByKey.get(m.ship)?.name ?? ""}${m.detail ? ` · ${m.detail}` : ""}`
       : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand${sp.errand ? `: ${sp.errand}` : ""}` : sp.folk === "master" ? "The shipwright (every 5-minute tide reading he lights the pole's lamp, or takes it down)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
     const inner = (
@@ -976,7 +982,7 @@ export function PortView({ feed }: { feed: PortFeed }) {
             <span>on deck, hauling cargo: working</span><span>at a gun: tool running</span><span>ale at the tavern: ready for orders</span><span>waving on the quay under a red pennant: needs you</span><span>dozing: signal stale</span><span>in the bay: quiet ships</span>
           </p>
           <p className="crew-key" aria-hidden="true">
-            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>lamplighters, couriers, watchmen, sweepers and clerks: the server&apos;s scheduled jobs, one walk per run</span><span>timber up the gangplank: a redeploy; the bell: a crashed service (or a question for you)</span><span>the town crier by the notice board: how many alerts need the captain (the Needs you list)</span><span>strumpets, gulls and weather are scenery; pirate names are re-drawn every 4 hours</span>
+            <span>dockhands and the shipwright run real errands: commits, finished tasks, backups, the 5-minute tide reading</span><span>lamplighters, couriers, watchmen, sweepers and clerks: the server&apos;s scheduled jobs, one walk per run</span><span>timber up the gangplank: a redeploy; the bell: a crashed service (or a question for you)</span><span>the town crier by the notice board: how many alerts need the captain (the Needs you list)</span><span>strumpets, gulls and weather are scenery; pirate names and the girls on the street change every 4 hours</span>
           </p>
           {active.length > 0 && (
             <div className="crew-orders" aria-label="Ships at the quay">
