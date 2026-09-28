@@ -21,6 +21,7 @@ import { ActivityRefresh } from "@/components/activity-refresh";
 import { PortView } from "@/components/port-scene";
 import { ShipLogTimeline } from "@/components/ship-log";
 import { RollingLog } from "@/components/rolling-log";
+import { ActivityAssignmentForm } from "@/components/activity-assignment-form";
 import { privatePortFeed } from "@/lib/port-feed";
 import { getJobStatuses } from "@/lib/data/jobs";
 import { loadTasks } from "@/lib/data/tasks";
@@ -64,7 +65,7 @@ export default async function ActivityPage() {
         <p className="capitalize mt-1">{src.provider}</p>
         <p className="text-xs text-muted-foreground mt-1">Last event <time dateTime={src.lastAt}>{new Date(src.lastAt).toLocaleString("en-AU", { timeZone: "Australia/Sydney" })}</time> · {src.events} recent{src.unmapped ? ` · ${src.unmapped} unmapped` : ""}</p>
       </article>)}</div> : <p className="text-sm text-muted-foreground">No signals yet. Add the Claude or Codex lifecycle hook (<code>hooks/activity.mjs</code>) on each machine; see <code>docs/activity.md</code>.</p>}
-      <p className="text-xs text-muted-foreground">Fresh means an event in the last five minutes. Unmapped events have no project; start sessions inside a tracked project folder, or set <code>BOSUN_PROJECT</code> and <code>BOSUN_TASK</code>.</p>
+      <p className="text-xs text-muted-foreground">Fresh means an event in the last five minutes. Give an agent a task key through Bosun to label its session; use “Set current task” below to correct an unmapped session. Starting in a project folder remains optional.</p>
     </section>
     <section><h2 className="font-mono text-lg mb-3">IDEA-20 work orders</h2>
       <div className="grid gap-2">{workOrders.length ? workOrders.map((task) => <Link key={`${task.project}:${task.id}`} href={`/projects/${task.project}#${task.key}`} className="rounded-lg border border-border bg-card p-3 hover:border-primary flex flex-wrap justify-between gap-2 text-sm">
@@ -74,7 +75,8 @@ export default async function ActivityPage() {
     <section><h2 className="font-mono text-lg mb-3">Sessions</h2>
       <div className="grid gap-2">{crew.length ? crew.map((member) => <article key={member.key} className="rounded-lg border border-border bg-card p-3 flex flex-wrap justify-between gap-3">
         <div><strong className="capitalize">{member.provider}</strong> <span className="text-xs text-muted-foreground font-mono">{member.key.split(":")[1].slice(0, 12)}</span>
-          <p className="text-sm mt-1">{member.project ? <Link className="underline" href={`/projects/${member.project}`}>{member.project}</Link> : "Unmapped project"}{member.task && member.project ? <> · <Link className="underline" href={`/projects/${member.project}#${member.task}`}>{member.task}</Link></> : null}</p></div>
+          <p className="text-sm mt-1">{member.project ? <Link className="underline" href={`/projects/${member.project}`}>{member.project}</Link> : "Unmapped project"}{member.task && member.project ? <> · <Link className="underline" href={`/projects/${member.project}#${member.task}`}>{member.task}</Link></> : null}</p>
+          {(member.provider === "codex" || member.provider === "claude") && <ActivityAssignmentForm provider={member.provider} session={member.key.slice(member.provider.length + 1)} />}</div>
         <div className="text-right text-sm"><span className={member.state === "needs_approval" ? "text-amber-400" : member.state === "stale" ? "text-muted-foreground" : "text-foreground"}>{member.state.replaceAll("_", " ")}</span>
           <p className="text-xs text-muted-foreground mt-1">Last observed <time dateTime={member.lastSeen}>{new Date(member.lastSeen).toLocaleString("en-AU", { timeZone: "Australia/Sydney" })}</time></p></div>
       </article>) : <p className="text-sm text-muted-foreground">No activity recorded yet. Install a provider hook or use the <code>bosun event</code> command.</p>}</div></section>

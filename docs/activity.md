@@ -41,7 +41,17 @@ Finished sessions shorter than a minute (hook smoke tests, one-shot commands) ar
 
 On laptop, open a terminal and run `codex`. At the Codex prompt, type `/hooks`, choose each configured event, inspect the Bosun command handler and trust it. The handler should invoke `node /home/user/server/unified-services/bosun-x/hooks/activity.mjs codex`. Repeat in a Codex session on the main server (`ssh my-server`, then `codex`); there the path is `node /home/user/unified-services/bosun-x/hooks/activity.mjs codex`. `/hooks` is a Codex slash command, not a URL or a shell command. Codex will skip these user hooks until a person reviews and trusts the exact definition.
 
-Start a **new** session within a tracked project directory. To attach a work order explicitly, for example run `BOSUN_PROJECT=bosun-x BOSUN_TASK=BX-10 codex` from the shell before entering Codex. The private `/activity` page shows the session, its task and current state. A public crew member appears only while an allowlisted project's signal is fresh. The ship still shows approved project task counts while all agents are offline. The page links to every outstanding IDEA-20 task in its relevant project.
+The agent can stay in one long-lived session and assign itself a task through Bosun:
+`bosun assign BX-13`. Bosun resolves the project from that key and associates it
+with the current Codex/Claude session; repeat when the task changes or a new task
+is created. `handoff_start`/`checkpoint --task` also assign automatically when the
+current provider session ID is available. If it is not, use `--provider` and
+`--session`, the `activity_assign` MCP tool, or the private `/activity` page's
+**Set current task** control. Project-folder launches and `BOSUN_PROJECT` /
+`BOSUN_TASK` remain optional fallbacks. The hooks never inspect the user's prompt.
+The private `/activity` page shows each session's task and current state. A public
+crew member appears only while an allowlisted project's signal is fresh. The ship
+still shows approved project task counts while all agents are offline.
 
 ## Scheduled jobs in the port (BXD-94)
 

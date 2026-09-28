@@ -19,6 +19,7 @@
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "bosun-x": "github:x-hakt/bosun-x#4435cad5356fe0de967f8a0b7e04e7d44d5df27c",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dockerode": "^5.0.1",
@@ -45,7 +46,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "bosun-x": "github:x-hakt/bosun-x#e6f1ddc5430202126b4d29c0a9ffb94e4eda289a",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
