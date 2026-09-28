@@ -31,6 +31,7 @@ that trigger a GHCR image build.
 - The activity hook's setup docs describe the generic `activity.local.json` mount mapping
   (bosun-x 0.3.3) instead of one operator's machines; examples, tests and comments use
   fictional host names throughout.
+- Pins bosun-x 0.4.0, whose `bosun dashboard` now fetches this 0.4 line.
 
 - Pirates (BXD-97): the crew are pirates with a look generated from their name and a sash
   in their model's colour; every ship has its own colours and Jolly Roger; commits go up the
