@@ -109,6 +109,10 @@ running a blog, a photo library, a recipes API, and a couple of hobby projects.
 `data.example/projects/dashboard/SPEC.md` is the design doc; `AGENTS.md` /
 `CLAUDE.md` hold the agent-facing conventions.
 
+`--demo` reads nothing from the machine it runs on: no Docker socket, host stats, SSH or project
+folders. The sample hosts' containers and resources come from `src/lib/infra/demo-hosts.ts`, so a
+screenshot of the demo shows only sample data.
+
 ## License
 
 MIT.

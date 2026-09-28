@@ -4,6 +4,16 @@ All notable changes to the bosun-x dashboard. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions are the `vX.Y.Z` tags
 that trigger a GHCR image build.
 
+## Unreleased
+
+### Fixed
+
+- `--demo` no longer reads the machine it runs on (BXD-109). It served the sample data but still
+  listed the host's real containers, resources and project folders, so a screenshot of the demo
+  leaked the setup of whoever took it. Demo mode (`BOSUN_DEMO=1`, set by the launcher) now never
+  touches the Docker socket, host stats, SSH, project roots, git or du; the sample hosts report
+  lived-in containers and resources from `src/lib/infra/demo-hosts.ts` instead.
+
 ## v0.4.0 — 2026-09-28
 
 ### Added

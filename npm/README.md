@@ -61,7 +61,7 @@ Options:
 | | |
 |---|---|
 | `--data <dir>` | the data folder (default: `$BOSUN_DATA`, else the current folder if it has `projects/` or `config.yml`) |
-| `--demo` | a fresh copy of the sample data instead |
+| `--demo` | a fresh copy of the sample data instead; reads nothing from this machine (no Docker, host stats, SSH or project folders) |
 | `--port <n>` | default `3010` |
 | `--host <addr>` | default `127.0.0.1` (this machine only) |
 | `--open` | open your browser once it's up |
