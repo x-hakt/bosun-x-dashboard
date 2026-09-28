@@ -316,9 +316,9 @@ export default async function BackupsPage() {
           <CardHeader><CardTitle className="text-base">Off-site copy</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-2">
             <p className="text-xs text-muted-foreground">
-              The critical set — client-app dump, secrets bundle, bosun-x-data — pushed age-encrypted to{" "}
+              The critical set — {[...offsite.stores.map((n) => `${n} dump`), "secrets bundle", "bosun-x-data"].join(", ")} — pushed age-encrypted to{" "}
               {offsite.bucket ? <span className="font-mono">{offsite.kind}:{offsite.bucket}</span> : "object storage"}.
-              Survives losing the main server and the NAS together.
+              Survives losing the server and the NAS together.
             </p>
             {!offsite.enabled ? (
               <p className={cn("inline-flex items-center gap-1.5 text-xs", STATUS_TEXT_CLASS.attention)}>

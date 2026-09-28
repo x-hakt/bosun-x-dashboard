@@ -34,7 +34,7 @@ YAML
 mkproj() { # slug portalsline sharedline
   mkdir -p "$FX/projects/$1"
   { echo "name: $1"; echo "slug: $1"; echo "stage: active"; echo "status: Live";
-    echo "host: main"; echo "path: /opt/secret-$1"; [ -n "$2" ] && echo "$2"; [ -n "$3" ] && echo "$3"; } \
+    echo "host: home-server"; echo "path: /opt/secret-$1"; [ -n "$2" ] && echo "$2"; [ -n "$3" ] && echo "$3"; } \
     > "$FX/projects/$1/project.yml"
   printf 'seq: 0\ntasks: []\n' > "$FX/projects/$1/tasks.yml"
 }
@@ -116,7 +116,7 @@ grep -q 'Send a message' /tmp/portal-body && ok "CGB-10: message reply form pres
 grep -q 'gate1only' /tmp/portal-body && bad "leaked gate1only into the list" || ok "gate1only not listed"
 grep -q '>private<' /tmp/portal-body && bad "leaked private into the list" || ok "private not listed"
 [ "$(get "$CLIENT" /c/projects/shared)" = 200 ] && ok "shared detail -> 200" || bad "shared detail"
-grep -qE 'secret-shared|main|/opt/' /tmp/portal-body && bad "host/path LEAKED in project detail" || ok "no host/path in detail"
+grep -qE 'secret-shared|home-server|/opt/' /tmp/portal-body && bad "host/path LEAKED in project detail" || ok "no host/path in detail"
 grep -q 'secret-task-thread-shared' /tmp/portal-body && ok "CGB-8: shared task thread visible" || bad "shared task thread missing"
 grep -q 'secret-task-thread-private' /tmp/portal-body && bad "CGB-8: unshared task thread LEAKED" || ok "unshared task thread withheld"
 grep -q 'CONFIDENTIAL-bug-task-title' /tmp/portal-body && bad "an unshared task's TITLE leaked (not just its thread)" || ok "unshared task row doesn't appear at all"

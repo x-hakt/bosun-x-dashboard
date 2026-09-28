@@ -94,7 +94,7 @@ PY
 #   pg-remote     postgres + ssh_alias      -> the host's backup-restore forced
 #                                              command (BXD-39); restore alias
 #                                              mirrors the backup alias
-#                                              (backup-client-app -> restore-client-app)
+#                                              (backup-myapp -> restore-myapp)
 #   files-path    files/redis + path        -> rsync --delete into the bind mount
 #   files-volume  files/redis + volume      -> throwaway container clears + untars
 #                                              the volume; then restart the

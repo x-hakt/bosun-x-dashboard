@@ -17,7 +17,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 # BXD-45: emit a job heartbeat so bosun-x /backups shows this check
-# green / failed / overdue (weekly cron on the main server). Source the marker with the
+# green / failed / overdue (weekly cron on the dashboard host). Source the marker with the
 # REAL receipts dir — before the scratch override below — so the marker lands
 # where the dashboard reads it, not in the throwaway dir.
 BACKUP_RECEIPTS="${BACKUP_RECEIPTS:-$HOME/backup-receipts}" \

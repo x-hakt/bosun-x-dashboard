@@ -25,7 +25,7 @@ const MIN = 60_000;
 const iso = (minsAgo, sec = 17) => new Date(NOW - minsAgo * MIN + sec * 1000).toISOString();
 let n = 0;
 const ev = (session, kind, minsAgo, project, extra = {}) => ({
-  v: 1, id: `evt-secret-${n++}`, provider: "claude", session, parent: null, turn: null, host: "main-secret-host",
+  v: 1, id: `evt-secret-${n++}`, provider: "claude", session, parent: null, turn: null, host: "home-secret-host",
   kind, project, task: project === "secret-client" ? "SC-4" : "BX-12", at: iso(minsAgo), received: iso(minsAgo), ...extra,
 });
 
@@ -72,7 +72,7 @@ const sources = (now = NOW) => ({
 });
 const publicOpts = { publicView: true, approved: [{ slug: "bosun-x", alias: "Bosun CLI" }], secret: "test-secret" };
 
-const SECRETS = ["secret-client", "Secret Client", "another-private", "Another Private", "sess-very-secret", "main-secret-host", "SC-4", "BX-12",
+const SECRETS = ["secret-client", "Secret Client", "another-private", "Another Private", "sess-very-secret", "home-secret-host", "SC-4", "BX-12",
   "deadbeef", "0123456789abcdef", "task-uuid-secret", "secret-db", "evt-secret", "fleet-backup", "/projects/", "bosun-x CLI",
   "jellyfin", "Jellyfin", "secret-sync", "Secret user sync", "secret checkpoint", "public-ish", "secret-web", "secret-worker", "bosunx-app"];
 

@@ -9,7 +9,10 @@ import { loadDestinations } from "./backups";
 // <data>/infra/offsite.yml, pushed by scripts/fleet-offsite-push.sh (rclone),
 // receipts at <receipts>/_offsite/<item>.latest.json. Read-only here.
 
-const ITEMS = ["client-app", "secrets", "bosun-x-data"] as const;
+// The critical set: each store named in offsite.yml `stores`, then the two
+// things every instance has.
+const FIXED_ITEMS = ["secrets", "bosun-x-data"] as const;
+const STORE_NAME = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const GRACE_HOURS = 26;
 
 export interface OffsiteItemStatus {
@@ -23,6 +26,7 @@ export interface OffsiteItemStatus {
 
 export interface OffsiteStatus {
   configured: boolean; // offsite.yml is present
+  stores: string[]; // offsite.yml `stores` names, in order
   enabled: boolean;
   destination?: string;
   bucket?: string;
@@ -34,6 +38,7 @@ export interface OffsiteStatus {
 
 interface OffsiteConfig {
   enabled?: boolean;
+  stores?: { name?: string; glob?: string }[];
   destination?: string;
   keep_last?: number;
 }
@@ -49,15 +54,18 @@ export async function getOffsiteStatus(): Promise<OffsiteStatus> {
   try {
     cfg = (loadYaml(await fs.readFile(path.join(DATA_DIR, "infra", "offsite.yml"), "utf-8")) ?? {}) as OffsiteConfig;
   } catch {
-    return { configured: false, enabled: false, items: [], stale: false };
+    return { configured: false, enabled: false, stores: [], items: [], stale: false };
   }
 
   const dest = cfg.destination
     ? (await loadDestinations()).find((d) => d.id === cfg!.destination)
     : undefined;
 
+  const stores = (Array.isArray(cfg.stores) ? cfg.stores : [])
+    .map((st) => String(st?.name ?? ""))
+    .filter((n) => STORE_NAME.test(n));
   const items: OffsiteItemStatus[] = await Promise.all(
-    ITEMS.map(async (name) => {
+    [...stores, ...FIXED_ITEMS].map(async (name) => {
       let r: ItemReceipt | null = null;
       try {
         r = JSON.parse(
@@ -87,6 +95,7 @@ export async function getOffsiteStatus(): Promise<OffsiteStatus> {
 
   return {
     configured: true,
+    stores,
     enabled,
     destination: cfg.destination,
     bucket: dest?.bucket,

@@ -27,7 +27,7 @@ const T0 = Date.parse("2026-09-25T00:00:00.000Z");
 const MIN = 60_000;
 let n = 0;
 const ev = (session, kind, minutes, extra = {}) => ({
-  v: 1, id: `e${n++}`, provider: "claude", session, parent: null, turn: null, host: "main",
+  v: 1, id: `e${n++}`, provider: "claude", session, parent: null, turn: null, host: "home-server",
   project: "bosun-x", task: null, kind, at: new Date(T0 + minutes * MIN).toISOString(), received: new Date(T0 + minutes * MIN).toISOString(), ...extra,
 });
 const segs = (lane) => lane.segments.map((s) => [s.state, (s.from - T0) / MIN, (s.to - T0) / MIN]);

@@ -2,10 +2,10 @@
 # ============================================================================
 # fleet-offsite-push.sh  —  IDEA-10 Layer 2 phase 2 / CR-32
 #
-# the main server and the NAS share one room; a fire or theft takes both. This copies the
+# A server and its NAS in one room share one fire or theft. This copies the
 # CRITICAL SET off-site to object storage, after the nightly local backup:
 #
-#   - the newest client-app Postgres dump        (already age-encrypted)
+#   - the newest archive of each store in offsite.yml `stores` (already age-encrypted)
 #   - the newest fleet secrets bundle          (already age-encrypted)
 #   - a fresh bundle of bosun-x-data       (tar|zstd|age here)
 #
@@ -15,7 +15,7 @@
 #
 # Config:
 #   $BOSUN_DATA/infra/destinations.yml   — the b2/s3 destination
-#   $BOSUN_DATA/infra/offsite.yml        — enabled, keep_last, recipient
+#   $BOSUN_DATA/infra/offsite.yml        — enabled, keep_last, recipient, source_dir, stores
 #
 # No rclone / not configured / disabled  → writes an "unconfigured" receipt and
 # exits 0. bosun-x shows the offsite column as "not set up" rather than failing.
@@ -51,9 +51,10 @@ item_receipt() { # <name> <ok|null> <remote-path> [error]
     | tee "$f" >>"$RECEIPTS_DIR/_offsite/log.jsonl"
 }
 
+STORE_NAMES=()
 unconfigured() { # <reason>
   say "not configured: $1"
-  for n in client-app secrets bosun-x-data; do item_receipt "$n" null "" "$1"; done
+  for n in "${STORE_NAMES[@]}" secrets bosun-x-data; do item_receipt "$n" null "" "$1"; done
   exit 0
 }
 
@@ -62,11 +63,10 @@ flock -n 9 || { say "another run in progress; skipping"; exit 0; }
 job_begin fleet-offsite-push
 trap 'guard_path "$WORK" /tmp; rm -rf -- "$WORK"; _job_finish' EXIT
 
-command -v rclone >/dev/null 2>&1 || unconfigured "rclone not installed"
 [ -f "$OFFSITE_CONFIG" ] || unconfigured "no infra/offsite.yml"
 
 eval "$(python3 - "$OFFSITE_CONFIG" "$BOSUN_DATA" <<'PY'
-import sys, yaml, shlex
+import sys, yaml, shlex, re
 o = yaml.safe_load(open(sys.argv[1])) or {}
 data_dir = sys.argv[2]
 dests = {d["id"]: d for d in (yaml.safe_load(open(f"{data_dir}/infra/destinations.yml")) or {}).get("destinations", [])}
@@ -80,8 +80,17 @@ print(f"D_KIND={q(str(d.get('kind','')))}")
 print(f"D_REMOTE={q(str(d.get('rclone_remote','')))}")
 print(f"D_BUCKET={q(str(d.get('bucket','')))}")
 print(f"D_CRED={q(str(d.get('credential_ref','')))}")
+print(f"O_SOURCE={q(str(o.get('source_dir', '/mnt/nas/Backups')))}")
+names, globs = [], []
+for st in o.get('stores') or []:
+    n, g = str((st or {}).get('name', '')), str((st or {}).get('glob', ''))
+    if re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", n) and g and not g.startswith('/') and '..' not in g:
+        names.append(n); globs.append(g)
+print("STORE_NAMES=(" + " ".join(q(n) for n in names) + ")")
+print("STORE_GLOBS=(" + " ".join(q(g) for g in globs) + ")")
 PY
 )"
+command -v rclone >/dev/null 2>&1 || unconfigured "rclone not installed"
 
 [ "${O_ENABLED:-false}" = "true" ] || unconfigured "offsite.yml: enabled is not true"
 [ -n "${D_REMOTE:-}" ] && [ -n "${D_BUCKET:-}" ] || unconfigured "destination has no rclone_remote / bucket"
@@ -90,12 +99,14 @@ PY
 
 export RCLONE_CONFIG="${D_CRED/#\~/$HOME}"
 DEST="$D_REMOTE:$D_BUCKET"
-NAS="/mnt/nas-media/Backups"
+NAS="$O_SOURCE"
 FAIL=0
 
 push() { # <local-file> <remote-subdir> <item-name>
   local src=$1 sub=$2 name=$3
-  case "$sub" in client-app|_secrets|bosun-x-data) : ;; *) say "push: bad subdir '$sub'"; FAIL=1; return ;; esac
+  local ok=0 n
+  for n in "${STORE_NAMES[@]}" _secrets bosun-x-data; do [ "$sub" = "$n" ] && ok=1; done
+  [ "$ok" = 1 ] || { say "push: bad subdir '$sub'"; FAIL=1; return; }
   if rclone copy --immutable "$src" "$DEST/$sub/" --log-file "$LOG" --log-level INFO; then
     say "$name -> $DEST/$sub/$(basename "$src")"
     item_receipt "$name" true "$sub/$(basename "$src")"
@@ -111,9 +122,14 @@ push() { # <local-file> <remote-subdir> <item-name>
   fi
 }
 
-# 1. client-app dump (already .age)
-gpf=$(ls -1t "$NAS"/client-app/client-app-postgres-*.age 2>/dev/null | head -1)
-[ -n "$gpf" ] && push "$gpf" client-app client-app || { say "client-app: no local archive"; item_receipt client-app false "" "no local archive"; FAIL=1; }
+# 1. each configured store's newest archive (already .age; the glob is relative to source_dir)
+for i in "${!STORE_NAMES[@]}"; do
+  st=${STORE_NAMES[$i]}
+  # shellcheck disable=SC2086  # the glob is meant to expand
+  f=$(ls -1t "$NAS"/${STORE_GLOBS[$i]} 2>/dev/null | head -1)
+  if [ -n "$f" ]; then push "$f" "$st" "$st"
+  else say "$st: no local archive"; item_receipt "$st" false "" "no local archive"; FAIL=1; fi
+done
 
 # 2. secrets bundle (already .age)
 sec=$(ls -1t "$NAS"/_secrets/secrets-*.tar.zst.age 2>/dev/null | head -1)

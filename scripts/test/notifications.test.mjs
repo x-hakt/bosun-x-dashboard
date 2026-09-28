@@ -44,13 +44,13 @@ test("a dismissed notification stays away until its news changes", () => {
 });
 
 test("a resolved notification comes back on the next raise; resolve is by key", () => {
-  let { file } = raise(empty(), { key: "disk:main", title: "Disk 91%", level: "urgent" }, T0);
+  let { file } = raise(empty(), { key: "disk:home-server", title: "Disk 91%", level: "urgent" }, T0);
   let found;
-  ({ file, found } = resolve(file, "disk:main", at(1)));
+  ({ file, found } = resolve(file, "disk:home-server", at(1)));
   assert.equal(found, true);
   assert.equal(file.notifications[0].state, "resolved");
-  assert.equal(resolve(file, "disk:main", at(2)).found, false);
-  ({ file } = raise(file, { key: "disk:main", title: "Disk 91%", level: "urgent" }, at(3)));
+  assert.equal(resolve(file, "disk:home-server", at(2)).found, false);
+  ({ file } = raise(file, { key: "disk:home-server", title: "Disk 91%", level: "urgent" }, at(3)));
   assert.equal(file.notifications[0].state, "open");
 });
 

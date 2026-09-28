@@ -1,4 +1,4 @@
-# The off-site copy of the critical set (optional). the main server-and-NAS-in-one-room
+# The off-site copy of the critical set (optional). Server-and-NAS-in-one-room
 # is a single point of failure; this pushes the few things you can't rebuild to
 # object storage, age-encrypted, after the nightly local backup.
 #
@@ -10,3 +10,7 @@ destination: b2           # id from infra/destinations.yml, kind b2 or s3
 keep_last: 30
 age_recipient: age1exampleexampleexampleexampleexampleexampleexampleexampleex
 data_repo: ~/bosun-x-data
+source_dir: /mnt/nas/Backups   # where the nightly local backups land
+# Stores to copy: the newest already age-encrypted archive of each (glob relative to source_dir).
+stores:
+  - { name: recipes-api, glob: "recipes-api/recipes-api-postgres-*.age" }

@@ -4,7 +4,7 @@ All notable changes to the bosun-x dashboard. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions are the `vX.Y.Z` tags
 that trigger a GHCR image build.
 
-## Unreleased
+## v0.4.0 — 2026-09-28
 
 ### Added
 
@@ -21,9 +21,16 @@ that trigger a GHCR image build.
   a `detail` line (a live figure that updates without reopening a dismissed one).
 - Remote `files` backup stores: a `files` store can now name an `ssh_alias` whose
   forced-command key emits a tar (like remote Postgres stores already did), so media on
-  another host is backed up without giving the main server a shell there.
+  another host is backed up without giving the backup host a shell there.
 
 ### Changed
+
+- Off-site copy: which project stores go off-site is now configuration, `stores:` in
+  `infra/offsite.yml` (name + glob of the newest already-encrypted archive, relative to the new
+  `source_dir`), instead of a store name baked into the script and the Backups page.
+- The activity hook's setup docs describe the generic `activity.local.json` mount mapping
+  (bosun-x 0.3.3) instead of one operator's machines; examples, tests and comments use
+  fictional host names throughout.
 
 - Pirates (BXD-97): the crew are pirates with a look generated from their name and a sash
   in their model's colour; every ship has its own colours and Jolly Roger; commits go up the
