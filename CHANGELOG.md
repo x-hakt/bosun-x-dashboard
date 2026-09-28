@@ -8,11 +8,9 @@ that trigger a GHCR image build.
 
 ### Added
 
-- The town crier (BXD-111): a project can publish a notice (`projects/<slug>/crier.json`: a label,
-  a count of new items, the latest headline, log lines). The crier stands by a notice board in the
-  port's town square, ringing his bell while there is news, and his calls go in the rolling log.
-  Public notices show on the public crew page (headline, no link); the rest stay private. Format:
-  `docs/crier.md`.
+- The town crier (BXD-111): he stands by a notice board in the port's town square calling out how
+  many Needs-you alerts are open ("HEAR YE! 2 NEED YOU"), ringing his bell while any are. A count
+  only, the same on the public crew page.
 
 ## v0.4.1 — 2026-09-28
 
