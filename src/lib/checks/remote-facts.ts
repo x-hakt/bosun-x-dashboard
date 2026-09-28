@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { cached } from "@/lib/util/ttl-cache";
 import type { GitFacts } from "@/lib/types";
 import { loadConfig } from "@/lib/data/config";
+import { isDemo } from "@/lib/demo";
 
 const execFileAsync = promisify(execFile);
 const sshConfigPath = () => loadConfig().sshConfig;
@@ -47,6 +48,7 @@ function parseKV(block: string): Record<string, string> {
 // is NOT a failure — it's a definitive "this path isn't on the allowlist" answer and is
 // cached normally.
 async function fetchRemoteFacts(sshAlias: string, remotePath: string): Promise<RemoteFacts> {
+  if (isDemo()) return EMPTY_REMOTE_FACTS; // BXD-109
   const { stdout } = await execFileAsync(
     "ssh",
     ["-F", sshConfigPath(), "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", sshAlias, remotePath],

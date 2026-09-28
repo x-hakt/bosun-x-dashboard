@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { simpleGit } from "simple-git";
+import { isDemo } from "@/lib/demo";
 import type { GitFacts } from "@/lib/types";
 import { cached } from "@/lib/util/ttl-cache";
 
@@ -9,6 +10,7 @@ const GIT_FACTS_TTL_MS = 20_000;
 // and git-remote-present each do their own lookup) on every /projects navigation —
 // without this, that's 2x the git subprocess spawns for every tracked project, every time.
 export async function getGitFacts(projectPath?: string): Promise<GitFacts> {
+  if (isDemo()) projectPath = undefined; // BXD-109: never run git on this machine for a sample path
   if (!projectPath) return { isRepo: false };
   return cached(`git:${projectPath}`, GIT_FACTS_TTL_MS, () => computeGitFacts(projectPath));
 }

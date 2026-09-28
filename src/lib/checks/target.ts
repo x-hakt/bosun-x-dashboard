@@ -1,6 +1,7 @@
 import { getHost, localHostId } from "@/lib/data/hosts";
 import { resolveHostId } from "@/lib/infra/project-host";
 import type { Project } from "@/lib/types";
+import { isDemo } from "@/lib/demo";
 
 export type CheckTarget =
   | { mode: "local"; path: string }
@@ -17,6 +18,8 @@ export type CheckTarget =
 // own exact path allowlist regardless of what's requested here, so a project whose
 // path isn't covered just gets a clean empty/rejected result, not a wrong one.
 export async function resolveCheckTarget(project: Project): Promise<CheckTarget> {
+  // BXD-109: sample projects' paths are fictional; never probe this machine or SSH for them.
+  if (isDemo()) return { mode: "none" };
   if (project.meta.vendored) return { mode: "none" };
   if (!project.meta.path) return { mode: "none" };
   if (project.meta.host && project.meta.host === (await localHostId())) {

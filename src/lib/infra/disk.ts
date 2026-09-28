@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { isDemo } from "@/lib/demo";
+
 const execFileAsync = promisify(execFile);
 
 export interface DiskUsage {
@@ -12,6 +14,7 @@ export interface DiskUsage {
 }
 
 export async function getDiskUsage(mountPath: string): Promise<DiskUsage | null> {
+  if (isDemo()) return null; // BXD-109
   try {
     const { stdout } = await execFileAsync("df", ["-B1", "--output=size,used,avail,pcent", mountPath]);
     const lines = stdout.trim().split("\n");

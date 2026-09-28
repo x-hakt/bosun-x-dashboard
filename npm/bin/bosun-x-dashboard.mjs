@@ -177,6 +177,9 @@ const child = spawn(process.execPath, [path.join(appDir, "server.js")], {
     HOSTNAME: host,
     AUTH_SECRET: authSecret(),
     AUTH_URL: process.env.AUTH_URL || url,
+    // BXD-109: the demo reads nothing from this machine (no Docker, host stats, SSH or
+    // project folders), and never a receipts folder the shell happens to point at.
+    ...(demo ? { BOSUN_DEMO: "1", BACKUP_RECEIPTS: path.join(dataDir, "_receipts") } : { BOSUN_DEMO: "" }),
   },
 });
 

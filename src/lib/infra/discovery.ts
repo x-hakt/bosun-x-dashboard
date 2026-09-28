@@ -1,3 +1,4 @@
+import { isDemo } from "@/lib/demo";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { load as loadYaml } from "js-yaml";
@@ -80,7 +81,8 @@ async function scanComposeFiles(): Promise<ComposeScanResult> {
   };
 
   const dirs = new Set<string>();
-  for (const root of loadConfig().projectRoots) {
+  // BXD-109: the sample roots (~/stacks) would be this machine's folders; the demo scans none.
+  for (const root of isDemo() ? [] : loadConfig().projectRoots) {
     if (root.endsWith("/*")) {
       const base = root.slice(0, -2);
       try {

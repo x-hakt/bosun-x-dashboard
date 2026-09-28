@@ -4,6 +4,8 @@ import type { ContainerSummary } from "./docker";
 import { cached } from "@/lib/util/ttl-cache";
 import { loadConfig } from "@/lib/data/config";
 import { section, parseHostFigures, parseStatsLines } from "./snapshot-sections.mjs";
+import { isDemo } from "@/lib/demo";
+import { demoSnapshotText } from "./demo-hosts";
 
 const execFileAsync = promisify(execFile);
 
@@ -136,6 +138,12 @@ const sshConfigPath = () => loadConfig().sshConfig;
 // the full TTL. A slow `docker stats` on a loaded remote host is the common cause, and
 // it clears on its own within seconds; a 5-minute stale-empty was not acceptable.
 async function fetchRemoteSnapshot(sshAlias: string, timeoutMs: number): Promise<RemoteSnapshot> {
+  if (isDemo()) {
+    // BXD-109: the sample host, never a real SSH connection.
+    const text = demoSnapshotText(sshAlias);
+    if (!text) throw new Error(`demo: no sample host ${sshAlias}`);
+    return parseSnapshot(text);
+  }
   const { stdout } = await execFileAsync(
     "ssh",
     [

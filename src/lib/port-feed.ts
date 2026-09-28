@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { isDemo } from "@/lib/demo";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -24,6 +25,7 @@ const EVENT_LIMIT = 2000;
 // Commits in each local project's repo since the port window opened. Projects sharing a
 // checkout count it once (the first by slug).
 async function recentCommits(projects: { slug: string; path?: string | null; host?: string | null }[], local: string | undefined, since: number) {
+  if (isDemo()) return []; // BXD-109: sample paths are fictional; never run git here
   const seen = new Set<string>();
   const out: PortSources["commits"] = [];
   for (const p of [...projects].sort((a, b) => a.slug.localeCompare(b.slug))) {

@@ -1,5 +1,6 @@
 import Docker from "dockerode";
 import { cached } from "@/lib/util/ttl-cache";
+import { isDemo } from "@/lib/demo";
 
 export interface ContainerSummary {
   id: string;
@@ -35,6 +36,8 @@ export async function listContainers(): Promise<ContainerSummary[]> {
 }
 
 async function fetchContainers(): Promise<ContainerSummary[]> {
+  // BXD-109: the demo never opens the Docker socket; its containers are the sample host's.
+  if (isDemo()) return (await (await import("./local")).getLocalSnapshot()).containers;
   const docker = getClient();
   const containers = await docker.listContainers({ all: true });
   return containers.map((c) => {

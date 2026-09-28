@@ -3,11 +3,12 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { cached } from "@/lib/util/ttl-cache";
+import { isDemo } from "@/lib/demo";
 
 const execFileAsync = promisify(execFile);
 
 export async function anyFileExists(projectPath: string | undefined, names: string[]): Promise<boolean> {
-  if (!projectPath) return false;
+  if (!projectPath || isDemo()) return false;
   for (const name of names) {
     try {
       await fs.access(path.join(projectPath, name));
@@ -31,7 +32,7 @@ const FACTS_CACHE_TTL_MS = 5 * 60_000;
 // searches only tracked source files and uses Git's index, which is both faster and the
 // correct scope for code-quality facts. Non-repositories return zero and render n/a.
 export async function countTodoFixme(projectPath?: string): Promise<number> {
-  if (!projectPath) return 0;
+  if (!projectPath || isDemo()) return 0;
   return cached(`todo:${projectPath}`, FACTS_CACHE_TTL_MS, async () => {
     try {
       const args = [
@@ -53,7 +54,7 @@ export async function countTodoFixme(projectPath?: string): Promise<number> {
 }
 
 export async function diskUsageBytes(projectPath?: string): Promise<number | undefined> {
-  if (!projectPath) return undefined;
+  if (!projectPath || isDemo()) return undefined;
   return cached(`du:${projectPath}`, FACTS_CACHE_TTL_MS, async () => {
     try {
       const { stdout } = await execFileAsync("du", ["-sb", projectPath]);

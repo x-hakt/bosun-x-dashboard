@@ -3,6 +3,8 @@ import { promisify } from "node:util";
 import { cached } from "@/lib/util/ttl-cache";
 import { parseSnapshot, type RemoteSnapshot } from "./remote";
 import { LOCAL_SNAPSHOT_SCRIPT } from "./snapshot-sections.mjs";
+import { isDemo } from "@/lib/demo";
+import { demoSnapshotText } from "./demo-hosts";
 
 const execFileAsync = promisify(execFile);
 
@@ -19,6 +21,7 @@ export function hostStatsNote(platform: NodeJS.Platform = process.platform): str
 // The command sequence (and why its DISK line differs from the remote script) lives in
 // snapshot-sections.mjs, shared with the host-side capacity sampler (BXD-62).
 async function fetchLocalSnapshot(): Promise<RemoteSnapshot> {
+  if (isDemo()) return parseSnapshot(demoSnapshotText("local") ?? ""); // BXD-109: never this machine
   const statsNote = hostStatsNote();
   try {
     const { stdout } = await execFileAsync("sh", ["-c", LOCAL_SNAPSHOT_SCRIPT], { timeout: 10_000, maxBuffer: 8 * 1024 * 1024 });
