@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { isAllowedEmail, isAuthEnabled } from "@/lib/auth-config";
 import { PORTAL_MODE } from "@/lib/portal/mode";
 import { readActivity } from "@/lib/activity";
-import { assignTask } from "bosun-x/lib/activity.mjs";
+import { assignTask, resolveTaskKey } from "bosun-x/lib/activity.mjs";
 
 export type AssignmentState = { error?: string; success?: string };
 
@@ -22,6 +22,10 @@ export async function assignSessionAction(_previous: AssignmentState, form: Form
   const member = crew.find((entry) => entry.provider === provider && entry.key === `${provider}:${session}`);
   if (!member) return { error: "That session is no longer in the recent activity window." };
   try {
+    const resolved = await resolveTaskKey(task, project);
+    if (member.project === resolved.project && member.task === resolved.task) {
+      return { success: `${resolved.task} is already this session’s current task; nothing changed.` };
+    }
     const assigned = await assignTask({ task, project, provider, session, host: member.host || undefined });
     revalidatePath("/activity");
     return { success: `Assigned ${assigned.task} (${assigned.project}).` };

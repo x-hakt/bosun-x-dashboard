@@ -19,7 +19,7 @@
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "bosun-x": "github:x-hakt/bosun-x#4435cad5356fe0de967f8a0b7e04e7d44d5df27c",
+    "bosun-x": "github:x-hakt/bosun-x#68cff3d5053e9db123e11699d00ed66ee93f3bb7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dockerode": "^5.0.1",

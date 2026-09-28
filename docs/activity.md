@@ -53,6 +53,11 @@ The private `/activity` page shows each session's task and current state. A publ
 crew member appears only while an allowlisted project's signal is fresh. The ship
 still shows approved project task counts while all agents are offline.
 
+When a validated agent event already contains a task and project, Bosun remembers
+that association for the rest of the session. The private roster displays the
+known task and offers **Correct task if wrong**; **Set current task** appears only
+when the task is unknown. Submitting the same task again changes nothing.
+
 ## Scheduled jobs in the port (BXD-94)
 
 Every run of every scheduled job lands in `<receipts>/_jobs/runs.jsonl` (one line per finished run: job, label, family, start, finish, exit; no output), trimmed to the newest 6000 lines once it passes 1.5 MB. The fleet scripts write it through `scripts/lib/job-marker.sh` as before. Any other crontab line gets the same markers by running through the wrapper, which leaves the command and its output alone and exits with its exit code:

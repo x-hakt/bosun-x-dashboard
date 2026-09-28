@@ -48,7 +48,10 @@ export function projectActivity(events: ActivityEvent[], now = Date.now()): Crew
   for (const event of orderEvents(events)) {
     const key = sessionKey(event);
     const member = sessions.get(key) ?? { key, provider: event.provider, project: null, task: null, parent: null, host: null, state: "unknown" as CrewState, lastSeen: event.at, since: event.at, events: 0 };
-    if (event.project) member.project = event.project;
+    if (event.project && event.project !== member.project) {
+      member.project = event.project;
+      member.task = null;
+    }
     if (event.task) member.task = event.task;
     if (event.parent) member.parent = event.parent;
     if (event.host) member.host = event.host;
@@ -134,7 +137,10 @@ export function buildShipLog(events: ActivityEvent[], window: { start: number; e
     let project: string | null = null, task: string | null = null, parent: string | null = null;
     list.forEach((event, i) => {
       const t = Date.parse(event.at);
-      if (event.project) project = event.project;
+      if (event.project && event.project !== project) {
+        project = event.project;
+        task = null;
+      }
       if (event.task) task = event.task;
       if (event.parent) parent = event.parent;
       state = nextState(event.kind, state);

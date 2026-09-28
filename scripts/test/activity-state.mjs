@@ -25,4 +25,8 @@ assert.equal(projectActivity(shuffled.slice(1), Date.parse(at) + 4000)[0].state,
 assert.equal(projectActivity([event("start", "turn_start", 0)], Date.parse(at) + 6 * 60_000)[0].state, "stale");
 assert.equal(projectActivity([event("start", "turn_start", 0)], Date.parse(at) + 61 * 60_000)[0].state, "unknown");
 assert.equal(projectActivity([...shuffled, event("end", "session_end", 4000)], Date.parse(at) + 61 * 60_000)[0].state, "finished");
+const changedProject = { ...event("switch", "turn_start", 5000), project: "planner", task: null };
+const afterSwitch = projectActivity([event("start", "turn_start", 0), changedProject], Date.parse(at) + 6000)[0];
+assert.equal(afterSwitch.project, "planner");
+assert.equal(afterSwitch.task, null, "a task from the former project must not appear current");
 console.log("activity state replay passed");

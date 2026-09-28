@@ -9,10 +9,10 @@ function Submit() {
   return <button type="submit" disabled={pending} className="rounded-md border border-border px-3 py-1.5 text-xs hover:border-primary disabled:opacity-50">{pending ? "Assigning…" : "Assign task"}</button>;
 }
 
-export function ActivityAssignmentForm({ provider, session }: { provider: "codex" | "claude"; session: string }) {
+export function ActivityAssignmentForm({ provider, session, currentTask }: { provider: "codex" | "claude"; session: string; currentTask: string | null }) {
   const [state, action] = useActionState<AssignmentState, FormData>(assignSessionAction, {});
   return <details className="mt-2 text-xs">
-    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Set current task</summary>
+    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">{currentTask ? "Correct task if wrong" : "Set current task"}</summary>
     <form action={action} className="mt-2 flex flex-wrap items-end gap-2">
       <input type="hidden" name="provider" value={provider} />
       <input type="hidden" name="session" value={session} />

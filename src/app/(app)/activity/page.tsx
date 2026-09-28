@@ -76,7 +76,7 @@ export default async function ActivityPage() {
       <div className="grid gap-2">{crew.length ? crew.map((member) => <article key={member.key} className="rounded-lg border border-border bg-card p-3 flex flex-wrap justify-between gap-3">
         <div><strong className="capitalize">{member.provider}</strong> <span className="text-xs text-muted-foreground font-mono">{member.key.split(":")[1].slice(0, 12)}</span>
           <p className="text-sm mt-1">{member.project ? <Link className="underline" href={`/projects/${member.project}`}>{member.project}</Link> : "Unmapped project"}{member.task && member.project ? <> · <Link className="underline" href={`/projects/${member.project}#${member.task}`}>{member.task}</Link></> : null}</p>
-          {(member.provider === "codex" || member.provider === "claude") && <ActivityAssignmentForm provider={member.provider} session={member.key.slice(member.provider.length + 1)} />}</div>
+          {(member.provider === "codex" || member.provider === "claude") && <ActivityAssignmentForm provider={member.provider} session={member.key.slice(member.provider.length + 1)} currentTask={member.task} />}</div>
         <div className="text-right text-sm"><span className={member.state === "needs_approval" ? "text-amber-400" : member.state === "stale" ? "text-muted-foreground" : "text-foreground"}>{member.state.replaceAll("_", " ")}</span>
           <p className="text-xs text-muted-foreground mt-1">Last observed <time dateTime={member.lastSeen}>{new Date(member.lastSeen).toLocaleString("en-AU", { timeZone: "Australia/Sydney" })}</time></p></div>
       </article>) : <p className="text-sm text-muted-foreground">No activity recorded yet. Install a provider hook or use the <code>bosun event</code> command.</p>}</div></section>
