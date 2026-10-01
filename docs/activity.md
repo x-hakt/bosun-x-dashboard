@@ -77,3 +77,9 @@ Every run of every scheduled job lands in `<receipts>/_jobs/runs.jsonl` (one lin
 ## Restore drills in the port (BXD-96)
 
 `scripts/fleet-restore-test.sh` already appends one line per store it tests to `<receipts>/<project>/<store>.restore-log.jsonl` (`store`, `tested_at`, `ok`, plus details), so the port reads that with no new emitter. Each drill is a diver: a hard-hat diver walks from the warehouse to the ship, goes under beside its hull, works along it and climbs back out (one per ship per minute). The ship's log reads "divers checked {ship}'s hull: N backups restored clean"; a failed restore is "divers found a hole in {ship}'s hull" and also rings the office bell. Store names stay on the private log only.
+
+## The press (BXD-96)
+
+The content planner (planner-agent) writes one line to `<receipts>/_events/press.jsonl` for every topic card, social draft and long-form article its Postiz client creates (cron jobs and MCP agents alike), and `planner press scan` (cron, every 15 minutes) adds each post Postiz has published: social posts as `published`, site articles as `site`. Lines carry kind, time, provider and project only; no titles, captions or links. The planner maps Postiz channels to projects; a channel with no ship (a personal account) is printed "in town".
+
+In the port the print shop, THE PRESS, sits down the lane below the town. The printer (paper hat, inky apron) carries a fresh sheet up the lane to the ship for each card, draft or long read; the newsboy (flat cap, satchel) runs papers along the quay for each post that went out, or to the ship for a site article. One walk per ship, kind and minute. The ship's log: "the press set a topic card for {ship}", "the press ran off 3 drafts for {ship}", "the press set a long read for {ship}", "the newsboy cried a new post for {ship}", "a new article went up on {ship}'s notice board".

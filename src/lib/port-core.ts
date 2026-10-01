@@ -14,8 +14,8 @@ import { createHash, createHmac } from "node:crypto";
 import { buildShipLog, nextState, orderEvents, projectActivity, sessionKey, type ActivityEvent, type CrewState, type LogSegment } from "@/lib/activity-state";
 
 export type ShipKind = "project" | "voyage" | "dinghy";
-export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand" | "refit" | "leak" | "dive";
-export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand" | "logbook" | "refit" | "leak" | "dive" | "hole";
+export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand" | "refit" | "leak" | "dive" | "press" | "newsboy";
+export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand" | "logbook" | "refit" | "leak" | "dive" | "hole" | "card" | "draft" | "article" | "posted" | "notice";
 
 export interface PortShip {
   key: string;
@@ -116,6 +116,9 @@ export interface PortSources {
   refits: { project: string; at: string; id: string; action: "start" | "crash"; container: string }[];
   // BXD-96: backup restore drills (fleet-restore-test.sh), one per store tested.
   dives?: { project: string; at: string; id: string; store: string; ok: boolean }[];
+  // BXD-96 the press: what the content planner made (cards, drafts, articles) and what went out
+  // (social posts, site articles). Project may be null (a channel with no ship).
+  press?: { project: string | null; at: string; id: string; kind: "card" | "draft" | "article" | "published" | "site"; provider: string | null }[];
   // BXD-111: how many Needs-you alerts are open (the Overview badge). A count only, on both pages.
   needsYou: number;
 }
@@ -192,6 +195,11 @@ const PLURAL: Partial<Record<EntryKind, (n: number) => string>> = {
   leak: (n) => `{ship} sprang ${n} leaks: services fell over and were restarted`,
   dive: (n) => `divers checked {ship}'s hull: ${n} backups restored clean`,
   hole: (n) => `divers found ${n} holes in {ship}'s hull: backups failed their restore test`,
+  card: (n) => `the press set ${n} topic cards for {ship}`,
+  draft: (n) => `the press ran off ${n} drafts for {ship}`,
+  article: (n) => `the press set ${n} long reads for {ship}`,
+  posted: (n) => `the newsboy cried ${n} new posts for {ship}`,
+  notice: (n) => `${n} new articles went up on {ship}'s notice board`,
 };
 const LOGBOOK: Record<string, string> = { start: "opened {ship}'s log for a new watch", checkpoint: "signed {ship}'s log", finish: "closed {ship}'s log for the watch" };
 const AGENT = (a: string) => (/^claude/i.test(a) ? "Claude" : /^codex/i.test(a) ? "Codex" : "The crew");
@@ -238,7 +246,9 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   };
   for (const e of src.events) touch(e.project, e.at);
   const dives = src.dives ?? [];
+  const press = src.press ?? [];
   for (const list of [src.commits, src.deliveries, src.carts, src.logbook, src.refits, dives]) for (const h of list) touch(h.project, h.at);
+  for (const p of press) touch(p.project, p.at);
 
   // ---- every project is a ship (BXD-90); private = slug, public = alias or numbered voyage.
   // Voyages are numbered in an order that reveals nothing (by keyed hash of the slug).
@@ -308,6 +318,17 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     diveSeen.add(key);
     raw.push({ id: d.id, kind: "dive", at: d.at, project: d.project, detail: `restore test ${d.store}${d.ok ? " passed" : " FAILED"}`, ok: d.ok });
   }
+  // BXD-96 the press: the printer carries a sheet up for things made, the newsboy runs papers
+  // for things that went out. One walk per ship, kind of walk and minute.
+  const pressSeen = new Set<string>();
+  for (const p of press) {
+    if (!inWindow(p.at, HAPPENING_WINDOW_MS)) continue;
+    const kind: HappeningKind = p.kind === "published" || p.kind === "site" ? "newsboy" : "press";
+    const key = `${p.project}|${kind}|${minute(Date.parse(p.at))}`;
+    if (pressSeen.has(key)) continue;
+    pressSeen.add(key);
+    raw.push({ id: p.id, kind, at: p.at, project: p.project, detail: `${p.kind}${p.provider ? ` on ${p.provider}` : ""}` });
+  }
   const errandFor = new Map<string, PortSources["errands"][number]>();
   for (const e of thinRuns(src.errands.filter((x) => inWindow(x.at, HAPPENING_WINDOW_MS)), ERRAND_WALK_GAP_MS)) errandFor.set(e.job, e); // oldest first: the latest wins
   for (const e of errandFor.values()) raw.push({ id: e.id, kind: "errand", at: e.at, detail: `${e.label}${e.ok ? "" : " failed"}`, errand: e });
@@ -323,7 +344,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     .map((h) => {
       const out: Happening = { id: hmac(h.id), kind: h.kind, at: time(h.at) };
       if (h.kind !== "tide" && h.kind !== "errand") out.ship = shipKey(h.project ?? null);
-      if (h.kind === "cargo" || h.kind === "cart" || h.kind === "delivery" || h.kind === "refit" || h.kind === "dive") out.who = dockhandName(h.id);
+      if (h.kind === "cargo" || h.kind === "cart" || h.kind === "delivery" || h.kind === "refit" || h.kind === "dive" || h.kind === "press" || h.kind === "newsboy") out.who = dockhandName(h.id);
       if (h.kind === "dive") out.ok = h.ok !== false;
       if (h.errand) {
         out.who = errandName(h.errand.job, h.errand.family, watch);
@@ -385,6 +406,19 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   for (const d of dives) {
     if (d.ok) addEntry(d.id, d.at, "dive", "", "divers checked {ship}'s hull: a backup restored clean", d.project, `restore test ${d.store} passed`);
     else addEntry(d.id, d.at, "hole", "", "divers found a hole in {ship}'s hull: a backup failed its restore test", d.project, `restore test ${d.store} FAILED`);
+  }
+  const PRESS_LINE: Record<string, [EntryKind, string]> = {
+    card: ["card", "the press set a topic card for {ship}"],
+    draft: ["draft", "the press ran off a draft for {ship}"],
+    article: ["article", "the press set a long read for {ship}"],
+    published: ["posted", "the newsboy cried a new post for {ship}"],
+    site: ["notice", "a new article went up on {ship}'s notice board"],
+  };
+  for (const p of press) {
+    const [kind, shipAction] = PRESS_LINE[p.kind] ?? PRESS_LINE.draft;
+    // A channel with no ship (a personal account) is printed "in town".
+    const action = p.project ? shipAction : shipAction.replace(" for {ship}", " in town").replace(" on {ship}'s notice board", " on the town notice board");
+    addEntry(p.id, p.at, kind, "", action, p.project, `${p.kind}${p.provider ? ` on ${p.provider}` : ""}`);
   }
   for (const e of thinRuns(src.errands, ERRAND_LOG_GAP_MS)) {
     const t = trade(e.family);

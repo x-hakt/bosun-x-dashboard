@@ -126,6 +126,31 @@ async function recentDives(since: number): Promise<NonNullable<PortSources["dive
   return all.filter((d) => Date.parse(d.at) >= since);
 }
 
+// BXD-96 the press: lines the content planner appends to <receipts>/_events/press.jsonl.
+async function recentPress(since: number): Promise<NonNullable<PortSources["press"]>> {
+  if (isDemo()) return [];
+  const lines = await cached("port:press", 60_000, async () => {
+    try {
+      return (await fs.readFile(path.join(receiptsDir(), "_events", "press.jsonl"), "utf8")).split("\n").slice(-4000);
+    } catch {
+      return [];
+    }
+  });
+  const kinds = new Set(["card", "draft", "article", "published", "site"]);
+  const out: NonNullable<PortSources["press"]> = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const e = JSON.parse(line) as { at?: string; kind?: string; project?: string | null; provider?: string | null; id?: string };
+      if (!e.at || !(Date.parse(e.at) >= since) || !e.kind || !kinds.has(e.kind)) continue;
+      out.push({ project: e.project ?? null, at: new Date(e.at).toISOString(), id: `press:${e.id ?? `${e.kind}:${e.at}`}`, kind: e.kind as NonNullable<PortSources["press"]>[number]["kind"], provider: e.provider ?? null });
+    } catch {
+      /* a torn line is skipped */
+    }
+  }
+  return out;
+}
+
 async function gatherSources(): Promise<PortSources> {
   const now = Date.now();
   const [{ events }, projects, jobs, runs, history, carts, local] = await Promise.all([
@@ -146,6 +171,7 @@ async function gatherSources(): Promise<PortSources> {
   for (const p of projects) for (const c of [p.meta.container, ...(p.meta.containers ?? [])]) if (c?.compose_service && !owners.has(c.compose_service)) owners.set(c.compose_service, p.meta.slug);
   const refits = await recentRefits(owners, now - LOG_WINDOW_MS);
   const dives = await recentDives(now - LOG_WINDOW_MS);
+  const press = await recentPress(now - LOG_WINDOW_MS);
   const needsYou = (await openNotifications()).length;
   const commits = await recentCommits(projects.map((p) => ({ slug: p.meta.slug, path: p.meta.path, host: p.meta.host })), local, now - IN_PORT_MS);
   const deliveries: PortSources["deliveries"] = projects.flatMap((p, i) => boards[i]
@@ -188,6 +214,7 @@ async function gatherSources(): Promise<PortSources> {
     logbook,
     refits,
     dives,
+    press,
     needsYou,
   };
 }

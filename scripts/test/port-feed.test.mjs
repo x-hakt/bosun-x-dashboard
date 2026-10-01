@@ -74,6 +74,13 @@ const sources = (now = NOW) => ({
     { project: "secret-client", at: iso(8, 20), id: "secret-client/secret-files:restore:1", store: "secret-files", ok: true },
     { project: "bosun-x", at: iso(5), id: "bosun-x/secret-dump:restore:1", store: "secret-dump", ok: false },
   ],
+  press: [
+    { project: "secret-client", at: iso(11, 1), id: "press:draft:secret-channel:1", kind: "draft", provider: "secretbook" },
+    { project: "secret-client", at: iso(11, 20), id: "press:draft:secret-channel:2", kind: "draft", provider: "secretbook" },
+    { project: "bosun-x", at: iso(9), id: "press:card:1", kind: "card", provider: "wordpress" },
+    { project: "bosun-x", at: iso(4), id: "press:postiz:secret-post-id", kind: "published", provider: "secretgram" },
+    { project: null, at: iso(2), id: "press:postiz:secret-personal", kind: "published", provider: "secretgram" },
+  ],
   needsYou: 2,
 });
 const publicOpts = { publicView: true, approved: [{ slug: "bosun-x", alias: "Bosun CLI" }], secret: "test-secret" };
@@ -81,7 +88,7 @@ const publicOpts = { publicView: true, approved: [{ slug: "bosun-x", alias: "Bos
 const SECRETS = ["secret-client", "Secret Client", "another-private", "Another Private", "sess-very-secret", "home-secret-host", "SC-4", "BX-12",
   "deadbeef", "0123456789abcdef", "task-uuid-secret", "secret-db", "evt-secret", "fleet-backup", "/projects/", "bosun-x CLI",
   "jellyfin", "Jellyfin", "secret-sync", "Secret user sync", "secret checkpoint", "public-ish", "secret-web", "secret-worker", "bosunx-app",
-  "secret-vault", "secret-files", "secret-dump"];
+  "secret-vault", "secret-files", "secret-dump", "secretbook", "secretgram", "secret-channel", "secret-post-id", "secret-personal"];
 
 // Every key path allowed in the public JSON (arrays collapse to []).
 const ALLOWED = new Set([
@@ -306,4 +313,21 @@ test("restore drills are divers: clean ones merged per ship and minute, a failur
   const priv = buildPortFeed(sources(), { publicView: false });
   assert.ok(priv.entries.some((e) => e.kind === "hole" && e.detail === "restore test secret-dump FAILED"));
   assert.deepEqual(buildPortFeed({ ...sources(), dives: undefined }, publicOpts).entries.filter((e) => e.kind === "dive" || e.kind === "hole"), []);
+});
+
+// ---- BXD-96: the press
+test("the press: drafts merge per ship and minute, posts go out with the newsboy, no ship means in town", () => {
+  const feed = buildPortFeed(sources(), publicOpts);
+  const drafts = feed.entries.filter((e) => e.kind === "draft");
+  assert.equal(drafts.length, 1);
+  assert.match(drafts[0].action, /ran off 2 drafts/);
+  assert.equal(feed.entries.filter((e) => e.kind === "card").length, 1);
+  const posted = feed.entries.filter((e) => e.kind === "posted");
+  assert.equal(posted.length, 2);
+  assert.ok(posted.some((e) => e.action === "the newsboy cried a new post in town"));
+  const kinds = feed.happenings.filter((h) => h.kind === "press" || h.kind === "newsboy").map((h) => h.kind).sort();
+  assert.deepEqual(kinds, ["newsboy", "newsboy", "press", "press"]);
+  const priv = buildPortFeed(sources(), { publicView: false });
+  assert.ok(priv.entries.some((e) => e.kind === "draft" && String(e.detail).includes("on secretbook")));
+  assert.deepEqual(buildPortFeed({ ...sources(), press: undefined }, publicOpts).entries.filter((e) => ["card", "draft", "article", "posted", "notice"].includes(e.kind)), []);
 });

@@ -6,7 +6,7 @@ import { strumpetsFor, type StrumpetLook } from "@/lib/port-folk";
 import { clockText, entryText, PORT_TZ, shipNameOf } from "@/lib/port-text";
 import type { Pose } from "@/lib/crew-scene";
 import {
-  assignSpots, cameraFor, DINGHY, errandRoute, HARBOUR_CAMERA, layoutBerths, OFFICE_DOOR, planWalk, pointOf, PORT_H, PORT_W, QUAY_Y, TAVERN_DOOR, TIDE_GAUGE, WAREHOUSE_DOOR, WATERLINE,
+  assignSpots, cameraFor, DINGHY, errandRoute, HARBOUR_CAMERA, layoutBerths, OFFICE_DOOR, planWalk, pointOf, PORT_H, PORT_W, QUAY_Y, TAVERN_DOOR, TIDE_GAUGE, WAREHOUSE_DOOR, WATERLINE, PRESS_DOOR, PRESS_LANE,
   type Berth, type Camera, type Point, type Spot,
   errandTrail, ERRAND_COAT,
 } from "@/lib/port-layout";
@@ -25,7 +25,7 @@ const WALK = 72; // viewBox units per second
 const REPLAY_MS = 10 * 60_000; // on first load, replay the last ten minutes of errands
 const MAX_ERRANDS = 4;
 
-type Folk = "sailor" | "dockhand" | "master" | "strumpet" | "diver";
+type Folk = "sailor" | "dockhand" | "master" | "strumpet" | "diver" | "printer" | "newsboy";
 type Step = Point & { then?: () => void };
 interface Sprite {
   id: string;
@@ -39,7 +39,7 @@ interface Sprite {
   spot?: Spot;
   sailor?: PortSailor;
   name?: string;
-  carry?: "crate" | "barrels" | null;
+  carry?: "crate" | "barrels" | "papers" | null;
   cart?: boolean;
   leaving?: boolean;
   wait?: number;
@@ -129,6 +129,9 @@ function Person({ folk, coat, pose, carry, cart, look }: { folk: Folk; coat: str
       <rect x={1} y={-15.4} width={1} height={1} fill={dark} />
       {folk === "dockhand" && <rect x={-3.2} y={-17.6} width={6.4} height={1.6} fill="#b8322f" />}
       {folk === "master" && <g><rect x={-3.6} y={-19} width={7.2} height={2.2} fill="#1d2d44" /><rect x={-1} y={-18.6} width={2} height={1} fill="#d9b35f" /></g>}
+      {folk === "printer" && <g><rect x={-3} y={-11} width={6} height={6} fill="#efe7d6" /><rect x={-1.5} y={-9} width={1.4} height={1.2} fill="#2a2a2a" /><path d="M-3.6 -17 L0 -21.5 L3.6 -17 Z" fill="#efe7d6" stroke="#b9ab8c" strokeWidth={0.4} /></g>}
+      {folk === "newsboy" && <g><rect x={-3.6} y={-18.4} width={7.6} height={2} fill="#6b4a2e" /><rect x={2.6} y={-17.6} width={2.6} height={1} fill="#6b4a2e" /><rect x={-5} y={-11} width={2} height={6} fill="#a07a4a" /><line x1={-4} y1={-12} x2={3} y2={-6} stroke="#5a3b2a" strokeWidth={0.8} /></g>}
+      {carry === "papers" && <g><rect x={3} y={-15} width={7} height={5} fill="#f4f1e8" stroke="#8d8676" strokeWidth={0.5} /><line x1={4} y1={-13.4} x2={9} y2={-13.4} stroke="#8d8676" strokeWidth={0.5} /><line x1={4} y1={-11.8} x2={8} y2={-11.8} stroke="#8d8676" strokeWidth={0.5} /></g>}
       {lifting && <rect x={-5} y={-25} width={10} height={7} fill="#a0703f" stroke="#5a3b2a" strokeWidth={0.6} />}
     </g>
   );
@@ -534,6 +537,21 @@ function Town({ phase, bell, lamp }: { phase: ReturnType<typeof phaseAt>; bell: 
         <rect x={-5} y={-2} width={10} height={3} fill="#4a3322" />
         {lamp && <g><circle cx={0} cy={-44} r={11} className="port-lamp-glow" /><circle cx={0} cy={-44} r={5} className="port-lamp" /></g>}
       </g>
+      {/* BXD-96: the print shop, down the lane below the town */}
+      <g>
+        <path d={`M${PRESS_DOOR.x - 6} ${PRESS_DOOR.y} Q230 618 ${PRESS_LANE[0].x} ${PRESS_LANE[0].y} Q330 560 ${PRESS_LANE[1].x} ${PRESS_LANE[1].y} L${PRESS_LANE[2].x} ${PRESS_LANE[2].y + 2}`} stroke="#7d7368" strokeWidth={10} fill="none" strokeLinecap="round" opacity={0.7} />
+        <rect x={74} y={562} width={156} height={84} fill="#c9b48e" />
+        <rect x={74} y={562} width={156} height={7} fill="#8a7550" />
+        <path d="M66 564 L152 528 L238 564 Z" fill="#4a5a6a" />
+        <rect x={196} y={532} width={10} height={20} fill="#4a5a6a" />
+        <g className="port-smoke"><circle cx={201} cy={524} r={5} /><circle cx={206} cy={508} r={7} /></g>
+        <rect x={88} y={594} width={36} height={26} fill={win} />
+        <g fill="#3a3a3a" opacity={lit ? 0.55 : 0.85}><rect x={94} y={606} width={24} height={8} /><circle cx={100} cy={604} r={4} /><circle cx={112} cy={604} r={4} /></g>
+        <rect x={180} y={594} width={34} height={26} fill={win} />
+        <rect x={PRESS_DOOR.x - 11} y={600} width={22} height={46} fill="#5a3b2a" />
+        <rect x={PRESS_DOOR.x - 11} y={600} width={22} height={3} fill="#d9b35f" opacity={0.6} />
+        <Sign x={152} y={578} lines={["THE PRESS"]} size={10} maxWidth={120} />
+      </g>
       {/* stairs down to the rowing boat */}
       <g fill="#6e4a2e">{Array.from({ length: 10 }, (_, i) => <rect key={i} x={DINGHY.stairsX - 8 + i * 7} y={494 + i * 11} width={20} height={5} />)}</g>
     </g>
@@ -703,11 +721,37 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       setClock(Date.now());
       if (reduced) { world.queue.splice(0); return; }
       const map = world.sprites;
-      const busy = [...map.values()].filter((sp) => sp.folk === "dockhand" || sp.folk === "diver").length;
+      const busy = [...map.values()].filter((sp) => sp.folk === "dockhand" || sp.folk === "diver" || sp.folk === "printer" || sp.folk === "newsboy").length;
       const h = world.queue[0];
       if (!h) return;
       const route = (kind: "cargo" | "delivery" | "cart" | "tide") => errandRoute(kind, berthsRef.current, h.ship);
       if (h.kind === "bell" || h.kind === "leak") { world.queue.shift(); setBellUntil(Date.now() + 3000); return; } // BXD-105: a crash rings the bell too
+      if (h.kind === "press" || h.kind === "newsboy") {
+        // BXD-96 the press. The printer carries a fresh sheet up to the ship for a card, draft or
+        // long read; the newsboy runs papers along the quay for a post that went out, or to the
+        // ship for a site article. Ships out in the bay (or none) get theirs at the quay's end.
+        if (busy >= MAX_ERRANDS) return;
+        world.queue.shift();
+        const b = berthsRef.current.find((x) => x.key === h.ship && !x.moored);
+        const door = { ...PRESS_DOOR, s: 1 };
+        const lane = PRESS_LANE.map((p) => ({ ...p, s: 1 }));
+        const runner = h.kind === "newsboy";
+        const id = `press-${h.id}`;
+        const sp: Sprite = { id, folk: runner ? "newsboy" : "printer", ...door, facing: 1, path: [], pose: "rest",
+          coat: runner ? "#3d5a7a" : "#6a5a4a", carry: "papers", name: h.who,
+          errand: runner ? "crying a new post that just went out" : "carrying a fresh sheet from the press" };
+        const dest = b ? { ...b.plankFoot, s: 1 } : { x: runner ? 1380 : 900, y: QUAY_Y, s: 1 };
+        sp.path = [
+          ...lane,
+          { ...dest, then: () => { sp.carry = runner && !b ? "papers" : null; bump(); } },
+          ...(runner && b ? [{ x: Math.min(1500, dest.x + 120), y: QUAY_Y, s: 1 }, { ...dest }] : []),
+          ...[...lane].reverse(),
+          { ...door, then: () => { map.delete(id); bump(); } },
+        ];
+        map.set(id, sp);
+        bump();
+        return;
+      }
       if (h.kind === "dive") {
         // BXD-96: a restore drill. A diver walks out to the ship, goes under beside the hull,
         // works along it and climbs back out. A failed restore also rings the bell.
@@ -828,7 +872,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
         const dx = next.x - sp.x;
         const dy = next.y - sp.y;
         const dist = Math.hypot(dx, dy);
-        const speed = WALK * (sp.folk === "strumpet" ? 0.4 : sp.cart ? 0.7 : sp.sailor?.sub ? 1.35 : 1) * Math.max(0.5, sp.s);
+        const speed = WALK * (sp.folk === "strumpet" ? 0.4 : sp.cart ? 0.7 : sp.folk === "newsboy" ? 1.6 : sp.sailor?.sub ? 1.35 : 1) * Math.max(0.5, sp.s);
         if (Math.abs(dx) > 0.5) sp.facing = dx > 0 ? 1 : -1;
         if (dist <= speed * dt) {
           sp.x = next.x; sp.y = next.y; sp.s = next.s;
@@ -879,7 +923,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       ? <Sailor pose={pose} coat={coatFor(m.provider)} sub={m.sub} look={lookFor(m.name, m.sub)} carry={sp.carry === "crate"} />
       : <Person folk={sp.folk} coat={sp.coat ?? "#777"} hair={sp.hair} pose={pose} carry={sp.carry} cart={sp.cart} look={sp.look} />;
     const tip = m ? `${m.name} (${m.provider}) · ${labels[m.state]} · ${shipsByKey.get(m.ship)?.name ?? ""}${m.detail ? ` · ${m.detail}` : ""}`
-      : sp.folk === "dockhand" || sp.folk === "diver" ? `${sp.name ?? "A dockhand"} on a real errand${sp.errand ? `: ${sp.errand}` : ""}` : sp.folk === "master" ? "The shipwright (every 5-minute tide reading he lights the pole's lamp, or takes it down)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
+      : sp.folk === "dockhand" || sp.folk === "diver" || sp.folk === "printer" || sp.folk === "newsboy" ? `${sp.name ?? "A dockhand"} on a real errand${sp.errand ? `: ${sp.errand}` : ""}` : sp.folk === "master" ? "The shipwright (every 5-minute tide reading he lights the pole's lamp, or takes it down)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
     const inner = (
       <g
         ref={(el) => { if (el) { els.current.set(sp.id, el); place(sp); } else els.current.delete(sp.id); }}
