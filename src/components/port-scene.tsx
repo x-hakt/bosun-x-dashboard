@@ -6,7 +6,7 @@ import { strumpetsFor, type StrumpetLook } from "@/lib/port-folk";
 import { clockText, entryText, PORT_TZ, shipNameOf } from "@/lib/port-text";
 import type { Pose } from "@/lib/crew-scene";
 import {
-  assignSpots, cameraFor, DINGHY, errandRoute, HARBOUR_CAMERA, layoutBerths, OFFICE_DOOR, planWalk, pointOf, PORT_H, PORT_W, QUAY_Y, TAVERN_DOOR, TIDE_GAUGE, WATERLINE,
+  assignSpots, cameraFor, DINGHY, errandRoute, HARBOUR_CAMERA, layoutBerths, OFFICE_DOOR, planWalk, pointOf, PORT_H, PORT_W, QUAY_Y, TAVERN_DOOR, TIDE_GAUGE, WAREHOUSE_DOOR, WATERLINE,
   type Berth, type Camera, type Point, type Spot,
   errandTrail, ERRAND_COAT,
 } from "@/lib/port-layout";
@@ -25,7 +25,7 @@ const WALK = 72; // viewBox units per second
 const REPLAY_MS = 10 * 60_000; // on first load, replay the last ten minutes of errands
 const MAX_ERRANDS = 4;
 
-type Folk = "sailor" | "dockhand" | "master" | "strumpet";
+type Folk = "sailor" | "dockhand" | "master" | "strumpet" | "diver";
 type Step = Point & { then?: () => void };
 interface Sprite {
   id: string;
@@ -108,6 +108,7 @@ function Person({ folk, coat, pose, carry, cart, look }: { folk: Folk; coat: str
   const walking = pose === "walk";
   const lifting = carry === "crate" && !cart;
   if (folk === "strumpet" && look) return <Strumpet look={look} walking={walking} />;
+  if (folk === "diver") return <Diver walking={walking} />;
   return (
     <g shapeRendering="crispEdges">
       {cart && (
@@ -129,6 +130,23 @@ function Person({ folk, coat, pose, carry, cart, look }: { folk: Folk; coat: str
       {folk === "dockhand" && <rect x={-3.2} y={-17.6} width={6.4} height={1.6} fill="#b8322f" />}
       {folk === "master" && <g><rect x={-3.6} y={-19} width={7.2} height={2.2} fill="#1d2d44" /><rect x={-1} y={-18.6} width={2} height={1} fill="#d9b35f" /></g>}
       {lifting && <rect x={-5} y={-25} width={10} height={7} fill="#a0703f" stroke="#5a3b2a" strokeWidth={0.6} />}
+    </g>
+  );
+}
+
+// BXD-96: a hard-hat diver for restore drills: brass helmet with a round faceplate, canvas suit.
+function Diver({ walking }: { walking: boolean }) {
+  return (
+    <g shapeRendering="crispEdges">
+      <g className={walking ? "crew-leg-a" : undefined}><rect x={-3} y={-5} width={2.6} height={4} fill="#3f4a52" /></g>
+      <g className={walking ? "crew-leg-b" : undefined}><rect x={0.4} y={-5} width={2.6} height={4} fill="#3f4a52" /></g>
+      <rect x={-4.5} y={-13} width={9} height={8} fill="#8b8f86" />
+      <rect x={-5.5} y={-12} width={1.8} height={5} fill="#8b8f86" />
+      <rect x={3.7} y={-12} width={1.8} height={5} fill="#8b8f86" />
+      <rect x={-4.5} y={-14} width={9} height={1.6} fill="#a8742c" />
+      <circle cx={0} cy={-18.5} r={4.6} fill="#c7922f" stroke="#7a5418" strokeWidth={0.6} shapeRendering="auto" />
+      <circle cx={1} cy={-18.5} r={2.2} fill="#9fc6d6" stroke="#7a5418" strokeWidth={0.5} shapeRendering="auto" />
+      <rect x={-0.6} y={-23.6} width={1.2} height={1.4} fill="#7a5418" />
     </g>
   );
 }
@@ -685,11 +703,39 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       setClock(Date.now());
       if (reduced) { world.queue.splice(0); return; }
       const map = world.sprites;
-      const busy = [...map.values()].filter((sp) => sp.folk === "dockhand").length;
+      const busy = [...map.values()].filter((sp) => sp.folk === "dockhand" || sp.folk === "diver").length;
       const h = world.queue[0];
       if (!h) return;
       const route = (kind: "cargo" | "delivery" | "cart" | "tide") => errandRoute(kind, berthsRef.current, h.ship);
       if (h.kind === "bell" || h.kind === "leak") { world.queue.shift(); setBellUntil(Date.now() + 3000); return; } // BXD-105: a crash rings the bell too
+      if (h.kind === "dive") {
+        // BXD-96: a restore drill. A diver walks out to the ship, goes under beside the hull,
+        // works along it and climbs back out. A failed restore also rings the bell.
+        if (busy >= MAX_ERRANDS) return;
+        world.queue.shift();
+        if (h.ok === false) setBellUntil(Date.now() + 3000);
+        const b = berthsRef.current.find((x) => x.key === h.ship && !x.moored);
+        const home = { ...WAREHOUSE_DOOR, s: 1 };
+        const edge = b ? { ...b.plankFoot, s: 1 } : { x: 900, y: QUAY_Y, s: 1 };
+        const below = b ? b.waterline + 16 : QUAY_Y + 40;
+        const cx = b ? b.cx : 900;
+        const span = 34 * (b?.scale ?? 1);
+        const id = `diver-${h.id}`;
+        const diver: Sprite = { id, folk: "diver", ...home, facing: 1, path: [], pose: "rest", name: h.who,
+          errand: h.ok === false ? "a restore drill: a backup failed to restore" : "a restore drill: checking a backup restores" };
+        diver.path = [
+          edge,
+          { x: cx - span, y: below, s: 0.9 },
+          { x: cx, y: below + 4, s: 0.9 },
+          { x: cx + span, y: below, s: 0.9 },
+          { x: cx - span * 0.4, y: below + 3, s: 0.9 },
+          edge,
+          { ...home, then: () => { map.delete(id); bump(); } },
+        ];
+        map.set(id, diver);
+        bump();
+        return;
+      }
       if (h.kind === "tide") {
         const master = map.get("master")!;
         if (master.path.length) return;
@@ -833,7 +879,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       ? <Sailor pose={pose} coat={coatFor(m.provider)} sub={m.sub} look={lookFor(m.name, m.sub)} carry={sp.carry === "crate"} />
       : <Person folk={sp.folk} coat={sp.coat ?? "#777"} hair={sp.hair} pose={pose} carry={sp.carry} cart={sp.cart} look={sp.look} />;
     const tip = m ? `${m.name} (${m.provider}) · ${labels[m.state]} · ${shipsByKey.get(m.ship)?.name ?? ""}${m.detail ? ` · ${m.detail}` : ""}`
-      : sp.folk === "dockhand" ? `${sp.name ?? "A dockhand"} on a real errand${sp.errand ? `: ${sp.errand}` : ""}` : sp.folk === "master" ? "The shipwright (every 5-minute tide reading he lights the pole's lamp, or takes it down)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
+      : sp.folk === "dockhand" || sp.folk === "diver" ? `${sp.name ?? "A dockhand"} on a real errand${sp.errand ? `: ${sp.errand}` : ""}` : sp.folk === "master" ? "The shipwright (every 5-minute tide reading he lights the pole's lamp, or takes it down)" : `${sp.name ?? "A strumpet"}, working the street outside the whorehouse (scenery)`;
     const inner = (
       <g
         ref={(el) => { if (el) { els.current.set(sp.id, el); place(sp); } else els.current.delete(sp.id); }}

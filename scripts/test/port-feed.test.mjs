@@ -69,13 +69,19 @@ const sources = (now = NOW) => ({
     { project: "secret-client", at: iso(6, 20), id: "secret-worker:start:1", action: "start", container: "secret-worker" },
     { project: "bosun-x", at: iso(3), id: "bosunx-app:crash:1", action: "crash", container: "bosunx-app" },
   ],
+  dives: [
+    { project: "secret-client", at: iso(8, 1), id: "secret-client/secret-vault:restore:1", store: "secret-vault", ok: true },
+    { project: "secret-client", at: iso(8, 20), id: "secret-client/secret-files:restore:1", store: "secret-files", ok: true },
+    { project: "bosun-x", at: iso(5), id: "bosun-x/secret-dump:restore:1", store: "secret-dump", ok: false },
+  ],
   needsYou: 2,
 });
 const publicOpts = { publicView: true, approved: [{ slug: "bosun-x", alias: "Bosun CLI" }], secret: "test-secret" };
 
 const SECRETS = ["secret-client", "Secret Client", "another-private", "Another Private", "sess-very-secret", "home-secret-host", "SC-4", "BX-12",
   "deadbeef", "0123456789abcdef", "task-uuid-secret", "secret-db", "evt-secret", "fleet-backup", "/projects/", "bosun-x CLI",
-  "jellyfin", "Jellyfin", "secret-sync", "Secret user sync", "secret checkpoint", "public-ish", "secret-web", "secret-worker", "bosunx-app"];
+  "jellyfin", "Jellyfin", "secret-sync", "Secret user sync", "secret checkpoint", "public-ish", "secret-web", "secret-worker", "bosunx-app",
+  "secret-vault", "secret-files", "secret-dump"];
 
 // Every key path allowed in the public JSON (arrays collapse to []).
 const ALLOWED = new Set([
@@ -285,4 +291,19 @@ test("the town crier (BXD-111): the open Needs-you count, the same on both pages
   assert.equal(buildPortFeed(sources(), publicOpts).needsYou, 2);
   assert.equal(buildPortFeed(sources(), { publicView: false }).needsYou, 2);
   assert.equal(buildPortFeed({ ...sources(), needsYou: undefined }, { publicView: false }).needsYou, 0);
+});
+
+// ---- BXD-96: restore drills are divers
+test("restore drills are divers: clean ones merged per ship and minute, a failure is a hole", () => {
+  const feed = buildPortFeed(sources(), publicOpts);
+  const dive = feed.entries.filter((e) => e.kind === "dive");
+  assert.equal(dive.length, 1, "two stores of one ship in one minute read as one line");
+  assert.match(dive[0].action, /2 backups restored clean/);
+  assert.equal(feed.entries.filter((e) => e.kind === "hole").length, 1);
+  const divers = feed.happenings.filter((h) => h.kind === "dive");
+  assert.deepEqual(divers.map((h) => h.ok).sort(), [false, true]);
+  assert.ok(divers.every((h) => h.who && !("detail" in h)));
+  const priv = buildPortFeed(sources(), { publicView: false });
+  assert.ok(priv.entries.some((e) => e.kind === "hole" && e.detail === "restore test secret-dump FAILED"));
+  assert.deepEqual(buildPortFeed({ ...sources(), dives: undefined }, publicOpts).entries.filter((e) => e.kind === "dive" || e.kind === "hole"), []);
 });

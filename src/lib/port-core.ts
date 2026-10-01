@@ -14,8 +14,8 @@ import { createHash, createHmac } from "node:crypto";
 import { buildShipLog, nextState, orderEvents, projectActivity, sessionKey, type ActivityEvent, type CrewState, type LogSegment } from "@/lib/activity-state";
 
 export type ShipKind = "project" | "voyage" | "dinghy";
-export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand" | "refit" | "leak";
-export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand" | "logbook" | "refit" | "leak";
+export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand" | "refit" | "leak" | "dive";
+export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand" | "logbook" | "refit" | "leak" | "dive" | "hole";
 
 export interface PortShip {
   key: string;
@@ -114,6 +114,8 @@ export interface PortSources {
   logbook: { project: string; at: string; id: string; kind: "start" | "checkpoint" | "finish"; agent: string; work: string }[];
   // BXD-105: container starts and crashes, already mapped to projects.
   refits: { project: string; at: string; id: string; action: "start" | "crash"; container: string }[];
+  // BXD-96: backup restore drills (fleet-restore-test.sh), one per store tested.
+  dives?: { project: string; at: string; id: string; store: string; ok: boolean }[];
   // BXD-111: how many Needs-you alerts are open (the Overview badge). A count only, on both pages.
   needsYou: number;
 }
@@ -188,6 +190,8 @@ const PLURAL: Partial<Record<EntryKind, (n: number) => string>> = {
   cart: (n) => `carted ${n} loads of barrels from {ship} to the whorehouse`,
   refit: (n) => `{ship} took on fresh timber: ${n} services redeployed`,
   leak: (n) => `{ship} sprang ${n} leaks: services fell over and were restarted`,
+  dive: (n) => `divers checked {ship}'s hull: ${n} backups restored clean`,
+  hole: (n) => `divers found ${n} holes in {ship}'s hull: backups failed their restore test`,
 };
 const LOGBOOK: Record<string, string> = { start: "opened {ship}'s log for a new watch", checkpoint: "signed {ship}'s log", finish: "closed {ship}'s log for the watch" };
 const AGENT = (a: string) => (/^claude/i.test(a) ? "Claude" : /^codex/i.test(a) ? "Codex" : "The crew");
@@ -233,7 +237,8 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     if (t <= now) lastSeen.set(slug, Math.max(lastSeen.get(slug) ?? t, t));
   };
   for (const e of src.events) touch(e.project, e.at);
-  for (const list of [src.commits, src.deliveries, src.carts, src.logbook, src.refits]) for (const h of list) touch(h.project, h.at);
+  const dives = src.dives ?? [];
+  for (const list of [src.commits, src.deliveries, src.carts, src.logbook, src.refits, dives]) for (const h of list) touch(h.project, h.at);
 
   // ---- every project is a ship (BXD-90); private = slug, public = alias or numbered voyage.
   // Voyages are numbered in an order that reveals nothing (by keyed hash of the slug).
@@ -280,7 +285,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   if (sailors.some((s) => s.ship === DINGHY_KEY)) ships.push({ key: DINGHY_KEY, name: "Rowing boat", kind: "dinghy", active: true, style: 0, todo: null, inProgress: null });
 
   // ---- happenings in the last hour, oldest first (the scene's errands)
-  const raw: { id: string; kind: HappeningKind; at: string; project?: string | null; detail: string; errand?: PortSources["errands"][number] }[] = [];
+  const raw: { id: string; kind: HappeningKind; at: string; project?: string | null; detail: string; errand?: PortSources["errands"][number]; ok?: boolean }[] = [];
   for (const t of new Set(src.tides)) if (inWindow(t, HAPPENING_WINDOW_MS)) raw.push({ id: `tide:${t}`, kind: "tide", at: t, detail: "capacity sample" });
   for (const c of src.carts) if (inWindow(c.at, HAPPENING_WINDOW_MS)) raw.push({ id: c.id, kind: "cart", at: c.at, project: c.project, detail: `backup ${c.id}` });
   for (const c of src.commits) if (inWindow(c.at, HAPPENING_WINDOW_MS)) raw.push({ id: c.id, kind: "cargo", at: c.at, project: c.project, detail: `commit ${c.id.slice(0, 7)}` });
@@ -293,6 +298,15 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     if (refitSeen.has(key)) continue;
     refitSeen.add(key);
     raw.push({ id: r.id, kind: r.action === "crash" ? "leak" : "refit", at: r.at, project: r.project, detail: `${r.container} ${r.action === "crash" ? "crashed" : "started"}` });
+  }
+  // BXD-96: one diver per ship per minute for a restore drill; a failed restore also rings the bell.
+  const diveSeen = new Set<string>();
+  for (const d of dives) {
+    if (!inWindow(d.at, HAPPENING_WINDOW_MS)) continue;
+    const key = `${d.project}|${d.ok}|${minute(Date.parse(d.at))}`;
+    if (diveSeen.has(key)) continue;
+    diveSeen.add(key);
+    raw.push({ id: d.id, kind: "dive", at: d.at, project: d.project, detail: `restore test ${d.store}${d.ok ? " passed" : " FAILED"}`, ok: d.ok });
   }
   const errandFor = new Map<string, PortSources["errands"][number]>();
   for (const e of thinRuns(src.errands.filter((x) => inWindow(x.at, HAPPENING_WINDOW_MS)), ERRAND_WALK_GAP_MS)) errandFor.set(e.job, e); // oldest first: the latest wins
@@ -309,7 +323,8 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     .map((h) => {
       const out: Happening = { id: hmac(h.id), kind: h.kind, at: time(h.at) };
       if (h.kind !== "tide" && h.kind !== "errand") out.ship = shipKey(h.project ?? null);
-      if (h.kind === "cargo" || h.kind === "cart" || h.kind === "delivery" || h.kind === "refit") out.who = dockhandName(h.id);
+      if (h.kind === "cargo" || h.kind === "cart" || h.kind === "delivery" || h.kind === "refit" || h.kind === "dive") out.who = dockhandName(h.id);
+      if (h.kind === "dive") out.ok = h.ok !== false;
       if (h.errand) {
         out.who = errandName(h.errand.job, h.errand.family, watch);
         if (h.errand.family && TRADE[h.errand.family]) out.family = h.errand.family;
@@ -366,6 +381,10 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
   for (const r of src.refits) {
     if (r.action === "crash") addEntry(r.id, r.at, "leak", "", "{ship} sprang a leak: a service fell over and was restarted", r.project, `${r.container} crashed`);
     else addEntry(r.id, r.at, "refit", "", "{ship} took on fresh timber: a service redeployed", r.project, `${r.container} started`);
+  }
+  for (const d of dives) {
+    if (d.ok) addEntry(d.id, d.at, "dive", "", "divers checked {ship}'s hull: a backup restored clean", d.project, `restore test ${d.store} passed`);
+    else addEntry(d.id, d.at, "hole", "", "divers found a hole in {ship}'s hull: a backup failed its restore test", d.project, `restore test ${d.store} FAILED`);
   }
   for (const e of thinRuns(src.errands, ERRAND_LOG_GAP_MS)) {
     const t = trade(e.family);

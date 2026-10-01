@@ -95,6 +95,37 @@ async function recentRefits(owners: Map<string, string>, since: number): Promise
   return out;
 }
 
+// BXD-96: restore drills. fleet-restore-test.sh appends one line per store tested to
+// <receipts>/<project>/<store>.restore-log.jsonl ({store, tested_at, ok, ...}).
+async function recentDives(since: number): Promise<NonNullable<PortSources["dives"]>> {
+  if (isDemo()) return [];
+  const all = await cached("port:dives", 60_000, async () => {
+    const root = receiptsDir();
+    const out: NonNullable<PortSources["dives"]> = [];
+    const dirs = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
+    for (const dir of dirs) {
+      if (!dir.isDirectory() || dir.name.startsWith("_")) continue;
+      const files = await fs.readdir(path.join(root, dir.name)).catch(() => []);
+      for (const file of files.filter((f) => f.endsWith(".restore-log.jsonl"))) {
+        const text = await fs.readFile(path.join(root, dir.name, file), "utf8").catch(() => "");
+        for (const line of text.split("\n").slice(-60)) {
+          if (!line.trim()) continue;
+          try {
+            const r = JSON.parse(line) as { store?: string; tested_at?: string; ok?: boolean };
+            if (!r.tested_at || !Date.parse(r.tested_at)) continue;
+            const store = r.store ?? file.replace(/\.restore-log\.jsonl$/, "");
+            out.push({ project: dir.name, at: new Date(r.tested_at).toISOString(), id: `${dir.name}/${store}:restore:${r.tested_at}`, store, ok: r.ok === true });
+          } catch {
+            /* a torn line is skipped */
+          }
+        }
+      }
+    }
+    return out;
+  });
+  return all.filter((d) => Date.parse(d.at) >= since);
+}
+
 async function gatherSources(): Promise<PortSources> {
   const now = Date.now();
   const [{ events }, projects, jobs, runs, history, carts, local] = await Promise.all([
@@ -114,6 +145,7 @@ async function gatherSources(): Promise<PortSources> {
   const owners = new Map<string, string>();
   for (const p of projects) for (const c of [p.meta.container, ...(p.meta.containers ?? [])]) if (c?.compose_service && !owners.has(c.compose_service)) owners.set(c.compose_service, p.meta.slug);
   const refits = await recentRefits(owners, now - LOG_WINDOW_MS);
+  const dives = await recentDives(now - LOG_WINDOW_MS);
   const needsYou = (await openNotifications()).length;
   const commits = await recentCommits(projects.map((p) => ({ slug: p.meta.slug, path: p.meta.path, host: p.meta.host })), local, now - IN_PORT_MS);
   const deliveries: PortSources["deliveries"] = projects.flatMap((p, i) => boards[i]
@@ -155,6 +187,7 @@ async function gatherSources(): Promise<PortSources> {
     errands,
     logbook,
     refits,
+    dives,
     needsYou,
   };
 }
