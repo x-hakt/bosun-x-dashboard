@@ -8,6 +8,11 @@ that trigger a GHCR image build.
 
 ### Added
 
+- A password-manager checklist for the fleet's secrets (`scripts/secrets-inventory.mjs`). It lists every
+  secret the secrets bundle covers plus `password_manager.only` (what opens the backups, kept out of every
+  backup), remembers which you've recorded by a short fingerprint, and shows a value only in an interactive
+  terminal (`--show`), never in a pipe, log or agent. `--check` (nightly) raises a Needs-you row listing
+  paths only while any are unrecorded or changed, and resolves it once they're all saved.
 - The town crier (BXD-111): he stands by a notice board in the port's town square calling out how
   many Needs-you alerts are open ("HEAR YE! 2 NEED YOU"), ringing his bell while any are. A count
   only, the same on the public crew page.

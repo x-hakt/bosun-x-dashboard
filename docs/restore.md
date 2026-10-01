@@ -129,6 +129,23 @@ sudo tar -xpf secrets.tar -C /        # paths are absolute; restores in place
 This is the one archive whose restore key can't be recovered from another
 backup — it must come from your password manager.
 
+## The password-manager checklist
+
+The secrets bundle is only useful if you can open it, and its key (`backup-keys/_secrets.age`) is kept out of
+every backup. `scripts/secrets-inventory.mjs` keeps a checklist of what belongs in your password manager:
+every secret the bundle covers, plus whatever `password_manager.only` lists in `infra/secrets-backup.yml`.
+
+```sh
+node scripts/secrets-inventory.mjs              # the list: recorded / NEW / CHANGED
+node scripts/secrets-inventory.mjs --show 3     # print one (interactive terminal only)
+node scripts/secrets-inventory.mjs --mark 3     # saved it; or --mark all
+node scripts/secrets-inventory.mjs --check      # for cron: Needs-you row while any are unrecorded
+```
+
+It stores paths and the first 12 hex of each file's sha256 in `infra/password-manager.yml`, never a value,
+so a secret that changes comes back as CHANGED. Backup copies (`*.bak*`, `backup-<date>/`) and public keys
+are left off the list.
+
 ## Restoring from the dashboard
 
 The project's Backups pane has a red **"restore into the live store"** section. It
