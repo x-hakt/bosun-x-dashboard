@@ -20,8 +20,8 @@ export const WAREHOUSE_DOOR = { x: 128, y: QUAY_Y };
 export const OFFICE_DOOR = { x: 262, y: QUAY_Y };
 export const TIDE_GAUGE = { x: 446, y: QUAY_Y };
 // BXD-96: the print shop sits down the lane below the town; its folk climb the bank to the quay.
-export const PRESS_DOOR = { x: 152, y: 646 };
-export const PRESS_LANE: { x: number; y: number }[] = [{ x: 262, y: 600 }, { x: 360, y: 526 }, { x: 452, y: QUAY_Y }];
+export const PRESS_DOOR = { x: 152, y: 694 };
+export const PRESS_LANE: { x: number; y: number }[] = [{ x: 262, y: 642 }, { x: 362, y: 544 }, { x: 452, y: QUAY_Y }];
 // BXD-97: the tavern, where ready crew wait for orders over an ale and finished crew go in.
 export const TAVERN_DOOR = { x: 368, y: QUAY_Y };
 const TAVERN_SEATS = [334, 400, 318, 416, 350, 384];

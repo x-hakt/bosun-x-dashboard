@@ -539,18 +539,18 @@ function Town({ phase, bell, lamp }: { phase: ReturnType<typeof phaseAt>; bell: 
       </g>
       {/* BXD-96: the print shop, down the lane below the town */}
       <g>
-        <path d={`M${PRESS_DOOR.x - 6} ${PRESS_DOOR.y} Q230 618 ${PRESS_LANE[0].x} ${PRESS_LANE[0].y} Q330 560 ${PRESS_LANE[1].x} ${PRESS_LANE[1].y} L${PRESS_LANE[2].x} ${PRESS_LANE[2].y + 2}`} stroke="#7d7368" strokeWidth={10} fill="none" strokeLinecap="round" opacity={0.7} />
-        <rect x={74} y={562} width={156} height={84} fill="#c9b48e" />
-        <rect x={74} y={562} width={156} height={7} fill="#8a7550" />
-        <path d="M66 564 L152 528 L238 564 Z" fill="#4a5a6a" />
-        <rect x={196} y={532} width={10} height={20} fill="#4a5a6a" />
-        <g className="port-smoke"><circle cx={201} cy={524} r={5} /><circle cx={206} cy={508} r={7} /></g>
-        <rect x={88} y={594} width={36} height={26} fill={win} />
-        <g fill="#3a3a3a" opacity={lit ? 0.55 : 0.85}><rect x={94} y={606} width={24} height={8} /><circle cx={100} cy={604} r={4} /><circle cx={112} cy={604} r={4} /></g>
-        <rect x={180} y={594} width={34} height={26} fill={win} />
-        <rect x={PRESS_DOOR.x - 11} y={600} width={22} height={46} fill="#5a3b2a" />
-        <rect x={PRESS_DOOR.x - 11} y={600} width={22} height={3} fill="#d9b35f" opacity={0.6} />
-        <Sign x={152} y={578} lines={["THE PRESS"]} size={10} maxWidth={120} />
+        <path d={`M${PRESS_DOOR.x - 6} ${PRESS_DOOR.y} Q230 666 ${PRESS_LANE[0].x} ${PRESS_LANE[0].y} Q330 586 ${PRESS_LANE[1].x} ${PRESS_LANE[1].y} L${PRESS_LANE[2].x} ${PRESS_LANE[2].y + 2}`} stroke="#7d7368" strokeWidth={10} fill="none" strokeLinecap="round" opacity={0.7} />
+        <rect x={74} y={610} width={156} height={84} fill="#c9b48e" />
+        <rect x={74} y={610} width={156} height={7} fill="#8a7550" />
+        <path d="M66 612 L152 576 L238 612 Z" fill="#4a5a6a" />
+        <rect x={196} y={580} width={10} height={20} fill="#4a5a6a" />
+        <g className="port-smoke"><circle cx={201} cy={572} r={5} /><circle cx={206} cy={556} r={7} /></g>
+        <rect x={88} y={642} width={36} height={26} fill={win} />
+        <g fill="#3a3a3a" opacity={lit ? 0.55 : 0.85}><rect x={94} y={654} width={24} height={8} /><circle cx={100} cy={652} r={4} /><circle cx={112} cy={652} r={4} /></g>
+        <rect x={180} y={642} width={34} height={26} fill={win} />
+        <rect x={PRESS_DOOR.x - 11} y={648} width={22} height={46} fill="#5a3b2a" />
+        <rect x={PRESS_DOOR.x - 11} y={648} width={22} height={3} fill="#d9b35f" opacity={0.6} />
+        <Sign x={152} y={626} lines={["THE PRESS"]} size={10} maxWidth={120} />
       </g>
       {/* stairs down to the rowing boat */}
       <g fill="#6e4a2e">{Array.from({ length: 10 }, (_, i) => <rect key={i} x={DINGHY.stairsX - 8 + i * 7} y={494 + i * 11} width={20} height={5} />)}</g>
