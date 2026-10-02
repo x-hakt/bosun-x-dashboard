@@ -620,14 +620,14 @@ function initialWorld(feed: PortFeed, berths: Berth[]) {
 // BXD-112: the harbour lost power. A dark sky, slanting rain and two flashes of lightning,
 // drawn over everything (pointer-transparent) for SQUALL_MS.
 const SQUALL_MS = 12_000;
-const RAIN = Array.from({ length: 90 }, (_, i) => ({ x: (i * 197) % PORT_W, y: (i * 89) % PORT_H, d: 0.5 + ((i * 37) % 10) / 20 }));
+const RAIN = Array.from({ length: 170 }, (_, i) => ({ x: (i * 197) % PORT_W, y: (i * 89) % PORT_H, d: 0.5 + ((i * 37) % 10) / 20 }));
 function Squall() {
   return (
     <g pointerEvents="none" aria-hidden="true">
       <rect x={0} y={0} width={PORT_W} height={PORT_H} fill="#0b1422" opacity={0}>
         <animate attributeName="opacity" values="0;0.45;0.45;0.45;0" keyTimes="0;0.1;0.5;0.9;1" dur={`${SQUALL_MS / 1000}s`} fill="freeze" />
       </rect>
-      <g stroke="#9fb7d6" strokeWidth={1.6} strokeLinecap="round" opacity={0.7}>
+      <g stroke="#a9c0dc" strokeWidth={2.2} strokeLinecap="round" opacity={0.75}>
         {RAIN.map((r, i) => (
           <line key={i} x1={r.x} y1={r.y} x2={r.x - 9} y2={r.y + 26}>
             <animateTransform attributeName="transform" type="translate" values={`0 ${-PORT_H};-120 ${PORT_H * 0.4}`} dur={`${r.d}s`} repeatCount="indefinite" begin={`${(i % 7) * 0.07}s`} />
