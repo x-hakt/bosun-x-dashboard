@@ -83,3 +83,12 @@ Every run of every scheduled job lands in `<receipts>/_jobs/runs.jsonl` (one lin
 The content planner (planner-agent) writes one line to `<receipts>/_events/press.jsonl` for every topic card, social draft and long-form article its Postiz client creates (cron jobs and MCP agents alike), and `planner press scan` (cron, every 15 minutes) adds each post Postiz has published: social posts as `published`, site articles as `site`. Lines carry kind, time, provider and project only; no titles, captions or links. The planner maps Postiz channels to projects; a channel with no ship (a personal account) is printed "in town".
 
 In the port the print shop, THE PRESS, sits down the lane below the town. The printer (paper hat, inky apron) carries a fresh sheet up the lane to the ship for each card, draft or long read; the newsboy (flat cap, satchel) runs papers along the quay for each post that went out, or to the ship for a site article. One walk per ship, kind and minute. The ship's log: "the press set a topic card for {ship}", "the press ran off 3 drafts for {ship}", "the press set a long read for {ship}", "the newsboy cried a new post for {ship}", "a new article went up on {ship}'s notice board".
+
+## Squalls (BXD-112)
+
+When `scripts/boot-check.mjs` records an unclean reboot of the dashboard's own host (see
+[reboot alerts](notifications.md#reboot-alerts)), the port gets a squall: the sky darkens,
+rain slants across the harbour, lightning flashes twice and the town bell rings. No ship is
+involved and the host is never named; the log reads "a squall blacked out the harbour: the
+power went and came back 56 seconds later". Clean reboots (a shutdown somebody started)
+don't show.

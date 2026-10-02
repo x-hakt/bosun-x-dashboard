@@ -13,6 +13,7 @@
     "mcp": "node mcp/server.mjs",
     "notify": "node scripts/notify.mjs",
     "test:notifications": "node --test scripts/test/notifications.test.mjs",
+    "test:reboots": "node --test scripts/test/reboots.test.mjs",
     "build:npm": "node scripts/build-npm.mjs",
     "pack:npm": "node scripts/build-npm.mjs --pack"
   },

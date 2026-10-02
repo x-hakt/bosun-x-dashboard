@@ -42,3 +42,9 @@ project_roots:
 #   climb_minutes: 30
 #   clear_below: 82
 #   clear_minutes: 30
+
+# BXD-112: reboot alerts from scripts/boot-check.mjs (docs/notifications.md#reboot-alerts).
+# On by default with these values; `reboot_alerts: false` turns them off.
+# reboot_alerts:
+#   window_days: 7
+#   urgent_at: 2

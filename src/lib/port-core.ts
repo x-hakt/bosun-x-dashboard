@@ -14,8 +14,8 @@ import { createHash, createHmac } from "node:crypto";
 import { buildShipLog, nextState, orderEvents, projectActivity, sessionKey, type ActivityEvent, type CrewState, type LogSegment } from "@/lib/activity-state";
 
 export type ShipKind = "project" | "voyage" | "dinghy";
-export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand" | "refit" | "leak" | "dive" | "press" | "newsboy";
-export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand" | "logbook" | "refit" | "leak" | "dive" | "hole" | "card" | "draft" | "article" | "posted" | "notice";
+export type HappeningKind = "tide" | "cart" | "cargo" | "delivery" | "bell" | "arrival" | "departure" | "errand" | "refit" | "leak" | "dive" | "press" | "newsboy" | "squall";
+export type EntryKind = "aboard" | "cabin" | "work" | "nod" | "captain" | "ashore" | "signoff" | "cargo" | "delivery" | "cart" | "errand" | "logbook" | "refit" | "leak" | "dive" | "hole" | "card" | "draft" | "article" | "posted" | "notice" | "squall";
 
 export interface PortShip {
   key: string;
@@ -119,6 +119,9 @@ export interface PortSources {
   // BXD-96 the press: what the content planner made (cards, drafts, articles) and what went out
   // (social posts, site articles). Project may be null (a channel with no ship).
   press?: { project: string | null; at: string; id: string; kind: "card" | "draft" | "article" | "published" | "site"; provider: string | null }[];
+  // BXD-112: unclean reboots of the dashboard's own host (scripts/boot-check.mjs). The host's
+  // name never comes this far, only when and for how long the lights went out.
+  squalls?: { at: string; id: string; downS: number }[];
   // BXD-111: how many Needs-you alerts are open (the Overview badge). A count only, on both pages.
   needsYou: number;
 }
@@ -200,7 +203,9 @@ const PLURAL: Partial<Record<EntryKind, (n: number) => string>> = {
   article: (n) => `the press set ${n} long reads for {ship}`,
   posted: (n) => `the newsboy cried ${n} new posts for {ship}`,
   notice: (n) => `${n} new articles went up on {ship}'s notice board`,
+  squall: (n) => `${n} squalls blacked out the harbour: the power went and came back`,
 };
+const outFor = (s: number) => (s < 120 ? `${s} seconds` : s < 7200 ? `${Math.round(s / 60)} minutes` : `${Math.round(s / 3600)} hours`);
 const LOGBOOK: Record<string, string> = { start: "opened {ship}'s log for a new watch", checkpoint: "signed {ship}'s log", finish: "closed {ship}'s log for the watch" };
 const AGENT = (a: string) => (/^claude/i.test(a) ? "Claude" : /^codex/i.test(a) ? "Codex" : "The crew");
 function mergeRepeats(entries: LogEntry[]): LogEntry[] {
@@ -329,6 +334,8 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     pressSeen.add(key);
     raw.push({ id: p.id, kind, at: p.at, project: p.project, detail: `${p.kind}${p.provider ? ` on ${p.provider}` : ""}` });
   }
+  // BXD-112: an unclean reboot of the host is a squall over the whole harbour (no ship).
+  for (const q of src.squalls ?? []) if (inWindow(q.at, HAPPENING_WINDOW_MS)) raw.push({ id: q.id, kind: "squall", at: q.at, detail: `power cut, back after ${q.downS} s` });
   const errandFor = new Map<string, PortSources["errands"][number]>();
   for (const e of thinRuns(src.errands.filter((x) => inWindow(x.at, HAPPENING_WINDOW_MS)), ERRAND_WALK_GAP_MS)) errandFor.set(e.job, e); // oldest first: the latest wins
   for (const e of errandFor.values()) raw.push({ id: e.id, kind: "errand", at: e.at, detail: `${e.label}${e.ok ? "" : " failed"}`, errand: e });
@@ -343,7 +350,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
     .map((h) => {
       const out: Happening = { id: hmac(h.id), kind: h.kind, at: time(h.at) };
-      if (h.kind !== "tide" && h.kind !== "errand") out.ship = shipKey(h.project ?? null);
+      if (h.kind !== "tide" && h.kind !== "errand" && h.kind !== "squall") out.ship = shipKey(h.project ?? null);
       if (h.kind === "cargo" || h.kind === "cart" || h.kind === "delivery" || h.kind === "refit" || h.kind === "dive" || h.kind === "press" || h.kind === "newsboy") out.who = dockhandName(h.id);
       if (h.kind === "dive") out.ok = h.ok !== false;
       if (h.errand) {
@@ -420,6 +427,7 @@ export function buildPortFeed(src: PortSources, opts: PortOptions): PortFeed {
     const action = p.project ? shipAction : shipAction.replace(" for {ship}", " in town").replace(" on {ship}'s notice board", " on the town notice board");
     addEntry(p.id, p.at, kind, "", action, p.project, `${p.kind}${p.provider ? ` on ${p.provider}` : ""}`);
   }
+  for (const q of src.squalls ?? []) addEntry(q.id, q.at, "squall", "", `a squall blacked out the harbour: the power went and came back ${outFor(q.downS)} later`, null, `unclean reboot, down ${q.downS} s`);
   for (const e of thinRuns(src.errands, ERRAND_LOG_GAP_MS)) {
     const t = trade(e.family);
     addEntry(e.id, e.at, "errand", errandName(e.job, e.family, watch), e.ok ? t.ok : t.failed, null, `${e.label}${e.ok ? "" : " failed"}`);

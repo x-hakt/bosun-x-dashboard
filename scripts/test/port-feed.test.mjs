@@ -81,6 +81,7 @@ const sources = (now = NOW) => ({
     { project: "bosun-x", at: iso(4), id: "press:postiz:secret-post-id", kind: "published", provider: "secretgram" },
     { project: null, at: iso(2), id: "press:postiz:secret-personal", kind: "published", provider: "secretgram" },
   ],
+  squalls: [{ at: iso(14), id: `squall:${iso(14)}`, downS: 56 }],
   needsYou: 2,
 });
 const publicOpts = { publicView: true, approved: [{ slug: "bosun-x", alias: "Bosun CLI" }], secret: "test-secret" };
@@ -330,4 +331,20 @@ test("the press: drafts merge per ship and minute, posts go out with the newsboy
   const priv = buildPortFeed(sources(), { publicView: false });
   assert.ok(priv.entries.some((e) => e.kind === "draft" && String(e.detail).includes("on secretbook")));
   assert.deepEqual(buildPortFeed({ ...sources(), press: undefined }, publicOpts).entries.filter((e) => ["card", "draft", "article", "posted", "notice"].includes(e.kind)), []);
+});
+
+// ---- BXD-112: an unclean reboot is a squall
+test("an unclean reboot is a squall over the whole harbour, with no ship and no host", () => {
+  const feed = buildPortFeed(sources(), publicOpts);
+  const line = feed.entries.filter((e) => e.kind === "squall");
+  assert.equal(line.length, 1);
+  assert.equal(line[0].action, "a squall blacked out the harbour: the power went and came back 56 seconds later");
+  const squall = feed.happenings.filter((h) => h.kind === "squall");
+  assert.equal(squall.length, 1);
+  assert.ok(!("ship" in squall[0]) && !("who" in squall[0]));
+  const priv = buildPortFeed(sources(), { publicView: false });
+  assert.ok(priv.entries.some((e) => e.kind === "squall" && e.detail === "unclean reboot, down 56 s"));
+  const long = buildPortFeed({ ...sources(), squalls: [{ at: iso(14), id: "squall:x", downS: 952 }] }, publicOpts);
+  assert.match(long.entries.find((e) => e.kind === "squall").action, /16 minutes later$/);
+  assert.deepEqual(buildPortFeed({ ...sources(), squalls: undefined }, publicOpts).entries.filter((e) => e.kind === "squall"), []);
 });

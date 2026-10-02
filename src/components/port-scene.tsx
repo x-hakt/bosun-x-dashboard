@@ -617,6 +617,30 @@ function initialWorld(feed: PortFeed, berths: Berth[]) {
   return { sprites, seen, queue: [] as Happening[] };
 }
 
+// BXD-112: the harbour lost power. A dark sky, slanting rain and two flashes of lightning,
+// drawn over everything (pointer-transparent) for SQUALL_MS.
+const SQUALL_MS = 12_000;
+const RAIN = Array.from({ length: 90 }, (_, i) => ({ x: (i * 197) % PORT_W, y: (i * 89) % PORT_H, d: 0.5 + ((i * 37) % 10) / 20 }));
+function Squall() {
+  return (
+    <g pointerEvents="none" aria-hidden="true">
+      <rect x={0} y={0} width={PORT_W} height={PORT_H} fill="#0b1422" opacity={0}>
+        <animate attributeName="opacity" values="0;0.45;0.45;0.45;0" keyTimes="0;0.1;0.5;0.9;1" dur={`${SQUALL_MS / 1000}s`} fill="freeze" />
+      </rect>
+      <g stroke="#9fb7d6" strokeWidth={1.6} strokeLinecap="round" opacity={0.7}>
+        {RAIN.map((r, i) => (
+          <line key={i} x1={r.x} y1={r.y} x2={r.x - 9} y2={r.y + 26}>
+            <animateTransform attributeName="transform" type="translate" values={`0 ${-PORT_H};-120 ${PORT_H * 0.4}`} dur={`${r.d}s`} repeatCount="indefinite" begin={`${(i % 7) * 0.07}s`} />
+          </line>
+        ))}
+      </g>
+      <rect x={0} y={0} width={PORT_W} height={PORT_H} fill="#eaf2ff" opacity={0}>
+        <animate attributeName="opacity" values="0;0;0.75;0;0.5;0;0;0.6;0" keyTimes="0;0.18;0.2;0.23;0.25;0.29;0.62;0.64;0.68" dur={`${SQUALL_MS / 1000}s`} fill="freeze" />
+      </rect>
+    </g>
+  );
+}
+
 export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: string | null; onBoard: (key: string) => void }) {
   const reduced = useReducedMotion();
   const [, bump] = useReducer((n: number) => n + 1, 0);
@@ -629,6 +653,8 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
   const svg = useRef<SVGSVGElement>(null);
   const camera = useRef<Camera>(HARBOUR_CAMERA);
   const [bellUntil, setBellUntil] = useState(0);
+  // BXD-112: an unclean reboot of the host darkens the harbour for a while: rain and lightning.
+  const [squallUntil, setSquallUntil] = useState(0);
   // The tide lamp: the shipwright lights it on one reading and takes it down on the next.
   const [lamp, setLamp] = useState(false);
   const [pennants, setPennants] = useState<Record<string, number>>({});
@@ -726,6 +752,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
       if (!h) return;
       const route = (kind: "cargo" | "delivery" | "cart" | "tide") => errandRoute(kind, berthsRef.current, h.ship);
       if (h.kind === "bell" || h.kind === "leak") { world.queue.shift(); setBellUntil(Date.now() + 3000); return; } // BXD-105: a crash rings the bell too
+      if (h.kind === "squall") { world.queue.shift(); setBellUntil(Date.now() + 3000); setSquallUntil(Date.now() + SQUALL_MS); return; }
       if (h.kind === "press" || h.kind === "newsboy") {
         // BXD-96 the press. The printer carries a fresh sheet up to the ship for a card, draft or
         // long read; the newsboy runs papers along the quay for a post that went out, or to the
@@ -991,6 +1018,7 @@ export function PortScene({ feed, focus, onBoard }: { feed: PortFeed; focus: str
         <g>{rest.map(figure)}</g>
         {hasDinghy && <DinghyHull onBoard={() => onBoard(DINGHY_KEY)} />}
         <g>{named.map(plate)}</g>
+        {squallUntil > clock && <Squall />}
         {feed.ships.length === 0 && (
           <g transform="translate(900 250)">
             <rect x={-200} y={-26} width={400} height={44} rx={8} fill="#f1e2bc" stroke="#6a4630" strokeWidth={3} />

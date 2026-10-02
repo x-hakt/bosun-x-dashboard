@@ -151,6 +151,32 @@ async function recentPress(since: number): Promise<NonNullable<PortSources["pres
   return out;
 }
 
+// BXD-112: unclean reboots of this host from scripts/boot-check.mjs. Only the time and how long
+// it was down leave this function; the host and boot ids stay behind.
+async function recentSqualls(since: number): Promise<NonNullable<PortSources["squalls"]>> {
+  if (isDemo()) return [];
+  const lines = await cached("port:reboots", 60_000, async () => {
+    try {
+      return (await fs.readFile(path.join(receiptsDir(), "_events", "reboots.jsonl"), "utf8")).split("\n").slice(-500);
+    } catch {
+      return [];
+    }
+  });
+  const out: NonNullable<PortSources["squalls"]> = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const r = JSON.parse(line) as { at?: string; clean?: boolean; down_s?: number };
+      if (r.clean !== false || !r.at || !(Date.parse(r.at) >= since)) continue;
+      const at = new Date(r.at).toISOString();
+      out.push({ at, id: `squall:${at}`, downS: Math.max(0, Math.round(Number(r.down_s) || 0)) });
+    } catch {
+      /* a torn line is skipped */
+    }
+  }
+  return out;
+}
+
 async function gatherSources(): Promise<PortSources> {
   const now = Date.now();
   const [{ events }, projects, jobs, runs, history, carts, local] = await Promise.all([
@@ -172,6 +198,7 @@ async function gatherSources(): Promise<PortSources> {
   const refits = await recentRefits(owners, now - LOG_WINDOW_MS);
   const dives = await recentDives(now - LOG_WINDOW_MS);
   const press = await recentPress(now - LOG_WINDOW_MS);
+  const squalls = await recentSqualls(now - LOG_WINDOW_MS);
   const needsYou = (await openNotifications()).length;
   const commits = await recentCommits(projects.map((p) => ({ slug: p.meta.slug, path: p.meta.path, host: p.meta.host })), local, now - IN_PORT_MS);
   const deliveries: PortSources["deliveries"] = projects.flatMap((p, i) => boards[i]
@@ -215,6 +242,7 @@ async function gatherSources(): Promise<PortSources> {
     refits,
     dives,
     press,
+    squalls,
     needsYou,
   };
 }
