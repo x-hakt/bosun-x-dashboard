@@ -7,12 +7,15 @@
 // directories expanded, public keys skipped) plus `password_manager.only` (secrets kept out of every backup,
 // e.g. backup-keys/_secrets.age), and remembers which ones you've recorded.
 //
-// It never prints a secret value except through --show, and --show refuses unless stdout is an interactive
-// terminal, so cron logs, agents and pipes can't capture one. What it stores is a short fingerprint per
+// It never prints a secret value except through --show and --export, and both refuse unless they run in an
+// interactive terminal, so cron logs, agents and pipes can't capture one. What it stores is a short fingerprint per
 // file (first 12 hex of its sha256), only to notice when a recorded secret changes.
 //
 //   node scripts/secrets-inventory.mjs                 the checklist: recorded / NEW / CHANGED
 //   node scripts/secrets-inventory.mjs --show <n|path> print one secret (interactive terminal only)
+//   node scripts/secrets-inventory.mjs --export [file]  every secret in one text file (interactive terminal
+//                                                       only, mode 600, never overwrites): paste it into ONE
+//                                                       password-manager entry, delete the file, --mark all
 //   node scripts/secrets-inventory.mjs --mark <n|path|all>   record it as saved in the password manager
 //   node scripts/secrets-inventory.mjs --check         nightly: raise/resolve the Needs-you row (no values)
 //
@@ -111,7 +114,7 @@ const todo = items.filter((i) => i.status !== "recorded");
 
 if (!cmd) {
   items.forEach((i, n) => console.log(`${String(n + 1).padStart(3)}  ${i.status.padEnd(8)}  ${i.path}${i.where === "password manager only" ? "   [only in the password manager: not in any backup]" : ""}${i.readable ? "" : "   (unreadable: needs sudo)"}`));
-  console.log(`\n${items.length} secrets, ${todo.length} still to record. Show one: --show <n>; once saved: --mark <n> (or --mark all).`);
+  console.log(`\n${items.length} secrets, ${todo.length} still to record. All in one file: --export; one: --show <n>; once saved: --mark <n> (or --mark all).`);
 } else if (cmd === "--show") {
   if (!process.stdout.isTTY) { console.error("--show prints a secret, so it only runs in an interactive terminal (not a pipe, log or agent)."); process.exit(2); }
   const i = arg && pick(items, arg);
@@ -120,6 +123,38 @@ if (!cmd) {
   console.log(`----- ${i.path} (${i.status}) -----`);
   process.stdout.write(bytes ? bytes.toString("utf8") : "(unreadable)\n");
   console.log(`----- end; after saving it: --mark ${items.indexOf(i) + 1} -----`);
+} else if (cmd === "--export") {
+  // Operator 2026-10-02: one entry, not 43. Same guard as --show; the file is created 0600 and never
+  // overwrites an existing one, and the run says where it is and how to get rid of it.
+  if (!process.stdin.isTTY || !process.stdout.isTTY) { console.error("--export writes every secret, so it only runs in an interactive terminal (not a pipe, log or agent)."); process.exit(2); }
+  const stamp = new Date().toISOString().slice(0, 10);
+  const out = path.resolve(expand(arg || `~/secrets-export-${stamp}.txt`));
+  const parts = [
+    `Fleet secrets, exported ${new Date().toISOString()} on ${os.hostname()} by bosun-x secrets-inventory.mjs.`,
+    `${items.length} files. Each one is between its ===== header and the next. Restore a file by pasting its`,
+    `contents back to the path in its header (and chmod 600 keys). The [ONLY copy] entries are in no backup;`,
+    `the bundle key among them opens the nightly encrypted bundle, which holds a copy of all the rest.`, "",
+  ];
+  items.forEach((i, n) => {
+    const bytes = read(expand(i.path));
+    const text = bytes ? bytes.toString("utf8") : null;
+    const binary = text !== null && text.includes("\uFFFD");
+    parts.push(`===== ${n + 1}. ${i.path}${i.where === "password manager only" ? "  [ONLY copy: not in any backup]" : ""}${binary ? "  [binary, base64]" : ""} =====`);
+    parts.push(bytes === null ? "(unreadable: run with sudo access)" : binary ? bytes.toString("base64") : text.replace(/\n$/, ""));
+    parts.push("");
+  });
+  parts.push(`===== end (${items.length} files) =====`, "");
+  let fd;
+  try { fd = fs.openSync(out, "wx", 0o600); } catch (e) {
+    console.error(e.code === "EEXIST" ? `${tilde(out)} already exists; delete it or pass another path` : `can't create ${tilde(out)}: ${e.message}`);
+    process.exit(1);
+  }
+  fs.writeSync(fd, parts.join("\n"));
+  fs.closeSync(fd);
+  console.log(`wrote ${items.length} secrets to ${tilde(out)} (only you can read it)`);
+  console.log("1. copy the whole file into one secure note in your password manager (or attach the file)");
+  console.log(`2. delete it: shred -u ${tilde(out)}`);
+  console.log("3. node scripts/secrets-inventory.mjs --mark all");
 } else if (cmd === "--mark") {
   const chosen = arg === "all" ? items : [arg && pick(items, arg)].filter(Boolean);
   if (!chosen.length) { console.error("no such item"); process.exit(1); }
@@ -134,10 +169,10 @@ if (!cmd) {
   const lines = todo.slice(0, 12).map((i) => `${i.status === "CHANGED" ? "changed: " : ""}${i.path}`);
   const r = notify(["raise", "--key", NOTIFY_KEY, "--level", only.length ? "warn" : "info",
     "--title", `${todo.length} secret${todo.length === 1 ? "" : "s"} to save in your password manager`,
-    "--body", `${lines.join("; ")}${todo.length > 12 ? `; and ${todo.length - 12} more` : ""}. On the server, in your own terminal: node scripts/secrets-inventory.mjs (in bosun-x-dashboard), then --show <n> and --mark <n> once saved.`,
+    "--body", `${lines.join("; ")}${todo.length > 12 ? `; and ${todo.length - 12} more` : ""}. On the server, in your own terminal: node scripts/secrets-inventory.mjs (in bosun-x-dashboard), then --export (all of them, one file) or --show <n>, and --mark once saved.`,
     "--detail", `${todo.length} to record`, "--href", "/backups"]);
   console.log(`${todo.length} to record${r.status === 0 ? "" : ` (notify failed: ${(r.stderr || r.stdout).trim().slice(0, 200)})`}`);
 } else {
-  console.error("usage: secrets-inventory.mjs [--show <n|path> | --mark <n|path|all> | --check]");
+  console.error("usage: secrets-inventory.mjs [--show <n|path> | --export [file] | --mark <n|path|all> | --check]");
   process.exit(1);
 }
