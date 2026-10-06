@@ -19,8 +19,10 @@
 //                                                       entry (interactive terminal only, files mode 600, never
 //                                                       overwrites): one entry per part, named like its file;
 //                                                       delete the files, --mark all
-//                 [--max-chars N]                       a part's size limit (default 9500: under 10,000-character notes)
-//   node scripts/secrets-inventory.mjs --mark <n|path|all>   record it as saved in the password manager
+//                 [--group age-backup-keys,...]         only these groups (see --plan for the names)
+//                 [--max-chars N]                       a part's size limit, default 7000: Bitwarden's 10,000 limit is on
+//                                                       the ENCRYPTED note, about 4/3 of the text plus a header
+//   node scripts/secrets-inventory.mjs --mark <n|path|group|all>   record it (or a whole group) as saved
 //   node scripts/secrets-inventory.mjs --check         nightly: raise/resolve the Needs-you row (no values)
 //
 // State: $BOSUN_DATA/infra/password-manager.yml (paths + fingerprints only).
@@ -157,7 +159,7 @@ function entryPieces(i, room) {
 }
 const HEADER_ALLOWANCE = 1200; // a part's own header and contents list
 // -> [{ name, groups: [names], files: [{ path, chars, text? }], chars }]; `text` only when withText.
-function planParts(list, { maxChars = 9500, withText = false } = {}) {
+function planParts(list, { maxChars = 7000, withText = false } = {}) {
   const room = maxChars - HEADER_ALLOWANCE;
   const groups = new Map();
   for (const i of list) {
@@ -205,9 +207,18 @@ function partText(pt, n, total) {
 
 const argv = process.argv.slice(2);
 const maxAt = argv.indexOf("--max-chars");
-const maxChars = maxAt >= 0 ? Number(argv.splice(maxAt, 2)[1]) : 9500;
+const maxChars = maxAt >= 0 ? Number(argv.splice(maxAt, 2)[1]) : 7000;
+const groupAt = argv.indexOf("--group");
+const onlyGroups = groupAt >= 0 ? argv.splice(groupAt, 2)[1]?.split(",").map((g) => g.trim()).filter(Boolean) : null;
 if (!(maxChars >= 2000)) { console.error("--max-chars needs a number of at least 2000"); process.exit(1); }
 const [cmd, arg] = argv;
+function pickGroups() {
+  if (!onlyGroups) return items;
+  const known = new Set(items.map((i) => groupOf(i.path)));
+  const unknown = onlyGroups.filter((g) => !known.has(g));
+  if (unknown.length) { console.error(`no group ${unknown.join(", ")}; groups: ${[...known].join(", ")}`); process.exit(1); }
+  return items.filter((i) => onlyGroups.includes(groupOf(i.path)));
+}
 const { items, state } = inventory();
 const todo = items.filter((i) => i.status !== "recorded");
 
@@ -223,14 +234,16 @@ if (!cmd) {
   process.stdout.write(bytes ? bytes.toString("utf8") : "(unreadable)\n");
   console.log(`----- end; after saving it: --mark ${items.indexOf(i) + 1} -----`);
 } else if (cmd === "--plan") {
-  const parts = planParts(items, { maxChars });
+  const chosen = pickGroups();
+  const parts = planParts(chosen, { maxChars });
   parts.forEach((pt, n) => {
     console.log(`${pt.name}.txt  (~${pt.chars + HEADER_ALLOWANCE} chars, ${pt.files.length} files)`);
     for (const f of pt.files) console.log(`    ${f.path}`);
   });
   const big = parts.flatMap((pt) => pt.files).filter((f) => f.chars > maxChars - HEADER_ALLOWANCE);
   if (big.length) console.log(`\nToo big for one entry on their own (attach instead): ${big.map((f) => f.path).join(", ")}`);
-  console.log(`\n${items.length} secrets in ${parts.length} parts of at most ${maxChars} characters. --export writes them.`);
+  console.log(`\n${chosen.length} secrets in ${parts.length} part${parts.length === 1 ? "" : "s"} of at most ${maxChars} characters. --export${onlyGroups ? ` --group ${onlyGroups.join(",")}` : ""} writes ${parts.length === 1 ? "it" : "them"}.`);
+  if (!onlyGroups) console.log(`Groups: ${[...new Set(items.map((i) => groupOf(i.path)))].join(", ")}`);
 } else if (cmd === "--export") {
   // Operator 2026-10-02: few entries, not 43. Same guard as --show; files are created 0600 in a 0700 folder and
   // never overwrite, and the run says what to name each entry and how to get rid of the files.
@@ -241,7 +254,8 @@ if (!cmd) {
     console.error(e.code === "EEXIST" ? `${tilde(dir)} already exists; delete it (shred -u ${tilde(dir)}/* && rmdir ${tilde(dir)}) or pass another folder` : `can't create ${tilde(dir)}: ${e.message}`);
     process.exit(1);
   }
-  const parts = planParts(items, { maxChars, withText: true });
+  const chosen = pickGroups();
+  const parts = planParts(chosen, { maxChars, withText: true });
   parts.forEach((pt, n) => {
     const text = partText(pt, n + 1, parts.length);
     const fd = fs.openSync(path.join(dir, `${pt.name}.txt`), "wx", 0o600);
@@ -251,14 +265,16 @@ if (!cmd) {
     for (const f of pt.files) console.log(`    ${f.path}`);
   });
   saveState(state, { date: stamp, max_chars: maxChars, parts: parts.map((pt) => ({ entry: pt.name, files: pt.files.map((f) => f.path) })) });
-  console.log(`\nwrote ${items.length} secrets in ${parts.length} parts to ${tilde(dir)}/ (only you can read them)`);
+  console.log(`\nwrote ${chosen.length} secrets in ${parts.length} part${parts.length === 1 ? "" : "s"} to ${tilde(dir)}/ (only you can read them)`);
   console.log("1. one secure note per part, titled exactly like its file name (without .txt). Copy one with:");
   console.log(`   ssh devserver 'cat ${tilde(dir)}/<part file>' | wl-copy`);
   console.log(`2. delete them: shred -u ${tilde(dir)}/* && rmdir ${tilde(dir)}`);
-  console.log("3. node scripts/secrets-inventory.mjs --mark all");
+  console.log(`3. node scripts/secrets-inventory.mjs --mark ${onlyGroups ? onlyGroups.join(",") : "all"}`);
   console.log(`(the parts and their files are listed in ${tilde(stateFile)} under export:, paths only)`);
 } else if (cmd === "--mark") {
-  const chosen = arg === "all" ? items : [arg && pick(items, arg)].filter(Boolean);
+  const groupNames = arg ? arg.split(",") : [];
+  const byGroup = items.filter((i) => groupNames.includes(groupOf(i.path)));
+  const chosen = arg === "all" ? items : byGroup.length ? byGroup : [arg && pick(items, arg)].filter(Boolean);
   if (!chosen.length) { console.error("no such item"); process.exit(1); }
   for (const i of chosen) if (i.fp) state[i.path] = i.fp;
   for (const p of Object.keys(state)) if (!items.some((i) => i.path === p)) delete state[p]; // gone from the config
@@ -275,6 +291,6 @@ if (!cmd) {
     "--detail", `${todo.length} to record`, "--href", "/backups"]);
   console.log(`${todo.length} to record${r.status === 0 ? "" : ` (notify failed: ${(r.stderr || r.stdout).trim().slice(0, 200)})`}`);
 } else {
-  console.error("usage: secrets-inventory.mjs [--show <n|path> | --plan | --export [dir] [--max-chars N] | --mark <n|path|all> | --check]");
+  console.error("usage: secrets-inventory.mjs [--show <n|path> | --plan | --export [dir] [--group g,...] [--max-chars N] | --mark <n|path|group|all> | --check]");
   process.exit(1);
 }
